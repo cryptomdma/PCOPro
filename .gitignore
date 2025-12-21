@@ -1,0 +1,16 @@
+# Node
+node_modules
+dist
+
+# Env
+.env
+.env.*
+
+# Prisma
+.prisma
+
+# Logs
+*.log
+
+# Docker volumes / local data
+pgdata
