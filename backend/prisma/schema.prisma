@@ -1,0 +1,225 @@
+// Prisma schema capturing ledger-based inventory for PCOs
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  INVENTORY_MANAGER
+  TECHNICIAN
+}
+
+enum UnitBaseType {
+  MASS
+  VOLUME
+  COUNT
+}
+
+enum TransactionType {
+  initial_load
+  receiving_posted
+  checkout_requested
+  checkout_finalized
+  adjustment
+  audit_count
+  checkin_return
+  transfer
+}
+
+enum ReceiptStatus {
+  draft
+  posted
+}
+
+enum CheckoutStatus {
+  requested
+  approved
+  ready
+  issued
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      Role
+  location  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  transactions InventoryTransaction[]
+  incoming       IncomingReceipt[] @relation("UserIncoming")
+  checkout       CheckoutRequest[] @relation("UserCheckout")
+}
+
+model Setting {
+  key   String @id
+  value String
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  epaRegNo    String?
+  description String?
+  category    String?
+  baseType    UnitBaseType
+  trackingUnitLabel String
+  checkoutUnitLabel String
+  orderingUnitLabel String
+  trackingToBase    Int      // multiplier to base unit (oz/fl_oz/each)
+  checkoutToBase    Int
+  orderingToBase    Int
+  reorderLevelBase  Int?
+  quantityInReorder Int? // mirrors Excel quantity in reorder
+  leadTimeDays      Int?
+  isStocked        Boolean @default(true)
+  isDiscontinued   Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  packs        ProductPack[]
+  codes        ProductCode[]
+  transactions InventoryTransaction[]
+  balances     InventoryBalance?
+  reorderPolicy ReorderPolicy?
+  incomingLines IncomingLine[]
+  checkoutLines CheckoutLine[]
+}
+
+model ProductPack {
+  id          String  @id @default(cuid())
+  product     Product @relation(fields: [productId], references: [id])
+  productId   String
+  name        String
+  quantityPerPack Int // number of ordering units
+  orderingToBase  Int // base units per ordering unit (e.g., 18 oz)
+  createdAt   DateTime @default(now())
+  codes       ProductCode[]
+}
+
+model ProductCode {
+  id        String  @id @default(cuid())
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+  pack      ProductPack? @relation(fields: [packId], references: [id])
+  packId    String?
+  codeType  String  // qr, barcode
+  payload   String  @unique
+  createdAt DateTime @default(now())
+}
+
+model InventoryBalance {
+  product   Product @relation(fields: [productId], references: [id])
+  productId String  @id
+  onHandBase Int @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model InventoryTransaction {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+  type      TransactionType
+  quantityBase Int
+  beforeBase   Int
+  afterBase    Int
+  actor     User?    @relation(fields: [actorId], references: [id])
+  actorId   String?
+  actorRole Role?
+  device    String?
+  reason    String?
+  idempotencyKey String
+  sourceReceiptLine IncomingLine? @relation(fields: [incomingLineId], references: [id])
+  incomingLineId   String?
+  sourceCheckoutLine CheckoutLine? @relation(fields: [checkoutLineId], references: [id])
+  checkoutLineId   String?
+  createdAt DateTime @default(now())
+  comment   String?
+  @@unique([idempotencyKey])
+}
+
+model IncomingReceipt {
+  id        String   @id @default(cuid())
+  receiptDate DateTime
+  supplier  String?
+  status    ReceiptStatus @default(draft)
+  createdBy User     @relation("UserIncoming", fields: [createdById], references: [id])
+  createdById String
+  createdAt DateTime @default(now())
+  postedAt  DateTime?
+  lines     IncomingLine[]
+}
+
+model IncomingLine {
+  id        String   @id @default(cuid())
+  receipt   IncomingReceipt @relation(fields: [receiptId], references: [id])
+  receiptId String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+  qtyOrdered Int
+  qtyReceived Int
+  backorderedQty Int
+  receivingUnitLabel String // user selected label (e.g., case, bottle)
+  createdAt DateTime @default(now())
+  transaction InventoryTransaction?
+}
+
+model CheckoutRequest {
+  id        String   @id @default(cuid())
+  requestDate DateTime
+  status    CheckoutStatus @default(requested)
+  technician User @relation("UserCheckout", fields: [technicianId], references: [id])
+  technicianId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lines     CheckoutLine[]
+  readyById String?
+}
+
+model CheckoutLine {
+  id        String   @id @default(cuid())
+  request   CheckoutRequest @relation(fields: [requestId], references: [id])
+  requestId String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+  qtyRequested Int
+  qtyIssued    Int?
+  checkoutUnitLabel String
+  totalBaseQuantity Int? // derived
+  createdAt DateTime @default(now())
+  transaction InventoryTransaction?
+}
+
+model ReasonCode {
+  id    String @id @default(cuid())
+  name  String
+  description String?
+  active Boolean @default(true)
+}
+
+model ReorderPolicy {
+  id        String @id @default(cuid())
+  product   Product @relation(fields: [productId], references: [id])
+  productId String @unique
+  reorderLevelBase Int
+  targetDaysOfSupply Int?
+  supplier   String?
+  leadTimeDays Int?
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String @id @default(cuid())
+  user      User   @relation(fields: [userId], references: [id])
+  userId    String
+  message   String
+  type      String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+}

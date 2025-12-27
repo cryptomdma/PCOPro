@@ -1,0 +1,5 @@
+product name,base_type,tracking_unit_label,tracking_to_base,checkout_unit_label,checkout_to_base,ordering_unit_label,ordering_to_base,stock?,discontinued?
+Suspend SC Insecticide,VOLUME,gallon,128,fluid ounce,1,jug (1 gal),128,y,n
+Rodent Bait Blocks,MASS,pound,16,ounce,1,bucket (18 lb),288,y,n
+Glue Boards,COUNT,case (12),12,each,1,case (12),12,n,n
+Old Aerosol Product,VOLUME,quart,32,fluid ounce,1,case (12),384,y,y
