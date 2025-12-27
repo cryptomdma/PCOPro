@@ -3,7 +3,7 @@ import { ProductsView } from './components/ProductsView';
 import { ReceivingView } from './components/ReceivingView';
 import { CheckoutView } from './components/CheckoutView';
 import { AnalyticsPreview } from './components/AnalyticsPreview';
-import { OfflineQueueIndicator } from './components/OfflineQueueIndicator';
+import { OfflineQueueIndicator } from './components/common/OfflineQueueIndicator';
 
 export default function App() {
   return (

@@ -1,13 +1,8 @@
-import { PrismaClient } from '@prisma/client';
-import { ImportService } from '../src/import/import.service';
-import path from 'path';
+import { PrismaClient, UnitBaseType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const dataDir = path.resolve(__dirname, '../../reference/spreadsheet');
-  const importer = new ImportService(prisma as any);
-
   const tech = await prisma.user.upsert({
     where: { email: 'tech@example.com' },
     update: {},
@@ -19,8 +14,62 @@ async function main() {
     create: { email: 'manager@example.com', name: 'Inventory Manager', role: 'INVENTORY_MANAGER' },
   });
 
-  const summary = await importer.importProducts(dataDir);
-  console.log({ tech, manager, importSummary: summary });
+  const suspend = await prisma.product.upsert({
+    where: { name: 'Suspend SC' },
+    update: {},
+    create: {
+      name: 'Suspend SC',
+      baseType: UnitBaseType.VOLUME,
+      trackingUnitLabel: 'gal',
+      checkoutUnitLabel: 'oz',
+      orderingUnitLabel: 'case (12 x 18oz)',
+      trackingToBase: 128,
+      checkoutToBase: 1,
+      orderingToBase: 18,
+      reorderLevelBase: 1280,
+      leadTimeDays: 7,
+      description: 'Insecticide concentrate',
+    },
+  });
+
+  await prisma.productCode.upsert({
+    where: { payload: `MGPC:prod:${suspend.id}` },
+    update: {},
+    create: { productId: suspend.id, codeType: 'qr', payload: `MGPC:prod:${suspend.id}` },
+  });
+
+  await prisma.productPack.upsert({
+    where: { id: 'pack-suspend' },
+    update: {},
+    create: {
+      id: 'pack-suspend',
+      productId: suspend.id,
+      name: 'Case 12 x 18oz',
+      quantityPerPack: 12,
+      orderingToBase: 18,
+    },
+  });
+
+  await prisma.incomingReceipt.create({
+    data: {
+      receiptDate: new Date(),
+      status: 'posted',
+      createdById: manager.id,
+      lines: {
+        create: [
+          {
+            productId: suspend.id,
+            qtyOrdered: 2,
+            qtyReceived: 2,
+            backorderedQty: 0,
+            receivingUnitLabel: 'case',
+          },
+        ],
+      },
+    },
+  });
+
+  console.log({ tech, manager, suspend });
 }
 
 main()

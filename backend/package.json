@@ -9,22 +9,21 @@
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "seed": "ts-node prisma/seed.ts",
     "prisma:generate": "prisma generate",
-    "prisma:validate": "prisma validate",
-    "test": "vitest run"
+    "prisma:validate": "prisma validate"
   },
   "dependencies": {
     "@nestjs/common": "^10.2.0",
+    "@nestjs/config": "^3.1.0",
     "@nestjs/core": "^10.2.0",
     "@nestjs/platform-express": "^10.2.0",
-    "@nestjs/config": "^3.1.0",
     "@prisma/client": "^5.10.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
-    "csv-parse": "^5.5.6",
-    "qrcode": "^1.5.3"
+    "qrcode": "^1.5.3",
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.2.1",
@@ -39,7 +38,6 @@
     "eslint-config-prettier": "^9.0.0",
     "prisma": "^5.10.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
-    "vitest": "^1.2.0"
+    "typescript": "^5.3.3"
   }
 }

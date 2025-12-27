@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateCheckoutDto } from './dto';
-import { getUnitFactor, toBaseQuantity } from '../utils/units';
 
 @Injectable()
 export class CheckoutService {
@@ -49,8 +48,7 @@ export class CheckoutService {
     for (const line of request.lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) continue;
-      const factor = getUnitFactor(product, line.checkoutUnitLabel, 'checkout');
-      const baseQty = toBaseQuantity(line.qtyRequested, factor);
+      const baseQty = line.qtyRequested * product.checkoutToBase;
       const balance = await this.prisma.inventoryBalance.upsert({
         where: { productId: product.id },
         update: {},

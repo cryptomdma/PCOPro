@@ -7,16 +7,8 @@ export class ProductsController {
   constructor(private products: ProductsService) {}
 
   @Get()
-  list(
-    @Query('search') search?: string,
-    @Query('stockedOnly') stockedOnly?: string,
-    @Query('includeDiscontinued') includeDiscontinued?: string,
-  ) {
-    return this.products.list({
-      search,
-      stockedOnly: stockedOnly !== 'false',
-      includeDiscontinued: includeDiscontinued === 'true',
-    });
+  list(@Query('search') search?: string) {
+    return this.products.list({ search });
   }
 
   @Post()

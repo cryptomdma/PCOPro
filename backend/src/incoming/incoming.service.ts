@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateIncomingDto } from './dto';
-import { getUnitFactor, toBaseQuantity } from '../utils/units';
 
 @Injectable()
 export class IncomingService {
@@ -32,8 +31,7 @@ export class IncomingService {
     for (const line of receipt.lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) continue;
-      const factor = getUnitFactor(product, line.receivingUnitLabel, 'ordering');
-      const baseDelta = toBaseQuantity(line.qtyReceived, factor);
+      const baseDelta = line.qtyReceived * product.orderingToBase;
       const balance = await this.prisma.inventoryBalance.upsert({
         where: { productId: product.id },
         update: {},

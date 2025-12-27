@@ -8,7 +8,7 @@ import * as QRCode from 'qrcode';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  list(params: { search?: string; reorderOnly?: boolean; stockedOnly?: boolean; includeDiscontinued?: boolean }) {
+  list(params: { search?: string; reorderOnly?: boolean }) {
     const where: Prisma.ProductWhereInput = {};
     if (params.search) {
       where.OR = [
@@ -16,12 +16,6 @@ export class ProductsService {
         { description: { contains: params.search, mode: 'insensitive' } },
         { epaRegNo: { contains: params.search, mode: 'insensitive' } },
       ];
-    }
-    if (params.stockedOnly) {
-      where.isStocked = true;
-    }
-    if (!params.includeDiscontinued) {
-      where.isDiscontinued = false;
     }
     return this.prisma.product.findMany({
       where,
