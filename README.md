@@ -2,8 +2,6 @@
 
 This repo contains a mobile-first PWA and NestJS API replacing the Excel-based inventory workbook for pest control operators.
 
-The cleaned spreadsheet exports in `/reference/spreadsheet/` are the **source of truth** for products, units, and lifecycle flags. Imports use the annotated unit file to normalize tracking/checkout/ordering conversions while keeping the ledger immutable.
-
 ## Running with Docker Compose
 ```
 docker-compose up --build
@@ -19,11 +17,6 @@ Seed data: `docker-compose run --rm backend npm run prisma:generate && docker-co
 - API (NestJS): `backend/src`
 - Prisma schema: `backend/prisma/schema.prisma`
 - Web (React PWA): `frontend/src`
-
-### Import & SKU Philosophy
-- Use `initial_units_annotated.csv` (plus `inventory_list.csv` metadata) as canonical inputs; imports are idempotent and enforce lifecycle rules.
-- Ledger balances are never set directly by import; initial counts should flow through audit/receiving transactions.
-- SKUs/barcodes/QRs are optional. If provided, they are stored as `ProductCode` records; internal Product IDs remain authoritative for all relations and generated QR payloads.
 
 ## Minimal Flows in the Scaffold
 - **Products**: GET/POST `/api/v1/products`
