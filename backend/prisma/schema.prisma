@@ -82,6 +82,9 @@ model Product {
   leadTimeDays      Int?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
+  isStocked         Boolean @default(true)
+  isDiscontinued    Boolean @default(false)
+
 
   packs         ProductPack[]
   codes         ProductCode[]
