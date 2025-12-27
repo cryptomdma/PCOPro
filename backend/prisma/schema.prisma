@@ -82,13 +82,14 @@ model Product {
   leadTimeDays      Int?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
-  packs             ProductPack[]
-  codes             ProductCode[]
-  transactions      InventoryTransaction[]
-  balances          InventoryBalance?
-  reorderPolicy     ReorderPolicy?
-  incomingLines     IncomingLine[]
-  checkoutLines     CheckoutLine[]
+
+  packs         ProductPack[]
+  codes         ProductCode[]
+  transactions  InventoryTransaction[]
+  balances      InventoryBalance?
+  reorderPolicy ReorderPolicy?
+  incomingLines IncomingLine[]
+  checkoutLines CheckoutLine[]
 }
 
 model ProductPack {
@@ -108,7 +109,7 @@ model ProductCode {
   productId String
   pack      ProductPack? @relation(fields: [packId], references: [id])
   packId    String?
-  codeType  String // qr, barcode
+  codeType  String // qr, barcode, sku
   payload   String       @unique
   createdAt DateTime     @default(now())
 }
@@ -134,10 +135,13 @@ model InventoryTransaction {
   device             String?
   reason             String?
   idempotencyKey     String
+
   sourceReceiptLine  IncomingLine?   @relation("IncomingLineTransactions", fields: [incomingLineId], references: [id])
   incomingLineId     String?
+
   sourceCheckoutLine CheckoutLine?   @relation("CheckoutLineTransactions", fields: [checkoutLineId], references: [id])
   checkoutLineId     String?
+
   createdAt          DateTime        @default(now())
   comment            String?
 
@@ -167,6 +171,7 @@ model IncomingLine {
   backorderedQty     Int
   receivingUnitLabel String // user selected label (e.g., case, bottle)
   createdAt          DateTime               @default(now())
+
   transactions       InventoryTransaction[] @relation("IncomingLineTransactions")
 }
 
@@ -193,6 +198,7 @@ model CheckoutLine {
   checkoutUnitLabel String
   totalBaseQuantity Int? // derived
   createdAt         DateTime               @default(now())
+
   transactions      InventoryTransaction[] @relation("CheckoutLineTransactions")
 }
 
