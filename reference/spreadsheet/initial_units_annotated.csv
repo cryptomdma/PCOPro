@@ -1,6 +1,4 @@
-﻿,Initial and Unit Counts,Unnamed: 1,Unnamed: 13,Unnamed: 14,Unnamed: 15,Unnamed: 16,Unnamed: 17,Unnamed: 18,Unnamed: 19,,
-,,,,,,,,,,,
-product_sku,Product,Initial ,base_type,tracking_unit_label,tracking_to_base,checkout_unit_label,checkout_to_base,ordering_unit_label,ordering_to_base,stock?,discontinued?
+﻿product_sku,Product,Initial ,base_type,tracking_unit_label,tracking_to_base,checkout_unit_label,checkout_to_base,ordering_unit_label,ordering_to_base,stock?,discontinued?
 1991001,ADVANCE GRANULAR CARPENTER ANT BAIT ,1,COUNT,each,1,each,1,each,1,y,n
 1991002,ADVION ANT GEL ,11,COUNT,each,1,each,1,case (4),4,y,n
 1991003,ADVION INSECT GRANULE ,2,MASS,lbs,16,oz,1,1 lb bag,16,n,n
