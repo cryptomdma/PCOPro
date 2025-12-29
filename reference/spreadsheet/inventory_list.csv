@@ -1,190 +1,188 @@
-﻿,Inventory List,,,,,,,,,
-,,,,,,,,,,
-Flagged items to reorder,EPA Reg #,Name,Description,Quantity in Stock,Units,Reorder Level,Quantity in Reorder,Priority,Eco?,Discontinued?
-,499-370,ADVANCE GRANULAR CARPENTER ANT BAIT ,Ant Bait,0.0,each,1,,1,NO,NO
-Reorder,100-1498,ADVION ANT GEL ,Ant Bait,8.0,each,2,,1,NO,NO
-Reorder,100-1483,ADVION INSECT GRANULE ,Ant Bait,2.0,lbs,0,,,NO,NO
-Reorder,100-1682,ADVION MICROFLOW ,Ant Bait,0.0,each,0,,,NO,NO
-Reorder,100-1679,ADVION TRIO COCKROACH GEL,Roach Bait,0.0,each,0,,2,NO,NO
-Reorder,100-1501,ADVION WDG,Non-Repellent,0.0,each,0,,,NO,NO
-Reorder,EPA EXEMPT ,AIRCOVER NONIONIC ORGANIC ,Surfactant,0.5,gal,0,,,YES,NO
-Reorder,EPA EXEMPT,AIRWORKS AIR FRESHENER NEUTRALIZER ,Other,0.0,each,0,,,YES,NO
-Reorder,499-561,ALPINE WSG (200g),Non-Repellent,6.0,each,,,1,,
-,499-561,ALPINE WSG (500g),Non-Repellent,-1.0,each,2,,,NO,NO
-Reorder,2724-451,ALTOSID PRO-G IGR ,Larvicide,9.0,each,0,,2,NO,NO
-Reorder,67702-55,ANTIXX GRANULES,Ant Bait,0.0,lbs,0,,2,,
-Reorder,67702-56,ANTIXX LIQUID,Ant Bait,22.0,oz,2,,,NO,NO
-Reorder,62637-3,AQUABAC MOSQUITO GRANULE ,Larvicide,4.0,lbs,0,,,NO,NO
-,499-294,AVERT DF ,Roach Bait,1.0,each,1,,1,NO,NO
-Reorder,74530-53-5481,AVESTA CS ,Repellent,2.0,each,0,,,NO,NO
-Reorder,1021-1767,BEDLAM   ,Aerosol,4.0,each,0,,,NO,NO
-Reorder,1021-2569,BEDLAM PLUS,Aerosol,5.0,each,0,,2,NO,NO
-Reorder,53883-118,BIFEN I/T,Termiticide,5.0,each,0,,,NO,NO
-Reorder,73079-4,BORACTIN,Dust,15.1,lbs,3,,1,YES,NO
-Reorder,73079-4,BORACTIN - 5LB PAIL,,9.0,each,1,,2,YES,NO
-,EPA EXEMPT,CATCHMASTER GIANT GLUE BOARDS,Trap,0.0,each,10,,2,YES,NO
-Reorder,EPA EXEMPT ,CATCHMASTER MOUSE GLUE BOARDS,Trap,70.0,each,20,,2,YES,NO
-Reorder,,CB-80,Aerosol,2.0,each,,,,,
-Reorder,73079-12,CIMEXA INSECTICIDE DUST ,Dust,4.0,each,2,,1,NO,NO
-Reorder,12455-79,CONTRAC BLOX,Rodent Bait,2948.9,lbs,36,,1,NO,NO
-,12455-79,CONTRAC BLOX - 4 LB PAIL,Rodent Bait,0.0,each,1,,2,,NO
-,91601-1,CONTRAPEST FEEDING TRAY - 13.5 OZ,Rodent Bait,0.0,each,5,,2,NO,NO
-Reorder,91601-1,CONTRAPEST HANGER - 8 OZ,Rodent Bait,27.0,each,5,,2,,
-Reorder,91601-1,CONTRAPEST HANGER UNIT,Rodent Bait,4.0,each,1,,2,YES,NO
-Reorder,1021-2788,CROSSFIRE AEROSOL ,Aerosol,6.0,each,2,,2,NO,NO
-Reorder,1021-2776,CROSSFIRE BED BUG CONCENTRATE,Repellent,4.0,each,1,,2,,NO
-Reorder,499-304,CYCICK CS ,Repellent,60.0,each,0,,,NO,NO
-Reorder,53883-389,CYZMIC CS,Repellent,72.0,each,0,,,NO,NO
-Reorder,,DELTA DUST,Dust,4.0,each,2,,,,
-,100-1066,DEMAND CS ,Repellent,4.0,each,20,,1,NO,NO
-,53883-415,D-FENSE NXT,Aerosol,0.0,each,1,,2,,NO
-Reorder,12455-80,DITRAC BAIT BLOX,Rodent Bait,3713.6,lbs,36,,1,NO,NO
-Reorder,12455-80,DITRAC BAIT BLOX - 4 LB PAIL,Rodent Bait,4.0,each,1,,2,NO,NO
-,5388-438,DOXEM NXT,Aerosol,0.0,each,1,,2,NO,NO
-Reorder,EPA EXEMPT ,DR. T'S MOSQUITO REPELLING GRANULES ,Repellent,50.0,lbs,0,,,YES,NO
-Reorder,EPA EXEMPT ,DROPLEX   ,Adjuvant,0.0,each,0,,,YES,NO
-Reorder,EPA EXEMPT ,DROPLEX XTRA ADJUVANT,Adjuvant,5.0,gal,1.5,,2,YES,NO
-,10324-80-644-5,DSV,Sanitation,1.0,gal,1,,,NO,NO
-Reorder,352-829,DUPONT ALTRISET TERMITICIDE,Termiticide,3.0,each,0,,,NO,NO
-,N/A,DUST MASK M95,PPE,15.0,each,20,,2,NO,NO
-Reorder,EPA EXEMPT,ECO EXTEND,Adjuvant,2.0,each,,,,YES,NO
-Reorder,89459-59,ECO PCO ACU,Aerosol,0.0,each,0,,,NO,NO
-Reorder,89459-60,ECO PCO ARX ,Aerosol,12.0,each,2,,1,NO,NO
-Reorder,89459-61,ECO PCO DX,Dust,1.0,each,0,,,NO,NO
-Reorder,62577-15-89459,ECO PCO WP-X,Wettable Powder,32.0,each,0,,,NO,NO
-Reorder,EPA EXEMPT ,ECO VIA WD ,Wettable Powder,3.0,each,1,,1,YES,NO
-Reorder,71637-FRA-001,ENDIUS COCKROACH GEL BAIT,Roach Bait,7.0,each,1,,1,NO,NO
-Reorder,EPA EXEMPT ,ESSENTRIA ALL- PURPOSE ,Repellent,0.0,each,0,,,YES,NO
-Reorder,EPA EXEMPT ,ESSENTRIA BROADCAST,Repellent,2.0,each,0,,,YES,NO
-Reorder,EPA EXEMPT ,ESSENTRIA DUST,Dust,0.0,each,0,,,YES,NO
-,EPA EXEMPT ,ESSENTRIA G,Granule,1.0,each,2,,1,YES,NO
-Reorder,EPA EXEMPT ,ESSENTRIA GENERAL HOUSEHOLD ,Repellent,0.0,oz,0,,,YES,NO
-Reorder,EPA EXEMPT,ESSENTRIA MOSQUITO & TICK,Ant Bait Stations,1.0,gal,0,,,YES,NO
-,EPA EXEMPT ,ESSENTRIA WASP & HORNET SPRAY,Wasp Spray,0.0,each,1,,1,YES,NO
-Reorder,N/A,EVO PROTECTA EDGE,Trap,12.0,each,3,,,NO,NO
-Reorder,N/A,EVO PROTECTA EXPRESS ,Trap,50.0,each,10,,1,NO,NO
-Reorder,89459-109,EXCITE R 55,Repellent,0.0,each,0,,,NO,NO
-Reorder,EPA EXEMPT,EXODUS VCS CONCENTRATE,Repellent,76.0,oz,,,2,YES,NO
-Reorder,EPA EXEMPT,EXODUS VCS DUST,Repellent,63.0,lbs,,,2,YES,NO
-Reorder,EPA EXEMPT,EXODUS VCS GRANULE,Repellent,438.0,lbs,,,2,YES,NO
-Reorder,499-570,FENDONA CS,Repellent,17.0,each,0,,,NO,NO
-Reorder,45639-3,FICAM D ,Dust,4.0,lbs,0,,,NO,NO
-Reorder,12455-89,FINAL ALL WEATHER BLOX ,Rodent Bait,0.0,oz,0,,,NO,NO
-Reorder,EPA EXEMPT,FINAL FEED MOSQUITO BAIT ,Mosquito Bait,0.0,oz,0,,,YES,NO
-Reorder,12455-139,FINAL SOFT BAIT ,Rodent Bait,0.0,oz,0,,,NO,NO
-Reorder,1021-2707-64405,FIREBACK BED BUG & INSECT,Aerosol,12.0,each,2,,1,NO,NO
-Reorder,N/A,FOAM FRESH BIO-SANITATION,Sanitation,4.0,each,,,,,
-Reorder,89459-135,FORMITROL ANT BAIT,Ant Bait,8.0,each,1,,1,NO,NO
-Reorder,53883-328,FUSE TERMITICIDE/INSECTICIDE ,Termiticide,2.0,each,0,,,NO,NO
-Reorder,2724-484,GENTROL AEROSOL ,Aerosol,0.0,each,,,2,NO,NO
-Reorder,89459-84,GENTROL COMPLETE,Aerosol,5.0,each,0,,2,NO,NO
-Reorder,2724-351,GENTROL IGR CONCENTRATE - 1 OZ,IGR,7.0,each,2,,2,NO,NO
-Reorder,2724-351,GENTROL IGR CONCENTRATE - 16 OZ,IGR,6.0,each,,,2,NO,NO
-Reorder,2724-469,GENTROL POINT SOURCE ROACH BAIT,Roach Bait,90.0,each,4,,1,NO,NO
-Reorder,EPA EXEMPT ,GLO STICK FLYING INSECT TRAP ,Trap,0.0,each,0,,,YES,NO
-Reorder,N/A,GREEN GLOVES (SIZE 10),PPE,8.0,each,3,,,NO,NO
-,N/A ,GREEN GLOVES (SIZE 11),PPE,0.0,each,3,,,NO,NO
-Reorder,EPA EXEMPT ,GREENSHIELD IA CONCENTRATE,Repellent,128.0,gal,0,4,2,YES,NO
-Reorder,EPA EXEMPT ,GREENSHIELD PRO RBW CONCENTRATE,Repellent,512.0,gal,0,,2,YES,NO
-Reorder,EPA EXEMPT ,GREENSHIELD RBW DUST,Repellent,92.3,lbs,0,,2,YES,NO
-Reorder,EPA EXEMPT ,GREENSHIELD RBWIA GRANULES,Granule,2.0,lbs,0,,2,YES,NO
-Reorder,EPA EXEMPT ,GREENSHIELD RBWIA POUCHES,Repellent,0.0,each,0,,2,YES,NO
-Reorder,91720-1,IN2CARE MIX,Mosquito Bait,80.0,each,0,,2,NO,NO
-Reorder,N/A,IN2CARE STATION,Mosquito Bait,50.0,each,,,2,YES,NO
-Reorder,EPA EXEMPT ,INSECTIGUARD YARDGUARD,Repellent,1.0,gal,0,,,YES,NO
-Reorder,73079-6,INTICE 10 (1 LB),Granule,1057.0,each,,,,,
-Reorder,73079-6,INTICE 10 (40 LBS),Granule,4.0,lbs,,,,,
-Reorder,EPA EXEMPT ,INVADE HOT SPOT,Aerosol,6.0,each,1,,,YES,NO
-Reorder,45385-101,KILLS BED BUGS PLUS ,Aerosol,0.5,each,0,,,NO,NO
-Reorder,N/A,KNESS KETCH-ALL LIVE MULTI TRAP (LG),Trap,1.0,each,,,2,YES,NO
-Reorder,N/A,KNESS PRO-KETCH LIVE MOUSE TRAP (SM),Trap,6.0,each,,,2,YES,NO
-Reorder,432-1255,MAXFORCE COMPLETE GRANULAR ,Ant Bait,0.0,oz,0,,,NO,NO
-,432-1256,MAXFORCE FC ANT BAIT STATIONS,Ant Bait,1.0,each,2,,1,NO,NO
-Reorder,432-1257,MAXFORCE FC ROACH BAIT STATIONS,Roach Bait,26.0,each,10,,1,,NO
-Reorder,432-1259,MAXFORCE FC ROACH GEL BAIT,Roach Bait,#REF!,each,,,,,
-#REF!,432-1460,MAXFORCE FC SELECT ROACH KILLER BAIT GEL ,Roach Bait,#REF!,each,2,,1,NO,NO
-Reorder,432-1375,MAXFORCE GRANULAR FLY BAIT ,Fly Bait,0.0,lbs,0,,,NO,NO
-,432-1531,MAXFORCE IMPACT ROACH GEL BAIT,Roach Bait,0.0,each,1,,1,,NO
-Reorder,53883-274,MOSQUITO MIST ULTRA,Repellent,1.5,gal,1,,2,NO,NO
-Reorder,N/A ,MYSTIC SPI BLUE ,Other,2.0,gal,0,,,NO,NO
-Reorder,64405-8,NIBOR-D INSECTICIDE,Dust,142.5,lbs,0,,2,NO,NO
-Reorder,64405-37,NIBOR-D INSECTICIDE FOAM + IGR,Aerosol,4.0,each,2,,,,
-Reorder,N/A,NILOTRON - Mtn Rain Aerosol- Freshner ,Other,0.0,each,0,,,YES,NO
-Reorder,N/A,NITRILE GLOVES (LG),PPE,-3.0,each,,,2,NO,NO
-Reorder,N/A,NITRILE GLOVES (MD),PPE,1.0,each,,,2,NO,NO
-Reorder,N/A,NITRILE GLOVES (XL),PPE,-1.0,each,,,2,NO,NO
-Reorder,N/A,NITRILE GLOVES (XXL),PPE,-3.0,each,,,,,
-Reorder,1021-1603,NYGUARD IGR CONCENTRATE ,IGR,2.0,each,1,,2,NO,NO
-Reorder,N/A,ODOR CONTROL FOGGER,Sanitation,5.0,each,,,,,
-Reorder,1021-2807,ONE GUARD MULTI MOA CONC,Repellent,1.0,gal,0,,,NO,NO
-Reorder,1021-2574,ONSLAUGHT FC,Repellent,7.0,each,,,,,
-Reorder,100-1260,OPTIGARD ANT GEL ,Ant Bait,18.0,each,1,,1,NO,NO
-Reorder,100-1306,OPTIGARD FLEX,Ant Bait,0.0,each,,,,NO,NO
-Reorder,499-384,PERMADUST ,Dust,0.0,lbs,,,,NO,NO
-,2724-404,PETCOR FLEA & TICK SPRAY ,Repellent,2.0,each,2,,1,NO,NO
-Reorder,241-392,PHANTOM TERMITICIDE/ INSECTICIDE ,Aerosol,45.0,each,,,,NO,NO
-Reorder,N/A,POST FLIGHT,Other,2.5,each,,,,NO,NO
-Reorder,89459-12,PRECOR 2625 PREMISE,Aerosol,8.0,each,2,,1,NO,NO
-Reorder,2724-352,PRECOR IGR CONCENTRATE,IGR,5.0,each,,,,,
-Reorder,89459-143,PRECOR OUTDOOR FTM,Repellent,3.0,each,,,,,
-Reorder,432-1385,PREMISE GRANULES ,Granule,1.0,each,,,,NO,NO
-Reorder,432-1331,PREMISE PRE-CONSTRUCTION ,Termiticide,5.0,gal,,,2,NO,NO
-Reorder,73342-1-2724,PROBAIT - 25 LBS,Ant Bait,429.8,lbs,,,2,NO,NO
-Reorder,73342-1-2724,PROBAIT - 4.5 LBS,Ant Bait,0.0,each,,,2,NO,NO
-Reorder,N/A,PROFOAM PLATINUM NPD,Other,17.0,each,,,2,NO,NO
-Reorder,N/A,PROTECTA RTU,Trap,7.0,each,2,,1,NO,NO
-Reorder,499-473,PT 221L PRESSURIZED ,Aerosol,3.0,each,,,,NO,NO
-Reorder,499-540,PT ALPINE FLEA & BED BUG ,Aerosol,6.0,each,2,,,NO,NO
-Reorder,499-513,PT CLEAR ZONE III,Aerosol,4.0,each,,,2,NO,NO
-Reorder,499-404,PT ULTRACIDE ,IGR,4.0,each,,,,YES,NO
-Reorder,499-550,PT WASP FREEZE,Wasp Spray,1.0,each,,,,,
-,53883-272,QUALIPRO FIPRONIL GRANULES,Granule,0.0,each,1,,1,NO,NO
-,N/A,RATSORB ,Other,2.0,each,2,,1,YES,NO
-Reorder,7969-470,RIDESCO WG,Repellent,1.0,oz,,,,NO,NO
-Reorder,524-535,ROUND UP QUICK PRO,Other,0.0,each,,,,NO,NO
-Reorder,279-3612,SCION INSECTICIDE,Repellent,8.0,each,1,,2,NO,NO
-Reorder,1021-1834,SECTOR MISTING CONCENTRATE,Repellent,1.0,gal,,,,NO,NO
-Reorder,7969-382,SELONTRA RODENT BAIT ,Rodent Bait,80.0,lbs,,,,NO,NO
-Reorder,62719-272,SHATTER TERMITE BAIT ,Termite Bait,0.0,oz,,,,NO,NO
-Reorder,1021-1810,SHOCKWAVE FOGGING CONCENTRATE,Repellent,0.0,oz,,,,NO,NO
-Reorder,58630-1-36488,SNAKE A WAY ,Repellent,2.0,lbs,,,,NO,NO
-Reorder,N/A,SNAP TRAP (LG),Trap,-1.0,each,,,1,YES,NO
-Reorder,397-13,STERIFAB,Repellent,170.0,oz,,,2,NO,NO
-Reorder,53883-384,STRYKER HORNET KILLER ,Wasp Spray,5.0,each,,,1,NO,NO
-Reorder,432-1514,SUSPEND POLYZONE,Repellent,3.0,each,,,,NO,NO
-Reorder,432-763,SUSPEND SC INSECTICIDE,Repellent,1.0,each,,,,NO,NO
-Reorder,12455-101,TALPIRID MOLE ,Other,0.0,oz,,,,NO,NO
-Reorder,279-3206,TALSTAR PRO ,Repellent,6.0,each,,,1,NO,NO
-Reorder,279-3343,TALSTAR XTRA GRANULES ,Granule,0.0,each,,,,NO,NO
-Reorder,100-1437,TANDEM ,Repellent,0.0,each,,,,NO,NO
-Reorder,53883-279,TAURUS SC ,Termiticide,1.0,each,,,,NO,NO
-Reorder,53883-355,TEKKO PRO,IGR,0.0,each,,,,NO,NO
-Reorder,432-1373,TEMPO DUST ,Dust,4.0,each,,,2,NO,NO
-Reorder,101563-5,TEMPRID DUST,Dust,6.0,oz,,,2,NO,NO
-Reorder,432-1544,TEMPRID FX ,Repellent,1.0,each,,,2,NO,NO
-Reorder,432-1483,TEMPRID SC ,Repellent,0.0,each,,,,NO,NO
-Reorder,7969-329,TERMIDOR HE,Termiticide,4.0,each,,,1,NO,NO
-Reorder,7969-210,TERMIDOR SC (20oz),Non-Repellent,7.0,each,,,1,NO,NO
-Reorder,7969-211,TERMIDOR SC (78oz),Non-Repellent,5.0,oz,,,,,
-Reorder,64405-8,TIMBOR PROFESSIONAL ,Termiticide,25.0,each,,,,NO,NO
-Reorder,432-1217,TOP CHOICE,Granule,-47.1,lbs,,,1,NO,NO
-Reorder,8033-109-279,TRANSPORT FC,Non-Repellent,0.0,each,,,,NO,NO
-Reorder,8033-109-279,TRANSPORT MIKRON,Non-Repellent,0.0,each,,,2,NO,NO
-Reorder,N/A,TRAPPER INSECT MONITOR,Trap,67.0,each,,,2,YES,NO
-Reorder,499-557,TRELONA ATBS CARTRIDGE,Termite Bait,77.0,each,,,2,YES,NO
-Reorder,499-557,TRELONA ATBS STATIONS,Termite Bait,70.0,each,,,2,NO,NO
-Reorder,N/A,TRUDETX BED BUG RAPID TEST ,Other,30.0,each,,,2,NO,NO
-Reorder,1021-2838,ULD BP-100 CONTACT INSECTICIDE ,Repellent,1.0,gal,,,,NO,NO
-Reorder,1021-2853,VENDETTA 360,Roach Bait,0.0,each,,,,NO,NO
-Reorder,1021-2796,VENDETTA NITRO,Roach Bait,0.0,each,,,,NO,NO
-Reorder,1021-2593,VENDETTA PLUS ,Roach Bait,18.0,each,,,1,NO,NO
-Reorder,N/A,VICTOR PRO RAT SNAP TRAP,Termite Bait,3.5,each,,,,,
-Reorder,N/A,VICTOR SNAP TRAP - MICE,Trap,72.0,each,,,2,YES,NO
-Reorder,100-1055,WEATHERBLOK-XT,Rodent Bait,0.0,oz,,,,NO,NO
-Reorder,EPA EXEMPT,WEB OUT,Repellent,256.0,gal,,,2,YES,NO
-Reorder,N/A,WEBSTER HEAD (YELLOW),Other,16.0,each,,,,YES,NO
-Reorder,N/A,WEBSTER POLE (20 FT),Other,3.0,each,,,,YES,NO
-Reorder,5481-521,WISDOM EZ,Granule,19.0,each,,,1,NO,NO
-Reorder,EPA EXEMPT ,XLURE RTU ,Trap,1.0,each,,,1,NO,NO
-Reorder,2724-786-89459,ZENPROX WASP X2,Wasp Spray,0.0,each,,,1,NO,NO
-,,,,,,,,,,
+"Flagged items to reorder,EPA Reg #,Name,Description,Quantity in Stock,Units,Reorder Level,Quantity in Reorder,Priority,Eco?,Discontinued?"
+",499-370,ADVANCE GRANULAR CARPENTER ANT BAIT ,Ant Bait,0.0,each,1,,1,NO,NO"
+"Reorder,100-1498,ADVION ANT GEL ,Ant Bait,8.0,each,2,,1,NO,NO"
+"Reorder,100-1483,ADVION INSECT GRANULE ,Ant Bait,2.0,lbs,0,,,NO,NO"
+"Reorder,100-1682,ADVION MICROFLOW ,Ant Bait,0.0,each,0,,,NO,NO"
+"Reorder,100-1679,ADVION TRIO COCKROACH GEL,Roach Bait,0.0,each,0,,2,NO,NO"
+"Reorder,100-1501,ADVION WDG,Non-Repellent,0.0,each,0,,,NO,NO"
+"Reorder,EPA EXEMPT ,AIRCOVER NONIONIC ORGANIC ,Surfactant,0.5,gal,0,,,YES,NO"
+"Reorder,EPA EXEMPT,AIRWORKS AIR FRESHENER NEUTRALIZER ,Other,0.0,each,0,,,YES,NO"
+"Reorder,499-561,ALPINE WSG (200g),Non-Repellent,6.0,each,,,1,,"
+",499-561,ALPINE WSG (500g),Non-Repellent,-1.0,each,2,,,NO,NO"
+"Reorder,2724-451,ALTOSID PRO-G IGR ,Larvicide,9.0,each,0,,2,NO,NO"
+"Reorder,67702-55,ANTIXX GRANULES,Ant Bait,0.0,lbs,0,,2,,"
+"Reorder,67702-56,ANTIXX LIQUID,Ant Bait,22.0,oz,2,,,NO,NO"
+"Reorder,62637-3,AQUABAC MOSQUITO GRANULE ,Larvicide,4.0,lbs,0,,,NO,NO"
+",499-294,AVERT DF ,Roach Bait,1.0,each,1,,1,NO,NO"
+"Reorder,74530-53-5481,AVESTA CS ,Repellent,2.0,each,0,,,NO,NO"
+"Reorder,1021-1767,BEDLAM   ,Aerosol,4.0,each,0,,,NO,NO"
+"Reorder,1021-2569,BEDLAM PLUS,Aerosol,5.0,each,0,,2,NO,NO"
+"Reorder,53883-118,BIFEN I/T,Termiticide,5.0,each,0,,,NO,NO"
+"Reorder,73079-4,BORACTIN,Dust,15.1,lbs,3,,1,YES,NO"
+"Reorder,73079-4,BORACTIN - 5LB PAIL,,9.0,each,1,,2,YES,NO"
+",EPA EXEMPT,CATCHMASTER GIANT GLUE BOARDS,Trap,0.0,each,10,,2,YES,NO"
+"Reorder,EPA EXEMPT ,CATCHMASTER MOUSE GLUE BOARDS,Trap,70.0,each,20,,2,YES,NO"
+"Reorder,,CB-80,Aerosol,2.0,each,,,,,"
+"Reorder,73079-12,CIMEXA INSECTICIDE DUST ,Dust,4.0,each,2,,1,NO,NO"
+"Reorder,12455-79,CONTRAC BLOX,Rodent Bait,2948.9,lbs,36,,1,NO,NO"
+",12455-79,CONTRAC BLOX - 4 LB PAIL,Rodent Bait,0.0,each,1,,2,,NO"
+",91601-1,CONTRAPEST FEEDING TRAY - 13.5 OZ,Rodent Bait,0.0,each,5,,2,NO,NO"
+"Reorder,91601-1,CONTRAPEST HANGER - 8 OZ,Rodent Bait,27.0,each,5,,2,,"
+"Reorder,91601-1,CONTRAPEST HANGER UNIT,Rodent Bait,4.0,each,1,,2,YES,NO"
+"Reorder,1021-2788,CROSSFIRE AEROSOL ,Aerosol,6.0,each,2,,2,NO,NO"
+"Reorder,1021-2776,CROSSFIRE BED BUG CONCENTRATE,Repellent,4.0,each,1,,2,,NO"
+"Reorder,499-304,CYCICK CS ,Repellent,60.0,each,0,,,NO,NO"
+"Reorder,53883-389,CYZMIC CS,Repellent,72.0,each,0,,,NO,NO"
+"Reorder,,DELTA DUST,Dust,4.0,each,2,,,,"
+",100-1066,DEMAND CS ,Repellent,4.0,each,20,,1,NO,NO"
+",53883-415,D-FENSE NXT,Aerosol,0.0,each,1,,2,,NO"
+"Reorder,12455-80,DITRAC BAIT BLOX,Rodent Bait,3713.6,lbs,36,,1,NO,NO"
+"Reorder,12455-80,DITRAC BAIT BLOX - 4 LB PAIL,Rodent Bait,4.0,each,1,,2,NO,NO"
+",5388-438,DOXEM NXT,Aerosol,0.0,each,1,,2,NO,NO"
+"Reorder,EPA EXEMPT ,DR. T'S MOSQUITO REPELLING GRANULES ,Repellent,50.0,lbs,0,,,YES,NO"
+"Reorder,EPA EXEMPT ,DROPLEX   ,Adjuvant,0.0,each,0,,,YES,NO"
+"Reorder,EPA EXEMPT ,DROPLEX XTRA ADJUVANT,Adjuvant,5.0,gal,1.5,,2,YES,NO"
+",10324-80-644-5,DSV,Sanitation,1.0,gal,1,,,NO,NO"
+"Reorder,352-829,DUPONT ALTRISET TERMITICIDE,Termiticide,3.0,each,0,,,NO,NO"
+",N/A,DUST MASK M95,PPE,15.0,each,20,,2,NO,NO"
+"Reorder,EPA EXEMPT,ECO EXTEND,Adjuvant,2.0,each,,,,YES,NO"
+"Reorder,89459-59,ECO PCO ACU,Aerosol,0.0,each,0,,,NO,NO"
+"Reorder,89459-60,ECO PCO ARX ,Aerosol,12.0,each,2,,1,NO,NO"
+"Reorder,89459-61,ECO PCO DX,Dust,1.0,each,0,,,NO,NO"
+"Reorder,62577-15-89459,ECO PCO WP-X,Wettable Powder,32.0,each,0,,,NO,NO"
+"Reorder,EPA EXEMPT ,ECO VIA WD ,Wettable Powder,3.0,each,1,,1,YES,NO"
+"Reorder,71637-FRA-001,ENDIUS COCKROACH GEL BAIT,Roach Bait,7.0,each,1,,1,NO,NO"
+"Reorder,EPA EXEMPT ,ESSENTRIA ALL- PURPOSE ,Repellent,0.0,each,0,,,YES,NO"
+"Reorder,EPA EXEMPT ,ESSENTRIA BROADCAST,Repellent,2.0,each,0,,,YES,NO"
+"Reorder,EPA EXEMPT ,ESSENTRIA DUST,Dust,0.0,each,0,,,YES,NO"
+",EPA EXEMPT ,ESSENTRIA G,Granule,1.0,each,2,,1,YES,NO"
+"Reorder,EPA EXEMPT ,ESSENTRIA GENERAL HOUSEHOLD ,Repellent,0.0,oz,0,,,YES,NO"
+"Reorder,EPA EXEMPT,ESSENTRIA MOSQUITO & TICK,Ant Bait Stations,1.0,gal,0,,,YES,NO"
+",EPA EXEMPT ,ESSENTRIA WASP & HORNET SPRAY,Wasp Spray,0.0,each,1,,1,YES,NO"
+"Reorder,N/A,EVO PROTECTA EDGE,Trap,12.0,each,3,,,NO,NO"
+"Reorder,N/A,EVO PROTECTA EXPRESS ,Trap,50.0,each,10,,1,NO,NO"
+"Reorder,89459-109,EXCITE R 55,Repellent,0.0,each,0,,,NO,NO"
+"Reorder,EPA EXEMPT,EXODUS VCS CONCENTRATE,Repellent,76.0,oz,,,2,YES,NO"
+"Reorder,EPA EXEMPT,EXODUS VCS DUST,Repellent,63.0,lbs,,,2,YES,NO"
+"Reorder,EPA EXEMPT,EXODUS VCS GRANULE,Repellent,438.0,lbs,,,2,YES,NO"
+"Reorder,499-570,FENDONA CS,Repellent,17.0,each,0,,,NO,NO"
+"Reorder,45639-3,FICAM D ,Dust,4.0,lbs,0,,,NO,NO"
+"Reorder,12455-89,FINAL ALL WEATHER BLOX ,Rodent Bait,0.0,oz,0,,,NO,NO"
+"Reorder,EPA EXEMPT,FINAL FEED MOSQUITO BAIT ,Mosquito Bait,0.0,oz,0,,,YES,NO"
+"Reorder,12455-139,FINAL SOFT BAIT ,Rodent Bait,0.0,oz,0,,,NO,NO"
+"Reorder,1021-2707-64405,FIREBACK BED BUG & INSECT,Aerosol,12.0,each,2,,1,NO,NO"
+"Reorder,N/A,FOAM FRESH BIO-SANITATION,Sanitation,4.0,each,,,,,"
+"Reorder,89459-135,FORMITROL ANT BAIT,Ant Bait,8.0,each,1,,1,NO,NO"
+"Reorder,53883-328,FUSE TERMITICIDE/INSECTICIDE ,Termiticide,2.0,each,0,,,NO,NO"
+"Reorder,2724-484,GENTROL AEROSOL ,Aerosol,0.0,each,,,2,NO,NO"
+"Reorder,89459-84,GENTROL COMPLETE,Aerosol,5.0,each,0,,2,NO,NO"
+"Reorder,2724-351,GENTROL IGR CONCENTRATE - 1 OZ,IGR,7.0,each,2,,2,NO,NO"
+"Reorder,2724-351,GENTROL IGR CONCENTRATE - 16 OZ,IGR,6.0,each,,,2,NO,NO"
+"Reorder,2724-469,GENTROL POINT SOURCE ROACH BAIT,Roach Bait,90.0,each,4,,1,NO,NO"
+"Reorder,EPA EXEMPT ,GLO STICK FLYING INSECT TRAP ,Trap,0.0,each,0,,,YES,NO"
+"Reorder,N/A,GREEN GLOVES (SIZE 10),PPE,8.0,each,3,,,NO,NO"
+",N/A ,GREEN GLOVES (SIZE 11),PPE,0.0,each,3,,,NO,NO"
+"Reorder,EPA EXEMPT ,GREENSHIELD IA CONCENTRATE,Repellent,128.0,gal,0,4,2,YES,NO"
+"Reorder,EPA EXEMPT ,GREENSHIELD PRO RBW CONCENTRATE,Repellent,512.0,gal,0,,2,YES,NO"
+"Reorder,EPA EXEMPT ,GREENSHIELD RBW DUST,Repellent,92.3,lbs,0,,2,YES,NO"
+"Reorder,EPA EXEMPT ,GREENSHIELD RBWIA GRANULES,Granule,2.0,lbs,0,,2,YES,NO"
+"Reorder,EPA EXEMPT ,GREENSHIELD RBWIA POUCHES,Repellent,0.0,each,0,,2,YES,NO"
+"Reorder,91720-1,IN2CARE MIX,Mosquito Bait,80.0,each,0,,2,NO,NO"
+"Reorder,N/A,IN2CARE STATION,Mosquito Bait,50.0,each,,,2,YES,NO"
+"Reorder,EPA EXEMPT ,INSECTIGUARD YARDGUARD,Repellent,1.0,gal,0,,,YES,NO"
+"Reorder,73079-6,INTICE 10 (1 LB),Granule,1057.0,each,,,,,"
+"Reorder,73079-6,INTICE 10 (40 LBS),Granule,4.0,lbs,,,,,"
+"Reorder,EPA EXEMPT ,INVADE HOT SPOT,Aerosol,6.0,each,1,,,YES,NO"
+"Reorder,45385-101,KILLS BED BUGS PLUS ,Aerosol,0.5,each,0,,,NO,NO"
+"Reorder,N/A,KNESS KETCH-ALL LIVE MULTI TRAP (LG),Trap,1.0,each,,,2,YES,NO"
+"Reorder,N/A,KNESS PRO-KETCH LIVE MOUSE TRAP (SM),Trap,6.0,each,,,2,YES,NO"
+"Reorder,432-1255,MAXFORCE COMPLETE GRANULAR ,Ant Bait,0.0,oz,0,,,NO,NO"
+",432-1256,MAXFORCE FC ANT BAIT STATIONS,Ant Bait,1.0,each,2,,1,NO,NO"
+"Reorder,432-1257,MAXFORCE FC ROACH BAIT STATIONS,Roach Bait,26.0,each,10,,1,,NO"
+"Reorder,432-1259,MAXFORCE FC ROACH GEL BAIT,Roach Bait,#REF!,each,,,,,"
+"#REF!,432-1460,MAXFORCE FC SELECT ROACH KILLER BAIT GEL ,Roach Bait,#REF!,each,2,,1,NO,NO"
+"Reorder,432-1375,MAXFORCE GRANULAR FLY BAIT ,Fly Bait,0.0,lbs,0,,,NO,NO"
+",432-1531,MAXFORCE IMPACT ROACH GEL BAIT,Roach Bait,0.0,each,1,,1,,NO"
+"Reorder,53883-274,MOSQUITO MIST ULTRA,Repellent,1.5,gal,1,,2,NO,NO"
+"Reorder,N/A ,MYSTIC SPI BLUE ,Other,2.0,gal,0,,,NO,NO"
+"Reorder,64405-8,NIBOR-D INSECTICIDE,Dust,142.5,lbs,0,,2,NO,NO"
+"Reorder,64405-37,NIBOR-D INSECTICIDE FOAM + IGR,Aerosol,4.0,each,2,,,,"
+"Reorder,N/A,NILOTRON - Mtn Rain Aerosol- Freshner ,Other,0.0,each,0,,,YES,NO"
+"Reorder,N/A,NITRILE GLOVES (LG),PPE,-3.0,each,,,2,NO,NO"
+"Reorder,N/A,NITRILE GLOVES (MD),PPE,1.0,each,,,2,NO,NO"
+"Reorder,N/A,NITRILE GLOVES (XL),PPE,-1.0,each,,,2,NO,NO"
+"Reorder,N/A,NITRILE GLOVES (XXL),PPE,-3.0,each,,,,,"
+"Reorder,1021-1603,NYGUARD IGR CONCENTRATE ,IGR,2.0,each,1,,2,NO,NO"
+"Reorder,N/A,ODOR CONTROL FOGGER,Sanitation,5.0,each,,,,,"
+"Reorder,1021-2807,ONE GUARD MULTI MOA CONC,Repellent,1.0,gal,0,,,NO,NO"
+"Reorder,1021-2574,ONSLAUGHT FC,Repellent,7.0,each,,,,,"
+"Reorder,100-1260,OPTIGARD ANT GEL ,Ant Bait,18.0,each,1,,1,NO,NO"
+"Reorder,100-1306,OPTIGARD FLEX,Ant Bait,0.0,each,,,,NO,NO"
+"Reorder,499-384,PERMADUST ,Dust,0.0,lbs,,,,NO,NO"
+",2724-404,PETCOR FLEA & TICK SPRAY ,Repellent,2.0,each,2,,1,NO,NO"
+"Reorder,241-392,PHANTOM TERMITICIDE/ INSECTICIDE ,Aerosol,45.0,each,,,,NO,NO"
+"Reorder,N/A,POST FLIGHT,Other,2.5,each,,,,NO,NO"
+"Reorder,89459-12,PRECOR 2625 PREMISE,Aerosol,8.0,each,2,,1,NO,NO"
+"Reorder,2724-352,PRECOR IGR CONCENTRATE,IGR,5.0,each,,,,,"
+"Reorder,89459-143,PRECOR OUTDOOR FTM,Repellent,3.0,each,,,,,"
+"Reorder,432-1385,PREMISE GRANULES ,Granule,1.0,each,,,,NO,NO"
+"Reorder,432-1331,PREMISE PRE-CONSTRUCTION ,Termiticide,5.0,gal,,,2,NO,NO"
+"Reorder,73342-1-2724,PROBAIT - 25 LBS,Ant Bait,429.8,lbs,,,2,NO,NO"
+"Reorder,73342-1-2724,PROBAIT - 4.5 LBS,Ant Bait,0.0,each,,,2,NO,NO"
+"Reorder,N/A,PROFOAM PLATINUM NPD,Other,17.0,each,,,2,NO,NO"
+"Reorder,N/A,PROTECTA RTU,Trap,7.0,each,2,,1,NO,NO"
+"Reorder,499-473,PT 221L PRESSURIZED ,Aerosol,3.0,each,,,,NO,NO"
+"Reorder,499-540,PT ALPINE FLEA & BED BUG ,Aerosol,6.0,each,2,,,NO,NO"
+"Reorder,499-513,PT CLEAR ZONE III,Aerosol,4.0,each,,,2,NO,NO"
+"Reorder,499-404,PT ULTRACIDE ,IGR,4.0,each,,,,YES,NO"
+"Reorder,499-550,PT WASP FREEZE,Wasp Spray,1.0,each,,,,,"
+",53883-272,QUALIPRO FIPRONIL GRANULES,Granule,0.0,each,1,,1,NO,NO"
+",N/A,RATSORB ,Other,2.0,each,2,,1,YES,NO"
+"Reorder,7969-470,RIDESCO WG,Repellent,1.0,oz,,,,NO,NO"
+"Reorder,524-535,ROUND UP QUICK PRO,Other,0.0,each,,,,NO,NO"
+"Reorder,279-3612,SCION INSECTICIDE,Repellent,8.0,each,1,,2,NO,NO"
+"Reorder,1021-1834,SECTOR MISTING CONCENTRATE,Repellent,1.0,gal,,,,NO,NO"
+"Reorder,7969-382,SELONTRA RODENT BAIT ,Rodent Bait,80.0,lbs,,,,NO,NO"
+"Reorder,62719-272,SHATTER TERMITE BAIT ,Termite Bait,0.0,oz,,,,NO,NO"
+"Reorder,1021-1810,SHOCKWAVE FOGGING CONCENTRATE,Repellent,0.0,oz,,,,NO,NO"
+"Reorder,58630-1-36488,SNAKE A WAY ,Repellent,2.0,lbs,,,,NO,NO"
+"Reorder,N/A,SNAP TRAP (LG),Trap,-1.0,each,,,1,YES,NO"
+"Reorder,397-13,STERIFAB,Repellent,170.0,oz,,,2,NO,NO"
+"Reorder,53883-384,STRYKER HORNET KILLER ,Wasp Spray,5.0,each,,,1,NO,NO"
+"Reorder,432-1514,SUSPEND POLYZONE,Repellent,3.0,each,,,,NO,NO"
+"Reorder,432-763,SUSPEND SC INSECTICIDE,Repellent,1.0,each,,,,NO,NO"
+"Reorder,12455-101,TALPIRID MOLE ,Other,0.0,oz,,,,NO,NO"
+"Reorder,279-3206,TALSTAR PRO ,Repellent,6.0,each,,,1,NO,NO"
+"Reorder,279-3343,TALSTAR XTRA GRANULES ,Granule,0.0,each,,,,NO,NO"
+"Reorder,100-1437,TANDEM ,Repellent,0.0,each,,,,NO,NO"
+"Reorder,53883-279,TAURUS SC ,Termiticide,1.0,each,,,,NO,NO"
+"Reorder,53883-355,TEKKO PRO,IGR,0.0,each,,,,NO,NO"
+"Reorder,432-1373,TEMPO DUST ,Dust,4.0,each,,,2,NO,NO"
+"Reorder,101563-5,TEMPRID DUST,Dust,6.0,oz,,,2,NO,NO"
+"Reorder,432-1544,TEMPRID FX ,Repellent,1.0,each,,,2,NO,NO"
+"Reorder,432-1483,TEMPRID SC ,Repellent,0.0,each,,,,NO,NO"
+"Reorder,7969-329,TERMIDOR HE,Termiticide,4.0,each,,,1,NO,NO"
+"Reorder,7969-210,TERMIDOR SC (20oz),Non-Repellent,7.0,each,,,1,NO,NO"
+"Reorder,7969-211,TERMIDOR SC (78oz),Non-Repellent,5.0,oz,,,,,"
+"Reorder,64405-8,TIMBOR PROFESSIONAL ,Termiticide,25.0,each,,,,NO,NO"
+"Reorder,432-1217,TOP CHOICE,Granule,-47.1,lbs,,,1,NO,NO"
+"Reorder,8033-109-279,TRANSPORT FC,Non-Repellent,0.0,each,,,,NO,NO"
+"Reorder,8033-109-279,TRANSPORT MIKRON,Non-Repellent,0.0,each,,,2,NO,NO"
+"Reorder,N/A,TRAPPER INSECT MONITOR,Trap,67.0,each,,,2,YES,NO"
+"Reorder,499-557,TRELONA ATBS CARTRIDGE,Termite Bait,77.0,each,,,2,YES,NO"
+"Reorder,499-557,TRELONA ATBS STATIONS,Termite Bait,70.0,each,,,2,NO,NO"
+"Reorder,N/A,TRUDETX BED BUG RAPID TEST ,Other,30.0,each,,,2,NO,NO"
+"Reorder,1021-2838,ULD BP-100 CONTACT INSECTICIDE ,Repellent,1.0,gal,,,,NO,NO"
+"Reorder,1021-2853,VENDETTA 360,Roach Bait,0.0,each,,,,NO,NO"
+"Reorder,1021-2796,VENDETTA NITRO,Roach Bait,0.0,each,,,,NO,NO"
+"Reorder,1021-2593,VENDETTA PLUS ,Roach Bait,18.0,each,,,1,NO,NO"
+"Reorder,N/A,VICTOR PRO RAT SNAP TRAP,Termite Bait,3.5,each,,,,,"
+"Reorder,N/A,VICTOR SNAP TRAP - MICE,Trap,72.0,each,,,2,YES,NO"
+"Reorder,100-1055,WEATHERBLOK-XT,Rodent Bait,0.0,oz,,,,NO,NO"
+"Reorder,EPA EXEMPT,WEB OUT,Repellent,256.0,gal,,,2,YES,NO"
+"Reorder,N/A,WEBSTER HEAD (YELLOW),Other,16.0,each,,,,YES,NO"
+"Reorder,N/A,WEBSTER POLE (20 FT),Other,3.0,each,,,,YES,NO"
+"Reorder,5481-521,WISDOM EZ,Granule,19.0,each,,,1,NO,NO"
+"Reorder,EPA EXEMPT ,XLURE RTU ,Trap,1.0,each,,,1,NO,NO"
+"Reorder,2724-786-89459,ZENPROX WASP X2,Wasp Spray,0.0,each,,,1,NO,NO"
+",,,,,,,,,,"
