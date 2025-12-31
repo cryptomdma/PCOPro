@@ -9,7 +9,7 @@
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "seed": "ts-node prisma/seed.ts",
     "import:products": "ts-node src/cli/import-products.ts",
-    "import:opening": "ts-node src/cli/import-opening.ts",
+    "import:opening": "ts-node src/cli/opening-load.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate"
   },
