@@ -5,9 +5,10 @@ import { ProductsModule } from './products/products.module';
 import { IncomingModule } from './incoming/incoming.module';
 import { CheckoutModule } from './checkout/checkout.module';
 import { AnalyticsController } from './analytics.controller';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), ProductsModule, IncomingModule, CheckoutModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), ProductsModule, IncomingModule, CheckoutModule, InventoryModule],
   controllers: [AnalyticsController],
   providers: [PrismaService],
 })

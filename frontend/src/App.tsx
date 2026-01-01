@@ -4,6 +4,7 @@ import { ReceivingView } from './components/ReceivingView';
 import { CheckoutView } from './components/CheckoutView';
 import { AnalyticsPreview } from './components/AnalyticsPreview';
 import { OfflineQueueIndicator } from './components/common/OfflineQueueIndicator';
+import { AuditCountView } from './components/AuditCountView';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Link to="/">Inventory</Link>
         <Link to="/receiving">Incoming</Link>
         <Link to="/checkout">Checkout</Link>
+        <Link to="/audit">Audit Count</Link>
         <Link to="/analytics">Analytics</Link>
       </nav>
       <main>
@@ -23,6 +25,7 @@ export default function App() {
           <Route path="/" element={<ProductsView />} />
           <Route path="/receiving" element={<ReceivingView />} />
           <Route path="/checkout" element={<CheckoutView />} />
+          <Route path="/audit" element={<AuditCountView />} />
           <Route path="/analytics" element={<AnalyticsPreview />} />
         </Routes>
       </main>

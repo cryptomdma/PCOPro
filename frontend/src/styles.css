@@ -114,6 +114,8 @@ button {
 
 .badge.online { background: #065f46; }
 .badge.offline { background: #b91c1c; }
+.badge.warning { background: #b45309; }
+.badge.info { background: #1d4ed8; }
 
 .activity {
   list-style: none;
@@ -124,4 +126,38 @@ button {
 .activity li {
   padding: 0.5rem 0;
   border-bottom: 1px solid #1f2937;
+}
+
+.error-panel, .result-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid #b91c1c;
+  background: #2c1818;
+}
+
+.result-panel {
+  border-color: #1d4ed8;
+  background: #0f172a;
+}
+
+.grid.two-col {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 0.5rem;
+}
+
+.metric .label {
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.metric .value {
+  font-weight: 700;
+}
+
+.pill-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
 }

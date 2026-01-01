@@ -20,8 +20,9 @@ Seed data: `docker-compose run --rm backend npm run prisma:generate && docker-co
 
 ## Minimal Flows in the Scaffold
 - **Products**: GET/POST `/api/v1/products`
-- **Receiving → Post**: POST `/api/v1/incoming`
-- **Request → Checkout**: POST `/api/v1/checkout/requests`, POST `/api/v1/checkout/:id/finalize`
+- **Receiving ƒ+' Post**: POST `/api/v1/incoming`
+- **Request ƒ+' Checkout**: POST `/api/v1/checkout/requests`, POST `/api/v1/checkout/:id/finalize`
+- **Audit Count / True-Up**: POST `/api/v1/inventory/audit`, balances via `/api/v1/inventory/balances`
 - **Basic analytics preview**: `/api/v1/analytics/usage` placeholder returning empty array (extend in service)
 
 ## Offline-first
@@ -30,3 +31,8 @@ Seed data: `docker-compose run --rm backend npm run prisma:generate && docker-co
 
 ## QR Codes
 - QR payloads use `MGPC:prod:<productId>` format. Desktop UI surfaces QR previews per product.
+
+## Audit Count (Physical true-up)
+- UI: open **Audit Count** from the nav, search/select a product, enter counted quantity + unit + reason, submit to true-up balances. Results show before/count/delta/after in tracking + base units with flags for negative or large swings.
+- API: `POST /api/v1/inventory/audit` with `productId`, `countedQty`, `unit` (`tracking` | `checkout`), `reason`, optional `comment`/`device`. Optional `Idempotency-Key` header guards duplicate posts.
+- Reference: `docs/audit-count.md` for the full flow and notification rules.
