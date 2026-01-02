@@ -254,3 +254,11 @@ model Notification {
   readAt    DateTime?
   createdAt DateTime  @default(now())
 }
+
+model Technician {
+  id        String   @id @default(cuid())
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
