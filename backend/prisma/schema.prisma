@@ -21,6 +21,19 @@ enum UnitBaseType {
   COUNT
 }
 
+enum ProductCategory {
+  CHEMICAL
+  EQUIPMENT
+  PPE
+  OTHER
+}
+
+enum ProductBehavior {
+  CONSUMABLE
+  NONCONSUMABLE
+  REGULATED_CUSTOMER_BOUND
+}
+
 enum TransactionType {
   initial_load
   receiving_posted
@@ -69,7 +82,8 @@ model Product {
   name              String                 @unique
   epaRegNo          String?
   description       String?
-  category          String?
+  category          ProductCategory        @default(CHEMICAL)
+  behavior          ProductBehavior        @default(CONSUMABLE)
   baseType          UnitBaseType
   trackingUnitLabel String
   checkoutUnitLabel String
@@ -89,7 +103,7 @@ model Product {
   packs         ProductPack[]
   codes         ProductCode[]
   transactions  InventoryTransaction[]
-  balances      InventoryBalance?
+  balances      InventoryBalance[]
   reorderPolicy ReorderPolicy?
   incomingLines IncomingLine[]
   checkoutLines CheckoutLine[]
@@ -118,10 +132,14 @@ model ProductCode {
 }
 
 model InventoryBalance {
+  id         String   @id @default(cuid())
   product    Product  @relation(fields: [productId], references: [id])
-  productId  String   @id
+  productId  String
+  scope      String   @default("WAREHOUSE")
   onHandBase Int      @default(0)
   updatedAt  DateTime @updatedAt
+
+  @@unique([productId, scope])
 }
 
 model InventoryTransaction {
@@ -129,6 +147,7 @@ model InventoryTransaction {
   product            Product         @relation(fields: [productId], references: [id])
   productId          String
   type               TransactionType
+  scope              String          @default("WAREHOUSE")
   quantityBase       Int
   beforeBase         Int
   afterBase          Int
@@ -138,6 +157,8 @@ model InventoryTransaction {
   device             String?
   reason             String?
   idempotencyKey     String
+  transferGroupId    String?
+  transferIdempotencyKey String?
 
   sourceReceiptLine  IncomingLine?   @relation("IncomingLineTransactions", fields: [incomingLineId], references: [id])
   incomingLineId     String?
@@ -149,6 +170,7 @@ model InventoryTransaction {
   comment            String?
 
   @@unique([idempotencyKey])
+  @@index([transferIdempotencyKey])
 }
 
 model IncomingReceipt {

@@ -40,10 +40,10 @@ async function main() {
             return { status: 'skipped' as const };
           }
 
-          await tx.$executeRaw`INSERT INTO "InventoryBalance" ("productId", "onHandBase") VALUES (${product.id}, 0) ON CONFLICT ("productId") DO NOTHING`;
+          await tx.$executeRaw`INSERT INTO "InventoryBalance" ("id", "productId", "scope", "onHandBase") VALUES (gen_random_uuid(), ${product.id}, 'WAREHOUSE', 0) ON CONFLICT ("productId", "scope") DO NOTHING`;
           const balances = await tx.$queryRaw<{ productId: string; onHandBase: number }[]>`
             SELECT "productId", "onHandBase" FROM "InventoryBalance"
-            WHERE "productId" = ${product.id}
+            WHERE "productId" = ${product.id} AND "scope" = 'WAREHOUSE'
             FOR UPDATE
           `;
           const balance = balances[0] ?? { onHandBase: 0 };
@@ -63,8 +63,8 @@ async function main() {
             },
           });
 
-          await tx.inventoryBalance.update({
-            where: { productId: product.id },
+          await tx.inventoryBalance.updateMany({
+            where: { productId: product.id, scope: 'WAREHOUSE' },
             data: { onHandBase: initialBase },
           });
 

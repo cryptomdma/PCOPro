@@ -4,8 +4,8 @@ Audit counts reconcile a physical count with the ledger-derived `InventoryBalanc
 
 ## Endpoints
 - `POST /api/v1/inventory/audit`
-  - Body: `productId`, `countedQty` (number), `unit` (`tracking` | `checkout`), `reason` (required), `comment?`, `device?`
-  - Idempotency: pass `Idempotency-Key` header; otherwise generated as `audit:<productId>:<isoTimestamp>`
+  - Body: `productId`, `countedQty` (number), `unit` (`tracking` | `checkout`), `scope?` (default `WAREHOUSE`), `reason` (required), `comment?`, `device?`
+  - Idempotency: pass `Idempotency-Key` header; otherwise generated as `audit:<productId>:<scope>:<isoTimestamp>`
   - Returns: `productId`, `beforeBase`, `countedBase`, `deltaBase`, `afterBase`, `transactionId`, flags `negativeAfter`, `deltaLarge`
   - Ledger steps (single transaction):
     1) Resolve multiplier from unit (`trackingToBase` or `checkoutToBase`)
@@ -19,8 +19,8 @@ Audit counts reconcile a physical count with the ledger-derived `InventoryBalanc
     - `inventory_audit_large_delta` when `abs(deltaBase) >= max(0.25 * max(1, currentBase), 100)`
     - Sent to all `ADMIN` and `INVENTORY_MANAGER` users (non-blocking)
 
-- `GET /api/v1/inventory/balances?search=&stockedOnly=&includeDiscontinued=`
-  - Returns array of `{ productId, name, baseType, trackingUnitLabel, checkoutUnitLabel, trackingToBase, checkoutToBase, onHandBase, onHandTracking, isStocked, isDiscontinued }`
+- `GET /api/v1/inventory/balances?search=&stockedOnly=&includeDiscontinued=&scope=`
+  - Returns array of `{ productId, name, baseType, trackingUnitLabel, checkoutUnitLabel, trackingToBase, checkoutToBase, onHandBase, onHandTracking, isStocked, isDiscontinued, scope }`
   - Defaults: excludes discontinued unless `includeDiscontinued=true`; `stockedOnly=true` narrows to stocked items.
 
 ## UI Workflow

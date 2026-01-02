@@ -33,14 +33,15 @@ export class IncomingService {
       if (!product) continue;
       const baseDelta = line.qtyReceived * product.orderingToBase;
       const balance = await this.prisma.inventoryBalance.upsert({
-        where: { productId: product.id },
+        where: { productId_scope: { productId: product.id, scope: 'WAREHOUSE' } },
         update: {},
-        create: { productId: product.id },
+        create: { productId: product.id, scope: 'WAREHOUSE' },
       });
       const after = balance.onHandBase + baseDelta;
       await this.prisma.inventoryTransaction.create({
         data: {
           productId: product.id,
+          scope: 'WAREHOUSE',
           type: 'receiving_posted',
           quantityBase: baseDelta,
           beforeBase: balance.onHandBase,
@@ -52,7 +53,7 @@ export class IncomingService {
         },
       });
       await this.prisma.inventoryBalance.update({
-        where: { productId: product.id },
+        where: { id: balance.id },
         data: { onHandBase: after },
       });
     }

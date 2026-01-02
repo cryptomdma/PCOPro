@@ -44,20 +44,22 @@ export class CheckoutService {
       include: { lines: true },
     });
     if (!request) return null;
+    const scope = `TRUCK:${request.technicianId}`;
 
     for (const line of request.lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) continue;
       const baseQty = line.qtyRequested * product.checkoutToBase;
       const balance = await this.prisma.inventoryBalance.upsert({
-        where: { productId: product.id },
+        where: { productId_scope: { productId: product.id, scope } },
         update: {},
-        create: { productId: product.id },
+        create: { productId: product.id, scope },
       });
       const after = balance.onHandBase - baseQty;
       await this.prisma.inventoryTransaction.create({
         data: {
           productId: product.id,
+          scope,
           type: 'checkout_finalized',
           quantityBase: -baseQty,
           beforeBase: balance.onHandBase,
@@ -72,7 +74,7 @@ export class CheckoutService {
         where: { id: line.id },
         data: { qtyIssued: line.qtyRequested, totalBaseQuantity: baseQty },
       });
-      await this.prisma.inventoryBalance.update({ where: { productId: product.id }, data: { onHandBase: after } });
+      await this.prisma.inventoryBalance.update({ where: { id: balance.id }, data: { onHandBase: after } });
     }
 
     await this.prisma.checkoutRequest.update({ where: { id }, data: { status: 'issued' } });

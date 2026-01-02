@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Prisma, UnitBaseType } from '@prisma/client';
+import { Prisma, UnitBaseType, ProductCategory, ProductBehavior } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -71,7 +71,8 @@ export class ImportService {
           isDiscontinued: row.isDiscontinued,
           epaRegNo: row.metadata?.epaRegNo ?? undefined,
           description: row.metadata?.description ?? undefined,
-          category: row.metadata?.category ?? undefined,
+          category: this.resolveCategory(row.metadata?.category),
+          behavior: this.resolveBehavior(row.metadata?.category),
           reorderLevelBase,
         };
 
@@ -310,5 +311,36 @@ export class ImportService {
     }
 
     return { created: 0, skipped: 1, warning: `SKU ${payload} already assigned to a different record` };
+  }
+
+  private resolveCategory(label?: string): ProductCategory | undefined {
+    if (!label) return undefined;
+    const normalized = label.trim().toUpperCase();
+    switch (normalized) {
+      case 'CHEMICAL':
+        return ProductCategory.CHEMICAL;
+      case 'EQUIPMENT':
+        return ProductCategory.EQUIPMENT;
+      case 'PPE':
+        return ProductCategory.PPE;
+      case 'OTHER':
+        return ProductCategory.OTHER;
+      default:
+        return undefined;
+    }
+  }
+
+  private resolveBehavior(label?: string): ProductBehavior | undefined {
+    if (!label) return undefined;
+    const normalized = label.trim().toUpperCase();
+    switch (normalized) {
+      case 'NONCONSUMABLE':
+        return ProductBehavior.NONCONSUMABLE;
+      case 'REGULATED_CUSTOMER_BOUND':
+        return ProductBehavior.REGULATED_CUSTOMER_BOUND;
+      case 'CONSUMABLE':
+      default:
+        return ProductBehavior.CONSUMABLE;
+    }
   }
 }

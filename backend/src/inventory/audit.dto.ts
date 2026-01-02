@@ -24,12 +24,20 @@ export class AuditCountDto {
   @IsOptional()
   @IsString()
   device?: string;
+
+  @IsOptional()
+  @IsString()
+  scope?: string;
 }
 
 export class BalanceQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  scope?: string;
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)

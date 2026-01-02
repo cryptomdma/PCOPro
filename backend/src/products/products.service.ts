@@ -17,11 +17,18 @@ export class ProductsService {
         { epaRegNo: { contains: params.search, mode: 'insensitive' } },
       ];
     }
-    return this.prisma.product.findMany({
-      where,
-      include: { balances: true },
-      orderBy: { name: 'asc' },
-    });
+    return this.prisma.product
+      .findMany({
+        where,
+        include: { balances: { where: { scope: 'WAREHOUSE' } } },
+        orderBy: { name: 'asc' },
+      })
+      .then((products) =>
+        products.map((p) => ({
+          ...p,
+          balances: p.balances[0] ?? null,
+        })),
+      );
   }
 
   create(dto: CreateProductDto) {
@@ -34,13 +41,13 @@ export class ProductsService {
       include: {
         packs: true,
         codes: true,
-        balances: true,
+        balances: { where: { scope: 'WAREHOUSE' } },
         reorderPolicy: true,
       },
     });
     if (!product) return null;
     const qrPayload = `MGPC:prod:${product.id}`;
     const qrSvg = await QRCode.toString(qrPayload, { type: 'svg' });
-    return { ...product, qrPayload, qrSvg };
+    return { ...product, balances: product.balances[0] ?? null, qrPayload, qrSvg };
   }
 }

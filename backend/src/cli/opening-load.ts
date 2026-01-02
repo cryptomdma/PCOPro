@@ -113,9 +113,9 @@ async function main() {
           }
 
           const balance = await tx.inventoryBalance.upsert({
-            where: { productId: product.id },
+            where: { productId_scope: { productId: product.id, scope: 'WAREHOUSE' } },
             update: {},
-            create: { productId: product.id, onHandBase: 0 },
+            create: { productId: product.id, scope: 'WAREHOUSE', onHandBase: 0 },
           });
 
           const beforeBase = balance.onHandBase;
@@ -134,7 +134,7 @@ async function main() {
           });
 
           await tx.inventoryBalance.update({
-            where: { productId: product.id },
+            where: { id: balance.id },
             data: { onHandBase: afterBase },
           });
 

@@ -1,5 +1,5 @@
 import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
-import { UnitBaseType } from '@prisma/client';
+import { ProductBehavior, ProductCategory, UnitBaseType } from '@prisma/client';
 
 export class CreateProductDto {
   @IsString()
@@ -14,8 +14,8 @@ export class CreateProductDto {
   description?: string;
 
   @IsOptional()
-  @IsString()
-  category?: string;
+  @IsEnum(ProductCategory)
+  category?: ProductCategory;
 
   @IsEnum(UnitBaseType)
   baseType!: UnitBaseType;
@@ -48,4 +48,8 @@ export class CreateProductDto {
   @IsOptional()
   @IsInt()
   leadTimeDays?: number;
+
+  @IsOptional()
+  @IsEnum(ProductBehavior)
+  behavior?: ProductBehavior;
 }
