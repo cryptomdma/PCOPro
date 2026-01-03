@@ -20,9 +20,9 @@ const ROLE_PERMISSIONS: Record<Role, Set<string>> = {
   TECH: new Set(['transfer.create', 'transfer.reverse', 'transfer.acknowledge', 'transfer.view']),
 };
 
-function hasPermission(role: Role, perm: string) {
+function hasPermission(role: Role, perm: string): boolean {
   if (ROLE_PERMISSIONS[role]?.has('*')) return true;
-  return ROLE_PERMISSIONS[role]?.has(perm);
+  return ROLE_PERMISSIONS[role]?.has(perm) ?? false;
 }
 
 @Injectable()
