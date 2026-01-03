@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query, UseGuards } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { AuditCountDto, BalanceQueryDto } from './audit.dto';
 import { TransferDto } from './transfer.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionGuard, RequirePerm } from '../auth/permissions';
 
 @Controller('inventory')
 export class InventoryController {
@@ -18,6 +20,8 @@ export class InventoryController {
   }
 
   @Post('transfer')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePerm('transfer.finalize')
   transfer(@Body() dto: TransferDto) {
     return this.inventory.transfer(dto);
   }

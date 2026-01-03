@@ -65,7 +65,7 @@ export class CheckoutService {
           beforeBase: balance.onHandBase,
           afterBase: after,
           actorId,
-          actorRole: actorId ? undefined : 'TECHNICIAN',
+          actorRole: actorId ? undefined : 'TECH',
           checkoutLineId: line.id,
           idempotencyKey: `checkout-${request.id}-${line.id}`,
         },

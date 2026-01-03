@@ -7,6 +7,8 @@ import { CheckoutModule } from './checkout/checkout.module';
 import { AnalyticsController } from './analytics.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { TechniciansModule } from './technicians/technicians.module';
+import { AuthModule } from './auth/auth.module';
+import { TransferRequestsModule } from './transfer-requests/transfer-requests.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { TechniciansModule } from './technicians/technicians.module';
     CheckoutModule,
     InventoryModule,
     TechniciansModule,
+    AuthModule,
+    TransferRequestsModule,
   ],
   controllers: [AnalyticsController],
   providers: [PrismaService],

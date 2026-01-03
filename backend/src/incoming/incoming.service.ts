@@ -73,7 +73,13 @@ export class IncomingService {
     const user = await this.prisma.user.upsert({
       where: { email: sysEmail },
       update: {},
-      create: { email: sysEmail, name: 'System', role: 'ADMIN' },
+      create: {
+        email: sysEmail,
+        name: 'System',
+        role: 'ADMIN',
+        passwordHash: '$2b$10$KIX5J2QUp3NEEraPfYZ7qeFfm6.H/Ejz.gIhVQbK5EOi33ECszOe2',
+        active: true,
+      },
     });
     return user.id;
   }

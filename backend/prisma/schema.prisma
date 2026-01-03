@@ -11,8 +11,9 @@ datasource db {
 
 enum Role {
   ADMIN
-  INVENTORY_MANAGER
-  TECHNICIAN
+  MANAGER
+  WAREHOUSE
+  TECH
 }
 
 enum UnitBaseType {
@@ -32,6 +33,22 @@ enum ProductBehavior {
   CONSUMABLE
   NONCONSUMABLE
   REGULATED_CUSTOMER_BOUND
+}
+
+enum TransferDirection {
+  ISSUE
+  RETURN
+}
+
+enum TransferRequestStatus {
+  OPEN
+  SUBMITTED
+  FINALIZED
+  ACK_PENDING
+  ACKNOWLEDGED
+  REJECTED
+  CANCELED
+  DISPUTED
 }
 
 enum TransactionType {
@@ -58,18 +75,25 @@ enum CheckoutStatus {
 }
 
 model User {
-  id            String                 @id @default(cuid())
-  email         String                 @unique
-  name          String
-  role          Role
-  location      String?
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
-  transactions  InventoryTransaction[]
-  incoming      IncomingReceipt[]      @relation("UserIncoming")
-  checkout      CheckoutRequest[]      @relation("UserCheckout")
-  notifications Notification[]
-}
+  id              String                 @id @default(cuid())
+  email           String                 @unique
+    passwordHash    String
+    name            String
+    role            Role
+    location        String?
+    technicianId    String?
+    technician      Technician?            @relation(fields: [technicianId], references: [id])
+  active          Boolean                @default(true)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+    transactions          InventoryTransaction[]
+    incoming              IncomingReceipt[]      @relation("UserIncoming")
+    checkout              CheckoutRequest[]      @relation("UserCheckout")
+    notifications         Notification[]
+    createdTransferRequests TransferRequest[]    @relation("TransferRequestCreatedBy")
+    finalizedTransfers     TransferRequest[]     @relation("TransferRequestFinalizedBy")
+    acknowledgedTransfers  TransferRequest[]     @relation("TransferRequestAcknowledgedBy")
+  }
 
 model Setting {
   key       String   @id
@@ -245,6 +269,49 @@ model ReorderPolicy {
   updatedAt          DateTime @updatedAt
 }
 
+model TransferRequest {
+  id                     String                @id @default(cuid())
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  createdByUserId        String
+  createdByUser          User                  @relation("TransferRequestCreatedBy", fields: [createdByUserId], references: [id])
+
+  technicianId           String
+  technician             Technician            @relation(fields: [technicianId], references: [id])
+
+  direction              TransferDirection
+  fromScope              String
+  toScope                String
+  status                 TransferRequestStatus @default(SUBMITTED)
+  reason                 String?
+  submittedAt            DateTime              @default(now())
+
+  finalizedAt            DateTime?
+  finalizedByUserId      String?
+  finalizedByUser        User?                 @relation("TransferRequestFinalizedBy", fields: [finalizedByUserId], references: [id])
+
+  acknowledgedAt         DateTime?
+  acknowledgedByUserId   String?
+  acknowledgedByUser     User?                 @relation("TransferRequestAcknowledgedBy", fields: [acknowledgedByUserId], references: [id])
+
+  disputeNote            String?
+
+  requestIdempotencyKey  String?               @unique
+
+  lines                  TransferRequestLine[]
+}
+
+model TransferRequestLine {
+  id                String            @id @default(cuid())
+  transferRequestId String
+  transferRequest   TransferRequest   @relation(fields: [transferRequestId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product           @relation(fields: [productId], references: [id])
+  quantity          Float
+  unitLabel         String
+}
+
 model Notification {
   id        String    @id @default(cuid())
   user      User      @relation(fields: [userId], references: [id])
@@ -256,9 +323,11 @@ model Notification {
 }
 
 model Technician {
-  id        String   @id @default(cuid())
-  name      String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+    id        String   @id @default(cuid())
+    name      String
+    active    Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    users     User[]
+    transferRequests TransferRequest[]
+  }

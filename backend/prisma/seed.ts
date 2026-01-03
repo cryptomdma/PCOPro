@@ -3,15 +3,31 @@ import { PrismaClient, UnitBaseType } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+  const techProfile = await prisma.technician.upsert({
+    where: { id: 'tech-1' },
+    update: {},
+    create: { id: 'tech-1', name: 'Tech One' },
+  });
   const tech = await prisma.user.upsert({
     where: { email: 'tech@example.com' },
     update: {},
-    create: { email: 'tech@example.com', name: 'Tech One', role: 'TECHNICIAN' },
+    create: {
+      email: 'tech@example.com',
+      name: 'Tech One',
+      role: 'TECH',
+      technicianId: techProfile.id,
+      passwordHash: '$2b$10$KIX5J2QUp3NEEraPfYZ7qeFfm6.H/Ejz.gIhVQbK5EOi33ECszOe2', // "password"
+    },
   });
   const manager = await prisma.user.upsert({
     where: { email: 'manager@example.com' },
     update: {},
-    create: { email: 'manager@example.com', name: 'Inventory Manager', role: 'INVENTORY_MANAGER' },
+    create: {
+      email: 'manager@example.com',
+      name: 'Inventory Manager',
+      role: 'MANAGER',
+      passwordHash: '$2b$10$KIX5J2QUp3NEEraPfYZ7qeFfm6.H/Ejz.gIhVQbK5EOi33ECszOe2',
+    },
   });
 
   const suspend = await prisma.product.upsert({

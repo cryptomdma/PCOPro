@@ -24,6 +24,7 @@ Seed data: `docker-compose run --rm backend npm run prisma:generate && docker-co
 - **Request/Finalize Checkout**: POST `/api/v1/checkout/requests`, POST `/api/v1/checkout/:id/finalize`
 - **Audit Count / True-Up**: POST `/api/v1/inventory/audit`, balances via `/api/v1/inventory/balances` (default scope `WAREHOUSE`)
 - **Scoped Transfers**: POST `/api/v1/inventory/transfer` to move stock between scopes (default from `WAREHOUSE` to `TRUCK:<technicianId>`) with idempotent paired transactions
+- **Transfer Requests**: `/api/v1/transfer-requests` (create/list/detail/finalize/ack/dispute) with auth/roles; see Auth section
 - **Basic analytics preview**: `/api/v1/analytics/usage` placeholder returning empty array (extend in service)
 
 ## Offline-first
@@ -37,3 +38,16 @@ Seed data: `docker-compose run --rm backend npm run prisma:generate && docker-co
 - UI: open **Audit Count** from the nav, search/select a product, enter counted quantity + unit + reason, submit to true-up balances. Results show before/count/delta/after in tracking + base units with flags for negative or large swings.
 - API: `POST /api/v1/inventory/audit` with `productId`, `countedQty`, `unit` (`tracking` | `checkout`), `reason`, optional `comment`/`device`, optional `scope` (default `WAREHOUSE`). Optional `Idempotency-Key` header guards duplicate posts.
 - Reference: `docs/audit-count.md` for the full flow and notification rules.
+
+## Auth + Roles (minimal)
+- Roles: `ADMIN`, `MANAGER`, `WAREHOUSE`, `TECH` with permission mapping enforced via guard.
+- Login: `POST /api/v1/auth/login {email,password}` -> `{token,user}`; set `Authorization: Bearer <token>`.
+- Bootstrap: `POST /api/v1/auth/bootstrap-admin` (uses env `ADMIN_EMAIL`/`ADMIN_PASSWORD`, optional header `x-bootstrap-secret` if `BOOTSTRAP_SECRET` set) when no users exist.
+
+## Transfer Requests (issue/return queue)
+- Create: `POST /api/v1/transfer-requests` (TECH self-only; others any tech), body `{direction: ISSUE|RETURN, technicianId, reason?, idempotencyKey?, lines:[{productId, quantity, unitLabel}]}`. Scopes derived server-side.
+- List: `GET /api/v1/transfer-requests?status=...&technicianId=...&direction=...&includeClosed=true|false`
+- Detail: `GET /api/v1/transfer-requests/:id`
+- Finalize (ledger post): `POST /api/v1/transfer-requests/:id/finalize` (WAREHOUSE/MANAGER/ADMIN). ISSUE -> status `ACK_PENDING`; RETURN -> `FINALIZED`.
+- Acknowledge (tech once per request): `POST /api/v1/transfer-requests/:id/acknowledge` when status `ACK_PENDING`.
+- Dispute (tech): `POST /api/v1/transfer-requests/:id/dispute` when status `ACK_PENDING` (no ledger change).
