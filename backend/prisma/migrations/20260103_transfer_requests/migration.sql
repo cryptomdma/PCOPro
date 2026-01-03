@@ -10,10 +10,10 @@ ALTER TABLE "InventoryTransaction"
   ALTER COLUMN "actorRole" DROP DEFAULT,
   ALTER COLUMN "actorRole" TYPE "Role_new" USING (
     CASE
-      WHEN "actorRole" = 'ADMIN' THEN 'ADMIN'::"Role_new"
-      WHEN "actorRole" = 'INVENTORY_MANAGER' THEN 'MANAGER'::"Role_new"
-      WHEN "actorRole" = 'TECHNICIAN' THEN 'TECH'::"Role_new"
-      WHEN "actorRole" = 'WAREHOUSE' THEN 'WAREHOUSE'::"Role_new"
+      WHEN "actorRole"::text = 'ADMIN' THEN 'ADMIN'::"Role_new"
+      WHEN "actorRole"::text = 'INVENTORY_MANAGER' THEN 'MANAGER'::"Role_new"
+      WHEN "actorRole"::text = 'TECHNICIAN' THEN 'TECH'::"Role_new"
+      WHEN "actorRole"::text = 'WAREHOUSE' THEN 'WAREHOUSE'::"Role_new"
       ELSE NULL
     END
   );
@@ -21,10 +21,10 @@ ALTER TABLE "InventoryTransaction"
 ALTER TABLE "User"
   ALTER COLUMN "role" TYPE "Role_new" USING (
     CASE
-      WHEN "role" = 'ADMIN' THEN 'ADMIN'::"Role_new"
-      WHEN "role" = 'INVENTORY_MANAGER' THEN 'MANAGER'::"Role_new"
-      WHEN "role" = 'TECHNICIAN' THEN 'TECH'::"Role_new"
-      WHEN "role" = 'WAREHOUSE' THEN 'WAREHOUSE'::"Role_new"
+      WHEN "role"::text = 'ADMIN' THEN 'ADMIN'::"Role_new"
+      WHEN "role"::text = 'INVENTORY_MANAGER' THEN 'MANAGER'::"Role_new"
+      WHEN "role"::text = 'TECHNICIAN' THEN 'TECH'::"Role_new"
+      WHEN "role"::text = 'WAREHOUSE' THEN 'WAREHOUSE'::"Role_new"
       ELSE 'TECH'::"Role_new"
     END
   );
