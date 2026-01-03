@@ -75,25 +75,25 @@ enum CheckoutStatus {
 }
 
 model User {
-  id              String                 @id @default(cuid())
-  email           String                 @unique
-    passwordHash    String
-    name            String
-    role            Role
-    location        String?
-    technicianId    String?
-    technician      Technician?            @relation(fields: [technicianId], references: [id])
-  active          Boolean                @default(true)
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-    transactions          InventoryTransaction[]
-    incoming              IncomingReceipt[]      @relation("UserIncoming")
-    checkout              CheckoutRequest[]      @relation("UserCheckout")
-    notifications         Notification[]
-    createdTransferRequests TransferRequest[]    @relation("TransferRequestCreatedBy")
-    finalizedTransfers     TransferRequest[]     @relation("TransferRequestFinalizedBy")
-    acknowledgedTransfers  TransferRequest[]     @relation("TransferRequestAcknowledgedBy")
-  }
+  id                      String                 @id @default(cuid())
+  email                   String                 @unique
+  passwordHash            String
+  name                    String
+  role                    Role
+  location                String?
+  technicianId            String?
+  technician              Technician?            @relation(fields: [technicianId], references: [id])
+  active                  Boolean                @default(true)
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  transactions            InventoryTransaction[]
+  incoming                IncomingReceipt[]      @relation("UserIncoming")
+  checkout                CheckoutRequest[]      @relation("UserCheckout")
+  notifications           Notification[]
+  createdTransferRequests TransferRequest[]      @relation("TransferRequestCreatedBy")
+  finalizedTransfers      TransferRequest[]      @relation("TransferRequestFinalizedBy")
+  acknowledgedTransfers   TransferRequest[]      @relation("TransferRequestAcknowledgedBy")
+}
 
 model Setting {
   key       String   @id
@@ -102,12 +102,12 @@ model Setting {
 }
 
 model Product {
-  id                String                 @id @default(cuid())
-  name              String                 @unique
+  id                String          @id @default(cuid())
+  name              String          @unique
   epaRegNo          String?
   description       String?
-  category          ProductCategory        @default(CHEMICAL)
-  behavior          ProductBehavior        @default(CONSUMABLE)
+  category          ProductCategory @default(CHEMICAL)
+  behavior          ProductBehavior @default(CONSUMABLE)
   baseType          UnitBaseType
   trackingUnitLabel String
   checkoutUnitLabel String
@@ -118,19 +118,19 @@ model Product {
   reorderLevelBase  Int?
   quantityInReorder Int? // mirrors Excel quantity in reorder
   leadTimeDays      Int?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
-  isStocked         Boolean @default(true)
-  isDiscontinued    Boolean @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  isStocked         Boolean         @default(true)
+  isDiscontinued    Boolean         @default(false)
 
-
-  packs         ProductPack[]
-  codes         ProductCode[]
-  transactions  InventoryTransaction[]
-  balances      InventoryBalance[]
-  reorderPolicy ReorderPolicy?
-  incomingLines IncomingLine[]
-  checkoutLines CheckoutLine[]
+  packs                ProductPack[]
+  codes                ProductCode[]
+  transactions         InventoryTransaction[]
+  balances             InventoryBalance[]
+  reorderPolicy        ReorderPolicy?
+  incomingLines        IncomingLine[]
+  checkoutLines        CheckoutLine[]
+  transferRequestLines TransferRequestLine[]
 }
 
 model ProductPack {
@@ -167,31 +167,31 @@ model InventoryBalance {
 }
 
 model InventoryTransaction {
-  id                 String          @id @default(cuid())
-  product            Product         @relation(fields: [productId], references: [id])
-  productId          String
-  type               TransactionType
-  scope              String          @default("WAREHOUSE")
-  quantityBase       Int
-  beforeBase         Int
-  afterBase          Int
-  actor              User?           @relation(fields: [actorId], references: [id])
-  actorId            String?
-  actorRole          Role?
-  device             String?
-  reason             String?
-  idempotencyKey     String
-  transferGroupId    String?
+  id                     String          @id @default(cuid())
+  product                Product         @relation(fields: [productId], references: [id])
+  productId              String
+  type                   TransactionType
+  scope                  String          @default("WAREHOUSE")
+  quantityBase           Int
+  beforeBase             Int
+  afterBase              Int
+  actor                  User?           @relation(fields: [actorId], references: [id])
+  actorId                String?
+  actorRole              Role?
+  device                 String?
+  reason                 String?
+  idempotencyKey         String
+  transferGroupId        String?
   transferIdempotencyKey String?
 
-  sourceReceiptLine  IncomingLine?   @relation("IncomingLineTransactions", fields: [incomingLineId], references: [id])
-  incomingLineId     String?
+  sourceReceiptLine IncomingLine? @relation("IncomingLineTransactions", fields: [incomingLineId], references: [id])
+  incomingLineId    String?
 
-  sourceCheckoutLine CheckoutLine?   @relation("CheckoutLineTransactions", fields: [checkoutLineId], references: [id])
+  sourceCheckoutLine CheckoutLine? @relation("CheckoutLineTransactions", fields: [checkoutLineId], references: [id])
   checkoutLineId     String?
 
-  createdAt          DateTime        @default(now())
-  comment            String?
+  createdAt DateTime @default(now())
+  comment   String?
 
   @@unique([idempotencyKey])
   @@index([transferIdempotencyKey])
@@ -210,18 +210,18 @@ model IncomingReceipt {
 }
 
 model IncomingLine {
-  id                 String                 @id @default(cuid())
-  receipt            IncomingReceipt        @relation(fields: [receiptId], references: [id])
+  id                 String          @id @default(cuid())
+  receipt            IncomingReceipt @relation(fields: [receiptId], references: [id])
   receiptId          String
-  product            Product                @relation(fields: [productId], references: [id])
+  product            Product         @relation(fields: [productId], references: [id])
   productId          String
   qtyOrdered         Int
   qtyReceived        Int
   backorderedQty     Int
   receivingUnitLabel String // user selected label (e.g., case, bottle)
-  createdAt          DateTime               @default(now())
+  createdAt          DateTime        @default(now())
 
-  transactions       InventoryTransaction[] @relation("IncomingLineTransactions")
+  transactions InventoryTransaction[] @relation("IncomingLineTransactions")
 }
 
 model CheckoutRequest {
@@ -237,18 +237,18 @@ model CheckoutRequest {
 }
 
 model CheckoutLine {
-  id                String                 @id @default(cuid())
-  request           CheckoutRequest        @relation(fields: [requestId], references: [id])
+  id                String          @id @default(cuid())
+  request           CheckoutRequest @relation(fields: [requestId], references: [id])
   requestId         String
-  product           Product                @relation(fields: [productId], references: [id])
+  product           Product         @relation(fields: [productId], references: [id])
   productId         String
   qtyRequested      Int
   qtyIssued         Int?
   checkoutUnitLabel String
   totalBaseQuantity Int? // derived
-  createdAt         DateTime               @default(now())
+  createdAt         DateTime        @default(now())
 
-  transactions      InventoryTransaction[] @relation("CheckoutLineTransactions")
+  transactions InventoryTransaction[] @relation("CheckoutLineTransactions")
 }
 
 model ReasonCode {
@@ -270,44 +270,44 @@ model ReorderPolicy {
 }
 
 model TransferRequest {
-  id                     String                @id @default(cuid())
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdByUserId        String
-  createdByUser          User                  @relation("TransferRequestCreatedBy", fields: [createdByUserId], references: [id])
+  createdByUserId String
+  createdByUser   User   @relation("TransferRequestCreatedBy", fields: [createdByUserId], references: [id])
 
-  technicianId           String
-  technician             Technician            @relation(fields: [technicianId], references: [id])
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id])
 
-  direction              TransferDirection
-  fromScope              String
-  toScope                String
-  status                 TransferRequestStatus @default(SUBMITTED)
-  reason                 String?
-  submittedAt            DateTime              @default(now())
+  direction   TransferDirection
+  fromScope   String
+  toScope     String
+  status      TransferRequestStatus @default(SUBMITTED)
+  reason      String?
+  submittedAt DateTime              @default(now())
 
-  finalizedAt            DateTime?
-  finalizedByUserId      String?
-  finalizedByUser        User?                 @relation("TransferRequestFinalizedBy", fields: [finalizedByUserId], references: [id])
+  finalizedAt       DateTime?
+  finalizedByUserId String?
+  finalizedByUser   User?     @relation("TransferRequestFinalizedBy", fields: [finalizedByUserId], references: [id])
 
-  acknowledgedAt         DateTime?
-  acknowledgedByUserId   String?
-  acknowledgedByUser     User?                 @relation("TransferRequestAcknowledgedBy", fields: [acknowledgedByUserId], references: [id])
+  acknowledgedAt       DateTime?
+  acknowledgedByUserId String?
+  acknowledgedByUser   User?     @relation("TransferRequestAcknowledgedBy", fields: [acknowledgedByUserId], references: [id])
 
-  disputeNote            String?
+  disputeNote String?
 
-  requestIdempotencyKey  String?               @unique
+  requestIdempotencyKey String? @unique
 
-  lines                  TransferRequestLine[]
+  lines TransferRequestLine[]
 }
 
 model TransferRequestLine {
-  id                String            @id @default(cuid())
+  id                String          @id @default(cuid())
   transferRequestId String
-  transferRequest   TransferRequest   @relation(fields: [transferRequestId], references: [id], onDelete: Cascade)
+  transferRequest   TransferRequest @relation(fields: [transferRequestId], references: [id], onDelete: Cascade)
   productId         String
-  product           Product           @relation(fields: [productId], references: [id])
+  product           Product         @relation(fields: [productId], references: [id])
   quantity          Float
   unitLabel         String
 }
@@ -323,11 +323,11 @@ model Notification {
 }
 
 model Technician {
-    id        String   @id @default(cuid())
-    name      String
-    active    Boolean  @default(true)
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    users     User[]
-    transferRequests TransferRequest[]
-  }
+  id               String            @id @default(cuid())
+  name             String
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  users            User[]
+  transferRequests TransferRequest[]
+}
