@@ -258,7 +258,7 @@ export class InventoryService {
     params: { productName: string; afterBase: number; deltaBase: number; negativeAfter: boolean; deltaLarge: boolean },
   ) {
     const users = await tx.user.findMany({
-      where: { role: { in: ['ADMIN', 'INVENTORY_MANAGER'] } },
+      where: { role: { in: ['ADMIN', 'MANAGER', 'WAREHOUSE'] } },
       select: { id: true },
     });
     if (!users.length) return;
