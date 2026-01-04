@@ -37,10 +37,14 @@ export class PermissionGuard implements CanActivate {
     if (!perms || perms.length === 0) return true;
     const request = context.switchToHttp().getRequest();
     const user = request.user as { role?: Role };
-    if (!user?.role) {
+
+    const role = user?.role;
+    if (!role) {
       throw new ForbiddenException('Missing role');
     }
-    const allowed = perms.every((p) => hasPermission(user.role, p));
+
+    const allowed = perms.every((p) => hasPermission(role, p));
+    
     if (!allowed) {
       throw new ForbiddenException('Insufficient permissions');
     }
