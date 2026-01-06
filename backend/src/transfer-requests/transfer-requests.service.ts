@@ -213,7 +213,7 @@ export class TransferRequestsService {
     const request = await this.prisma.transferRequest.findUnique({ where: { id } });
     if (!request) throw new NotFoundException('Request not found');
     if (user.role !== 'TECH' || user.technicianId !== request.technicianId) {
-      throw new ForbiddenException('Not allowed');
+      throw new ForbiddenException('Technician can only acknowledge their own request');
     }
     if (request.status !== 'ACK_PENDING') {
       throw new BadRequestException('Nothing to acknowledge');
@@ -234,7 +234,7 @@ export class TransferRequestsService {
     const request = await this.prisma.transferRequest.findUnique({ where: { id } });
     if (!request) throw new NotFoundException('Request not found');
     if (user.role !== 'TECH' || user.technicianId !== request.technicianId) {
-      throw new ForbiddenException('Not allowed');
+      throw new ForbiddenException('Technician can only dispute their own request');
     }
     if (request.status !== 'ACK_PENDING') {
       throw new BadRequestException('Cannot dispute at this stage');

@@ -8,7 +8,7 @@ import * as QRCode from 'qrcode';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  list(params: { search?: string; reorderOnly?: boolean }) {
+  list(params: { search?: string; reorderOnly?: boolean; limit?: number }) {
     const where: Prisma.ProductWhereInput = {};
     if (params.search) {
       where.OR = [
@@ -17,11 +17,13 @@ export class ProductsService {
         { epaRegNo: { contains: params.search, mode: 'insensitive' } },
       ];
     }
+    const limit = params.limit && params.limit > 0 ? Math.min(params.limit, 500) : 200;
     return this.prisma.product
       .findMany({
         where,
         include: { balances: { where: { scope: 'WAREHOUSE' } } },
         orderBy: { name: 'asc' },
+        take: limit,
       })
       .then((products) =>
         products.map((p) => ({
