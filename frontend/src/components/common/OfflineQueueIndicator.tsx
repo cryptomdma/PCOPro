@@ -24,7 +24,7 @@ export function OfflineQueueIndicator() {
 
   return (
     <div className={`badge ${online ? 'online' : 'offline'}`} title="Offline queue status">
-      {online ? 'Online' : 'Offline'} • {pending} queued
+      {online ? 'Online' : 'Offline'} | {pending} queued
     </div>
   );
 }

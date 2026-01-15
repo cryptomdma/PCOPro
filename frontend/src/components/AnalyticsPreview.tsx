@@ -20,24 +20,26 @@ export function AnalyticsPreview() {
         </div>
         <OfflineTag />
       </header>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Product</th>
-            <th>Qty Used</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={`${row.productId}-${row.month}`}>
-              <td>{row.month}</td>
-              <td>{row.productName}</td>
-              <td>{row.quantityUsed}</td>
+      <div className="card">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Product</th>
+              <th>Qty Used</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${row.productId}-${row.month}`}>
+                <td>{row.month}</td>
+                <td>{row.productName}</td>
+                <td>{row.quantityUsed}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

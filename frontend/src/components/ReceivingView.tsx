@@ -27,7 +27,7 @@ export function ReceivingView() {
         </div>
         <OfflineTag />
       </header>
-      <div className="form">
+      <div className="form card">
         <label>
           Date
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -40,7 +40,9 @@ export function ReceivingView() {
           Qty Received
           <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
         </label>
-        <button onClick={submit}>Post Receipt</button>
+        <button type="button" onClick={submit}>
+          Post Receipt
+        </button>
       </div>
       <ul className="activity">
         {messages.map((msg, idx) => (

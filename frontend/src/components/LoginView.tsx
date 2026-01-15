@@ -40,7 +40,7 @@ export function LoginView() {
         </div>
       </header>
       {error ? <div className="error-panel">{error}</div> : null}
-      <form className="form" onSubmit={handleSubmit}>
+      <form className="form card" onSubmit={handleSubmit}>
         <label>
           Email
           <input value={email} onChange={(e) => setEmail(e.target.value)} required />

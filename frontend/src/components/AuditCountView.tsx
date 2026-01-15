@@ -115,7 +115,7 @@ export function AuditCountView() {
         </div>
       ) : null}
 
-      <form className="form" onSubmit={handleSubmit}>
+      <form className="form card" onSubmit={handleSubmit}>
         <label>
           Search product
           <input
@@ -181,7 +181,7 @@ export function AuditCountView() {
         </label>
 
         <button type="submit" disabled={loading}>
-          {loading ? 'Posting…' : 'Submit audit'}
+          {loading ? 'Posting...' : 'Submit audit'}
         </button>
       </form>
 

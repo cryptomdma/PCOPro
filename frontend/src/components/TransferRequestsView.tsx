@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../auth';
+import { useToast } from './ui/Toast';
+import { useConfirm } from './ui/ConfirmDialog';
+import { ModalShell } from './ui/ModalShell';
+import { StatusBadge } from './ui/StatusBadge';
 
 type TransferDirection = 'ISSUE' | 'RETURN';
 type TransferRequestStatus =
@@ -28,6 +32,10 @@ type TransferRequest = {
   technician?: { id: string; name: string };
 };
 
+type TransferRequestDetail = TransferRequest & {
+  lines?: Array<{ id: string; productId: string; quantity: number; unitLabel: string }>;
+};
+
 type Technician = { id: string; name: string; active: boolean };
 type Product = {
   id: string;
@@ -44,6 +52,8 @@ const unitOptionsFor = (product?: Product) => {
 
 export function TransferRequestsView() {
   const { user } = useAuth();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [direction, setDirection] = useState<TransferDirection>('ISSUE');
   const [technicianId, setTechnicianId] = useState('');
@@ -57,10 +67,10 @@ export function TransferRequestsView() {
 
   const [openRequests, setOpenRequests] = useState<TransferRequest[]>([]);
   const [historyRequests, setHistoryRequests] = useState<TransferRequest[]>([]);
-  const [recentDetail, setRecentDetail] = useState<TransferRequest | null>(null);
+  const [detail, setDetail] = useState<TransferRequestDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
 
@@ -82,7 +92,10 @@ export function TransferRequestsView() {
     const query = productSearch.trim().toLowerCase();
     if (!query) return products;
     return products.filter(
-      (p) => p.name.toLowerCase().includes(query) || p.id.toLowerCase().includes(query) || p.baseType.toLowerCase().includes(query),
+      (p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.id.toLowerCase().includes(query) ||
+        p.baseType.toLowerCase().includes(query),
     );
   }, [products, productSearch]);
 
@@ -104,7 +117,7 @@ export function TransferRequestsView() {
       console.error(context, err?.response?.data ?? err);
     }
     setError(message);
-    setToast({ kind: 'error', message });
+    showToast({ kind: 'error', message });
   }
 
   async function fetchTechnicians() {
@@ -197,11 +210,10 @@ export function TransferRequestsView() {
   async function submitRequest(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setToast(null);
     const validation = validateLines();
     if (!validation.ok) {
       setError(validation.message);
-      setToast({ kind: 'error', message: validation.message });
+      showToast({ kind: 'error', message: validation.message });
       return;
     }
     setLoading(true);
@@ -213,7 +225,7 @@ export function TransferRequestsView() {
         lines: validation.value,
       });
       await refreshQueues();
-      setToast({ kind: 'success', message: 'Transfer request submitted' });
+      showToast({ kind: 'success', message: 'Transfer request submitted' });
       setLines([{ productId: '', quantity: 1, unitLabel: '' }]);
     } catch (err: any) {
       handleError('create request failed', err, 'Failed to create request');
@@ -233,14 +245,19 @@ export function TransferRequestsView() {
   }
 
   async function finalize(id: string) {
+    const ok = await confirm({
+      title: 'Finalize transfer',
+      message: 'Finalize this transfer and post the ledger entries?',
+      confirmLabel: 'Finalize',
+    });
+    if (!ok) return;
     setError(null);
-    setToast(null);
     setActionBusy(true);
     try {
       const res = await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/finalize`);
-      setRecentDetail(res.data);
+      setDetail(res.data);
       await refreshQueues();
-      setToast({ kind: 'success', message: 'Transfer finalized' });
+      showToast({ kind: 'success', message: 'Transfer finalized' });
     } catch (err: any) {
       handleError('finalize failed', err, 'Failed to finalize');
     } finally {
@@ -250,13 +267,12 @@ export function TransferRequestsView() {
 
   async function acknowledge(id: string) {
     setError(null);
-    setToast(null);
     setActionBusy(true);
     try {
       const res = await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/acknowledge`);
-      setRecentDetail(res.data);
+      setDetail(res.data);
       await refreshQueues();
-      setToast({ kind: 'success', message: 'Acknowledged receipt' });
+      showToast({ kind: 'success', message: 'Acknowledged receipt' });
     } catch (err: any) {
       handleError('acknowledge failed', err, 'Failed to acknowledge');
     } finally {
@@ -268,17 +284,29 @@ export function TransferRequestsView() {
     const note = prompt('Enter dispute note');
     if (!note) return;
     setError(null);
-    setToast(null);
     setActionBusy(true);
     try {
       const res = await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/dispute`, { note });
-      setRecentDetail(res.data);
+      setDetail(res.data);
       await refreshQueues();
-      setToast({ kind: 'success', message: 'Dispute submitted' });
+      showToast({ kind: 'success', message: 'Dispute submitted' });
     } catch (err: any) {
       handleError('dispute failed', err, 'Failed to dispute');
     } finally {
       setActionBusy(false);
+    }
+  }
+
+  async function openDetail(request: TransferRequest) {
+    setDetail(request);
+    setDetailLoading(true);
+    try {
+      const res = await axios.get<TransferRequestDetail>(`/api/v1/transfer-requests/${request.id}`);
+      setDetail(res.data);
+    } catch (err: any) {
+      handleError('load detail failed', err, 'Failed to load request detail');
+    } finally {
+      setDetailLoading(false);
     }
   }
 
@@ -291,21 +319,9 @@ export function TransferRequestsView() {
         </div>
       </header>
 
-      {toast ? (
-        <div
-          className={toast.kind === 'error' ? 'error-panel' : 'success-panel'}
-          style={
-            toast.kind === 'success'
-              ? { marginBottom: '0.75rem', border: '1px solid #2e7d32', background: '#e8f5e9', color: '#1b5e20' }
-              : { marginBottom: '0.75rem' }
-          }
-        >
-          {toast.message}
-        </div>
-      ) : null}
       {error ? <div className="error-panel">{error}</div> : null}
 
-      <form className="form" onSubmit={submitRequest}>
+      <form className="form card" onSubmit={submitRequest}>
         <h4>New Request</h4>
         <label>
           Direction
@@ -338,7 +354,7 @@ export function TransferRequestsView() {
           Reason (optional)
           <input value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
-        <div>
+        <div className="card-stack">
           <strong>Lines</strong>
           <label>
             Find product
@@ -354,22 +370,10 @@ export function TransferRequestsView() {
             const options = unitOptionsFor(product);
             const unitLabel = options.includes(line.unitLabel) ? line.unitLabel : '';
             return (
-              <div
-                key={idx}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '2fr 1fr 1fr auto',
-                  gap: '0.5rem',
-                  marginTop: '0.25rem',
-                }}
-              >
+              <div key={idx} className="line-row">
                 <label>
                   Product
-                  <select
-                    value={line.productId}
-                    onChange={(e) => onProductChange(idx, e.target.value)}
-                    required
-                  >
+                  <select value={line.productId} onChange={(e) => onProductChange(idx, e.target.value)} required>
                     <option value="">Select product</option>
                     {filteredProducts.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -407,7 +411,7 @@ export function TransferRequestsView() {
                     ))}
                   </select>
                 </label>
-                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                <div className="line-actions">
                   <button type="button" onClick={() => removeLine(idx)} disabled={lines.length === 1}>
                     Remove
                   </button>
@@ -416,7 +420,7 @@ export function TransferRequestsView() {
             );
           })}
           <button type="button" onClick={addLine}>
-            + Add line
+            Add product
           </button>
         </div>
         <button type="submit" disabled={loading}>
@@ -425,30 +429,35 @@ export function TransferRequestsView() {
       </form>
 
       <div className="grid">
-        <div>
+        <div className="card-stack">
           <h4>Open Queue</h4>
           <ul className="activity">
             {openRequests.map((req) => {
               const actions = availableActions(req);
               return (
-                <li key={req.id}>
-                  <div>
-                    <strong>{req.direction}</strong>{' → '}{req.status}{' → '}Tech: {req.technician?.name ?? req.technicianId}{' → '}Lines:{' '}
-                    {req._count?.lines ?? 0}
+                <li key={req.id} className="clickable" onClick={() => openDetail(req)}>
+                  <div className="card-stack">
+                    <div className="card-row">
+                      <strong>{req.direction}</strong>
+                      <StatusBadge status={req.status} />
+                    </div>
+                    <div className="muted">
+                      Tech: {req.technician?.name ?? req.technicianId} | Lines: {req._count?.lines ?? 0}
+                    </div>
                   </div>
                   <div className="pill-row">
                     {actions.canFinalize ? (
-                      <button type="button" onClick={() => finalize(req.id)} disabled={actionBusy}>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); finalize(req.id); }} disabled={actionBusy}>
                         Finalize
                       </button>
                     ) : null}
                     {actions.canAcknowledge ? (
-                      <button type="button" onClick={() => acknowledge(req.id)} disabled={actionBusy}>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); acknowledge(req.id); }} disabled={actionBusy}>
                         Acknowledge
                       </button>
                     ) : null}
                     {actions.canDispute ? (
-                      <button type="button" onClick={() => dispute(req.id)} disabled={actionBusy}>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); dispute(req.id); }} disabled={actionBusy}>
                         Dispute
                       </button>
                     ) : null}
@@ -458,24 +467,28 @@ export function TransferRequestsView() {
             })}
           </ul>
         </div>
-        <div>
+        <div className="card-stack">
           <h4>Pending Acknowledgments</h4>
           <ul className="activity">
             {ackPendingForUser.map((req) => {
               const actions = availableActions(req);
               return (
-                <li key={req.id}>
-                  <div>
-                    {req.direction}{' → '}{req.status}{' → '}Tech: {req.technician?.name ?? req.technicianId}
+                <li key={req.id} className="clickable" onClick={() => openDetail(req)}>
+                  <div className="card-stack">
+                    <div className="card-row">
+                      <strong>{req.direction}</strong>
+                      <StatusBadge status={req.status} />
+                    </div>
+                    <div className="muted">Tech: {req.technician?.name ?? req.technicianId}</div>
                   </div>
                   <div className="pill-row">
                     {actions.canAcknowledge ? (
-                      <button type="button" onClick={() => acknowledge(req.id)} disabled={actionBusy}>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); acknowledge(req.id); }} disabled={actionBusy}>
                         Confirm receipt
                       </button>
                     ) : null}
                     {actions.canDispute ? (
-                      <button type="button" onClick={() => dispute(req.id)} disabled={actionBusy}>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); dispute(req.id); }} disabled={actionBusy}>
                         Dispute
                       </button>
                     ) : null}
@@ -488,18 +501,22 @@ export function TransferRequestsView() {
         </div>
       </div>
 
-      <div>
+      <div className="card-stack">
         <h4>History</h4>
         <ul className="activity">
           {closedHistory.map((req) => (
-            <li key={req.id}>
-              <div>
-                <strong>{req.direction}</strong>{' → '}{req.status}{' → '}Tech: {req.technician?.name ?? req.technicianId}
-              </div>
-              <div style={{ fontSize: '0.85rem', color: '#555' }}>
-                Created {new Date(req.createdAt).toLocaleString()}
-                {req.finalizedAt ? ` | Finalized ${new Date(req.finalizedAt).toLocaleString()}` : ''}
-                {req.acknowledgedAt ? ` | Acknowledged ${new Date(req.acknowledgedAt).toLocaleString()}` : ''}
+            <li key={req.id} className="clickable" onClick={() => openDetail(req)}>
+              <div className="card-stack">
+                <div className="card-row">
+                  <strong>{req.direction}</strong>
+                  <StatusBadge status={req.status} />
+                </div>
+                <div className="muted">Tech: {req.technician?.name ?? req.technicianId}</div>
+                <div className="muted">
+                  Created {new Date(req.createdAt).toLocaleString()}
+                  {req.finalizedAt ? ` | Finalized ${new Date(req.finalizedAt).toLocaleString()}` : ''}
+                  {req.acknowledgedAt ? ` | Acknowledged ${new Date(req.acknowledgedAt).toLocaleString()}` : ''}
+                </div>
               </div>
             </li>
           ))}
@@ -507,11 +524,33 @@ export function TransferRequestsView() {
         </ul>
       </div>
 
-      {recentDetail ? (
-        <div className="info-panel" style={{ marginTop: '1rem' }}>
-          Last updated request: {recentDetail.id} is now {recentDetail.status}
-        </div>
-      ) : null}
+      <ModalShell open={Boolean(detail)} title="Request Detail" onClose={() => setDetail(null)}>
+        {detail ? (
+          <div className="card-stack">
+            <div className="card-row">
+              <strong>{detail.direction}</strong>
+              <StatusBadge status={detail.status} />
+            </div>
+            <div className="muted">Technician: {detail.technician?.name ?? detail.technicianId}</div>
+            {detail.reason ? <div className="muted">Reason: {detail.reason}</div> : null}
+            {detailLoading ? <div className="muted">Loading lines...</div> : null}
+            {detail.lines && detail.lines.length > 0 ? (
+              <div className="card-stack">
+                <strong>Lines</strong>
+                {detail.lines.map((line) => (
+                  <div key={line.id} className="card-row">
+                    <span>{line.productId}</span>
+                    <span>
+                      {line.quantity} {line.unitLabel}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {detail.disputeNote ? <div className="muted">Dispute note: {detail.disputeNote}</div> : null}
+          </div>
+        ) : null}
+      </ModalShell>
     </section>
   );
 }

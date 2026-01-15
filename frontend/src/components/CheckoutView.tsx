@@ -27,7 +27,7 @@ export function CheckoutView() {
         </div>
         <OfflineTag />
       </header>
-      <div className="form">
+      <div className="form card">
         <label>
           Date
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -44,7 +44,9 @@ export function CheckoutView() {
           Qty
           <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
         </label>
-        <button onClick={submit}>Submit Request</button>
+        <button type="button" onClick={submit}>
+          Submit Request
+        </button>
       </div>
       <ul className="activity">
         {messages.map((msg, idx) => (
