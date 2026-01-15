@@ -464,7 +464,7 @@ export function TransferRequestsView() {
               return (
                 <li key={req.id}>
                   <div>
-                    <strong>{req.direction}</strong> -> {req.status} -> Tech: {req.technician?.name ?? req.technicianId} -> Lines:{' '}
+                    <strong>{req.direction}</strong>{' → '}{req.status}{' → '}Tech: {req.technician?.name ?? req.technicianId}{' → '}Lines:{' '}
                     {req._count?.lines ?? 0}
                   </div>
                   <div className="pill-row">
@@ -497,7 +497,7 @@ export function TransferRequestsView() {
               return (
                 <li key={req.id}>
                   <div>
-                    {req.direction} -> {req.status} -> Tech: {req.technician?.name ?? req.technicianId}
+                    {req.direction}{' → '}{req.status}{' → '}Tech: {req.technician?.name ?? req.technicianId}
                   </div>
                   <div className="pill-row">
                     {actions.canAcknowledge ? (
@@ -525,7 +525,7 @@ export function TransferRequestsView() {
           {closedHistory.map((req) => (
             <li key={req.id}>
               <div>
-                <strong>{req.direction}</strong> -> {req.status} -> Tech: {req.technician?.name ?? req.technicianId}
+                <strong>{req.direction}</strong>{' → '}{req.status}{' → '}Tech: {req.technician?.name ?? req.technicianId}
               </div>
               <div style={{ fontSize: '0.85rem', color: '#555' }}>
                 Created {new Date(req.createdAt).toLocaleString()}
