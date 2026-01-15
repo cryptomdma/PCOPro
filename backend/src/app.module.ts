@@ -9,6 +9,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { TechniciansModule } from './technicians/technicians.module';
 import { AuthModule } from './auth/auth.module';
 import { TransferRequestsModule } from './transfer-requests/transfer-requests.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { TransferRequestsModule } from './transfer-requests/transfer-requests.mo
     AuthModule,
     TransferRequestsModule,
   ],
-  controllers: [AnalyticsController],
+  controllers: [AnalyticsController, HealthController],
   providers: [PrismaService],
 })
 export class AppModule {}

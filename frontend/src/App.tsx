@@ -6,13 +6,27 @@ import { AnalyticsPreview } from './components/AnalyticsPreview';
 import { OfflineQueueIndicator } from './components/common/OfflineQueueIndicator';
 import { AuditCountView } from './components/AuditCountView';
 import { TransferRequestsView } from './components/TransferRequestsView';
+import { useAuth } from './auth';
 
 export default function App() {
+  const { user, logout } = useAuth();
+
   return (
     <div className="app-shell">
       <header className="app-header">
         <h1>PCO Inventory</h1>
-        <OfflineQueueIndicator />
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <OfflineQueueIndicator />
+          {user ? (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <span>{user.email}</span>
+              <span className="muted">{user.role}</span>
+              <button type="button" onClick={logout}>
+                Logout
+              </button>
+            </div>
+          ) : null}
+        </div>
       </header>
       <nav className="app-nav">
         <Link to="/">Inventory</Link>

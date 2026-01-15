@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { useAuth } from '../auth';
 
 type TransferDirection = 'ISSUE' | 'RETURN';
 type TransferRequestStatus =
@@ -27,11 +28,6 @@ type TransferRequest = {
   technician?: { id: string; name: string };
 };
 
-type LoginResponse = {
-  token: string;
-  user: { id: string; email: string; role: string; technicianId?: string; name?: string };
-};
-
 type Technician = { id: string; name: string; active: boolean };
 type Product = {
   id: string;
@@ -41,37 +37,13 @@ type Product = {
   checkoutUnitLabel: string;
 };
 
-const USER_STORAGE_KEY = 'authUser';
-
-const loadToken = () => localStorage.getItem('authToken') || '';
-const persistToken = (token: string) => localStorage.setItem('authToken', token);
-const persistUser = (user: LoginResponse['user']) => localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-const loadStoredUser = () => {
-  const raw = localStorage.getItem(USER_STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as LoginResponse['user'];
-  } catch {
-    return null;
-  }
-};
-const applyToken = (token: string) => {
-  if (token) {
-    axios.defaults.headers.common.Authorization = `Bearer ${token}`;
-  } else {
-    delete axios.defaults.headers.common.Authorization;
-  }
-};
-
 const unitOptionsFor = (product?: Product) => {
   const options = [product?.checkoutUnitLabel, product?.trackingUnitLabel].filter(Boolean) as string[];
   return Array.from(new Set(options));
 };
 
 export function TransferRequestsView() {
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [user, setUser] = useState<LoginResponse['user'] | null>(null);
+  const { user } = useAuth();
 
   const [direction, setDirection] = useState<TransferDirection>('ISSUE');
   const [technicianId, setTechnicianId] = useState('');
@@ -93,15 +65,10 @@ export function TransferRequestsView() {
   const [actionBusy, setActionBusy] = useState(false);
 
   useEffect(() => {
-    const token = loadToken();
-    const storedUser = loadStoredUser();
-    if (token) {
-      applyToken(token);
-      if (storedUser) setUser(storedUser);
-      refreshReferenceData();
-      refreshQueues();
-    }
-  }, []);
+    if (!user) return;
+    refreshReferenceData();
+    refreshQueues();
+  }, [user]);
 
   const filteredTechnicians = useMemo(() => {
     const query = techSearch.trim().toLowerCase();
@@ -187,27 +154,6 @@ export function TransferRequestsView() {
     return Promise.all([fetchOpenRequests(), fetchHistoryRequests()]);
   }
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setToast(null);
-    setLoading(true);
-    try {
-      const res = await axios.post<LoginResponse>('/api/v1/auth/login', { email: loginEmail, password: loginPassword });
-      applyToken(res.data.token);
-      persistToken(res.data.token);
-      persistUser(res.data.user);
-      setUser(res.data.user);
-      refreshReferenceData();
-      await refreshQueues();
-      setToast({ kind: 'success', message: 'Signed in' });
-    } catch (err: any) {
-      handleError('login failed', err, 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function updateLine(index: number, patch: Partial<TransferRequestLine>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
   }
@@ -226,17 +172,45 @@ export function TransferRequestsView() {
     setLines((prev) => [...prev, { productId: '', quantity: 1, unitLabel: '' }]);
   }
 
+  function removeLine(index: number) {
+    setLines((prev) => {
+      if (prev.length === 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  function validateLines() {
+    if (!technicianId) {
+      return { ok: false, message: 'Technician is required' };
+    }
+    const trimmed = lines.filter((line) => line.productId || line.unitLabel || line.quantity);
+    if (trimmed.length === 0) {
+      return { ok: false, message: 'At least one line item is required' };
+    }
+    const invalid = trimmed.find((line) => !line.productId || !line.unitLabel || line.quantity <= 0);
+    if (invalid) {
+      return { ok: false, message: 'Each line needs a product, unit, and quantity greater than 0' };
+    }
+    return { ok: true, value: trimmed };
+  }
+
   async function submitRequest(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setToast(null);
+    const validation = validateLines();
+    if (!validation.ok) {
+      setError(validation.message);
+      setToast({ kind: 'error', message: validation.message });
+      return;
+    }
     setLoading(true);
     try {
       await axios.post('/api/v1/transfer-requests', {
         direction,
         technicianId,
         reason,
-        lines,
+        lines: validation.value,
       });
       await refreshQueues();
       setToast({ kind: 'success', message: 'Transfer request submitted' });
@@ -331,21 +305,6 @@ export function TransferRequestsView() {
       ) : null}
       {error ? <div className="error-panel">{error}</div> : null}
 
-      <form className="form" onSubmit={handleLogin}>
-        <h4>Login</h4>
-        <label>
-          Email
-          <input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required />
-        </label>
-        <label>
-          Password
-          <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
-        </label>
-        <button type="submit" disabled={loading}>
-          Sign in
-        </button>
-      </form>
-
       <form className="form" onSubmit={submitRequest}>
         <h4>New Request</h4>
         <label>
@@ -397,7 +356,12 @@ export function TransferRequestsView() {
             return (
               <div
                 key={idx}
-                style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.5rem', marginTop: '0.25rem' }}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 1fr 1fr auto',
+                  gap: '0.5rem',
+                  marginTop: '0.25rem',
+                }}
               >
                 <label>
                   Product
@@ -443,6 +407,11 @@ export function TransferRequestsView() {
                     ))}
                   </select>
                 </label>
+                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                  <button type="button" onClick={() => removeLine(idx)} disabled={lines.length === 1}>
+                    Remove
+                  </button>
+                </div>
               </div>
             );
           })}
