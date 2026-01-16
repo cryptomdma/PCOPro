@@ -4,25 +4,39 @@ import { useAuth } from '../../auth';
 type NavItem = {
   path: string;
   label: string;
-  roles?: string[];
 };
 
-const NAV_ITEMS: NavItem[] = [
-  { path: '/', label: 'Inventory' },
-  { path: '/receiving', label: 'Incoming', roles: ['ADMIN', 'MANAGER', 'WAREHOUSE'] },
-  { path: '/checkout', label: 'Checkout', roles: ['ADMIN', 'MANAGER', 'WAREHOUSE'] },
-  { path: '/transfers', label: 'Transfers' },
-  { path: '/audit', label: 'Audit', roles: ['ADMIN', 'MANAGER', 'WAREHOUSE'] },
-  { path: '/analytics', label: 'Analytics', roles: ['ADMIN', 'MANAGER'] },
-];
+function navItemsFor(role?: string): NavItem[] {
+  if (role === 'TECH') {
+    return [
+      { path: '/', label: 'Home' },
+      { path: '/checkout', label: 'Request' },
+      { path: '/orders', label: 'Orders' },
+    ];
+  }
+  if (role === 'MANAGER' || role === 'ADMIN') {
+    return [
+      { path: '/', label: 'Home' },
+      { path: '/checkout', label: 'Issue' },
+      { path: '/orders', label: 'Orders' },
+      { path: '/products', label: 'Products' },
+    ];
+  }
+  return [
+    { path: '/', label: 'Home' },
+    { path: '/checkout', label: 'Issue' },
+    { path: '/orders', label: 'Orders' },
+  ];
+}
 
 export function BottomNav() {
   const { user } = useAuth();
   const role = user?.role;
+  const items = navItemsFor(role);
 
   return (
     <nav className="bottom-nav">
-      {NAV_ITEMS.filter((item) => !item.roles || (role ? item.roles.includes(role) : false)).map((item) => (
+      {items.map((item) => (
         <NavLink
           key={item.path}
           to={item.path}

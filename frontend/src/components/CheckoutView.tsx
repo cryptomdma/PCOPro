@@ -1,58 +1,281 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { OfflineTag } from './common/OfflineTag';
+import { useAuth } from '../auth';
+import { useToast } from './ui/Toast';
+
+type TransferDirection = 'ISSUE' | 'RETURN';
+type TransferRequestLine = { productId: string; quantity: number; unitLabel: string };
+
+type Technician = { id: string; name: string; active: boolean };
+type Product = {
+  id: string;
+  name: string;
+  baseType: string;
+  trackingUnitLabel: string;
+  checkoutUnitLabel: string;
+};
+
+const unitOptionsFor = (product?: Product) => {
+  const options = [product?.checkoutUnitLabel, product?.trackingUnitLabel].filter(Boolean) as string[];
+  return Array.from(new Set(options));
+};
 
 export function CheckoutView() {
-  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [techId, setTechId] = useState('');
-  const [productId, setProductId] = useState('');
-  const [qty, setQty] = useState(1);
-  const [messages, setMessages] = useState<string[]>([]);
+  const { user } = useAuth();
+  const { showToast } = useToast();
 
-  async function submit() {
-    await axios.post('/api/v1/checkout/requests', {
-      requestDate: date,
-      technicianId: techId,
-      lines: [{ productId, qtyRequested: qty, checkoutUnitLabel: 'checkout' }],
-    });
-    setMessages((m) => [`Requested ${qty} of ${productId}`, ...m]);
+  const [direction, setDirection] = useState<TransferDirection>('ISSUE');
+  const [technicianId, setTechnicianId] = useState('');
+  const [techSearch, setTechSearch] = useState('');
+  const [reason, setReason] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [lines, setLines] = useState<TransferRequestLine[]>([{ productId: '', quantity: 1, unitLabel: '' }]);
+
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'TECH' && user.technicianId) {
+      setTechnicianId(user.technicianId);
+    }
+    fetchReference();
+  }, [user]);
+
+  const filteredTechnicians = useMemo(() => {
+    const query = techSearch.trim().toLowerCase();
+    if (!query) return technicians;
+    return technicians.filter(
+      (t) => t.name.toLowerCase().includes(query) || t.id.toLowerCase().includes(query),
+    );
+  }, [technicians, techSearch]);
+
+  const filteredProducts = useMemo(() => {
+    const query = productSearch.trim().toLowerCase();
+    if (!query) return products;
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.id.toLowerCase().includes(query) ||
+        p.baseType.toLowerCase().includes(query),
+    );
+  }, [products, productSearch]);
+
+  async function fetchReference() {
+    try {
+      const [techRes, prodRes] = await Promise.all([
+        axios.get<Technician[]>('/api/v1/technicians'),
+        axios.get<Product[]>('/api/v1/products', { params: { limit: 200 } }),
+      ]);
+      setTechnicians(techRes.data);
+      setProducts(prodRes.data);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Failed to load reference data';
+      setError(message);
+      showToast({ kind: 'error', message });
+    }
   }
+
+  function updateLine(index: number, patch: Partial<TransferRequestLine>) {
+    setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+
+  function onProductChange(index: number, productId: string) {
+    const product = products.find((p) => p.id === productId);
+    const options = unitOptionsFor(product);
+    const defaultUnit = options[0] ?? '';
+    updateLine(index, {
+      productId,
+      unitLabel: options.includes(lines[index].unitLabel) ? lines[index].unitLabel : defaultUnit,
+    });
+  }
+
+  function addLine() {
+    setLines((prev) => [...prev, { productId: '', quantity: 1, unitLabel: '' }]);
+  }
+
+  function removeLine(index: number) {
+    setLines((prev) => {
+      if (prev.length === 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  function validateLines() {
+    if (!technicianId) {
+      return { ok: false, message: 'Technician is required' };
+    }
+    const trimmed = lines.filter((line) => line.productId || line.unitLabel || line.quantity);
+    if (trimmed.length === 0) {
+      return { ok: false, message: 'At least one line item is required' };
+    }
+    const invalid = trimmed.find((line) => !line.productId || !line.unitLabel || line.quantity <= 0);
+    if (invalid) {
+      return { ok: false, message: 'Each line needs a product, unit, and quantity greater than 0' };
+    }
+    return { ok: true, value: trimmed };
+  }
+
+  async function submitRequest(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const validation = validateLines();
+    if (!validation.ok) {
+      setError(validation.message);
+      showToast({ kind: 'error', message: validation.message });
+      return;
+    }
+    setLoading(true);
+    try {
+      await axios.post('/api/v1/transfer-requests', {
+        direction,
+        technicianId,
+        reason,
+        lines: validation.value,
+      });
+      showToast({ kind: 'success', message: 'Transfer request submitted' });
+      setLines([{ productId: '', quantity: 1, unitLabel: '' }]);
+      setReason('');
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Failed to create transfer request';
+      setError(message);
+      showToast({ kind: 'error', message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const isTech = user?.role === 'TECH';
+  const headerTitle = isTech ? 'Request' : 'Issue';
+  const directionLabel = isTech ? 'Request type' : 'Issue type';
 
   return (
     <section>
       <header className="section-header">
         <div>
-          <h2>Checkout / Request</h2>
-          <p>Technicians request or self-checkout depending on policy.</p>
+          <h2>{headerTitle}</h2>
+          <p>Build a cart and submit a transfer request.</p>
         </div>
         <OfflineTag />
       </header>
-      <div className="form card">
+
+      {error ? <div className="error-panel">{error}</div> : null}
+
+      <form className="form card" onSubmit={submitRequest}>
+        <h4>Request Details</h4>
         <label>
-          Date
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          {directionLabel}
+          <select value={direction} onChange={(e) => setDirection(e.target.value as TransferDirection)}>
+            <option value="ISSUE">Issue to technician</option>
+            <option value="RETURN">Return to warehouse</option>
+          </select>
         </label>
+        {!isTech ? (
+          <>
+            <label>
+              Find technician
+              <input
+                placeholder="Search name or id"
+                value={techSearch}
+                onChange={(e) => setTechSearch(e.target.value)}
+                autoComplete="off"
+              />
+            </label>
+            <label>
+              Technician
+              <select value={technicianId} onChange={(e) => setTechnicianId(e.target.value)} required>
+                <option value="">Select technician</option>
+                {filteredTechnicians.map((tech) => (
+                  <option key={tech.id} value={tech.id}>
+                    {tech.name} ({tech.id})
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : (
+          <div className="muted">Requesting as technician {technicianId || 'Unknown'}</div>
+        )}
         <label>
-          Technician ID
-          <input value={techId} onChange={(e) => setTechId(e.target.value)} />
+          Reason (optional)
+          <input value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
-        <label>
-          Product ID
-          <input value={productId} onChange={(e) => setProductId(e.target.value)} placeholder="Scan to fill" />
-        </label>
-        <label>
-          Qty
-          <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
-        </label>
-        <button type="button" onClick={submit}>
-          Submit Request
+        <div className="card-stack">
+          <strong>Cart</strong>
+          <label>
+            Find product
+            <input
+              placeholder="Search name, id, or unit"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
+          {lines.map((line, idx) => {
+            const product = products.find((p) => p.id === line.productId);
+            const options = unitOptionsFor(product);
+            const unitLabel = options.includes(line.unitLabel) ? line.unitLabel : '';
+            return (
+              <div key={idx} className="line-row">
+                <label>
+                  Product
+                  <select value={line.productId} onChange={(e) => onProductChange(idx, e.target.value)} required>
+                    <option value="">Select product</option>
+                    {filteredProducts.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.baseType})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Quantity
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={line.quantity}
+                    onChange={(e) => updateLine(idx, { quantity: Number(e.target.value) || 0 })}
+                    required
+                  />
+                </label>
+                <label>
+                  Unit
+                  <select
+                    value={unitLabel}
+                    onChange={(e) => updateLine(idx, { unitLabel: e.target.value })}
+                    disabled={!product}
+                    required
+                  >
+                    <option value="" disabled>
+                      Select unit
+                    </option>
+                    {options.map((label) => (
+                      <option key={label} value={label}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="line-actions">
+                  <button type="button" onClick={() => removeLine(idx)} disabled={lines.length === 1}>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          <button type="button" onClick={addLine}>
+            Add product
+          </button>
+        </div>
+        <button type="submit" disabled={loading}>
+          Submit request
         </button>
-      </div>
-      <ul className="activity">
-        {messages.map((msg, idx) => (
-          <li key={idx}>{msg}</li>
-        ))}
-      </ul>
+      </form>
     </section>
   );
 }

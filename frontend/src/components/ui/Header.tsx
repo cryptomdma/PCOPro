@@ -5,15 +5,19 @@ import { useTheme } from './theme';
 
 const TITLE_MAP: Array<{ path: string; title: string }> = [
   { path: '/', title: 'Inventory' },
+  { path: '/products', title: 'Products' },
   { path: '/receiving', title: 'Incoming' },
-  { path: '/checkout', title: 'Checkout' },
-  { path: '/transfers', title: 'Transfers' },
+  { path: '/orders', title: 'Orders' },
+  { path: '/transfers', title: 'Orders' },
   { path: '/audit', title: 'Audit Count' },
   { path: '/analytics', title: 'Analytics' },
   { path: '/login', title: 'Sign in' },
 ];
 
-function titleForPath(pathname: string) {
+function titleForPath(pathname: string, role?: string) {
+  if (pathname === '/checkout') {
+    return role === 'TECH' ? 'Request' : 'Issue';
+  }
   const match = TITLE_MAP.find((entry) => entry.path === pathname);
   return match ? match.title : 'PCOPro';
 }
@@ -23,7 +27,7 @@ export function Header() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
-  const title = titleForPath(location.pathname);
+  const title = titleForPath(location.pathname, user?.role);
   const canGoBack = location.pathname !== '/';
 
   return (
