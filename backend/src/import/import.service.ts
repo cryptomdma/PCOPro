@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Prisma, UnitBaseType, ProductCategory, ProductBehavior } from '@prisma/client';
+import { Prisma, UnitBaseType, ProductCategory, ProductBehavior, ProductTrackingMode } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -58,6 +58,7 @@ export class ImportService {
         const reorderLevelBase =
           reorderLevelDisplay != null ? Math.round(reorderLevelDisplay * row.trackingToBase) : undefined;
 
+        const category = this.resolveCategory(row.metadata?.category);
         const desired = {
           name: row.name,
           baseType: row.baseType,
@@ -71,8 +72,9 @@ export class ImportService {
           isDiscontinued: row.isDiscontinued,
           epaRegNo: row.metadata?.epaRegNo ?? undefined,
           description: row.metadata?.description ?? undefined,
-          category: this.resolveCategory(row.metadata?.category),
+          category,
           behavior: this.resolveBehavior(row.metadata?.category),
+          trackingMode: this.resolveTrackingMode(category),
           reorderLevelBase,
         };
 
@@ -279,6 +281,7 @@ export class ImportService {
       'description',
       'category',
       'reorderLevelBase',
+      'trackingMode',
     ];
 
     return fields.some((field) => {
@@ -342,5 +345,12 @@ export class ImportService {
       default:
         return ProductBehavior.CONSUMABLE;
     }
+  }
+
+  private resolveTrackingMode(category?: ProductCategory): ProductTrackingMode {
+    if (category === ProductCategory.EQUIPMENT || category === ProductCategory.PPE) {
+      return ProductTrackingMode.EQUIPMENT;
+    }
+    return ProductTrackingMode.BULK;
   }
 }

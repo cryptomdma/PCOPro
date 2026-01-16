@@ -14,6 +14,7 @@ type Product = {
   baseType: string;
   trackingUnitLabel: string;
   checkoutUnitLabel: string;
+  trackingMode?: 'EQUIPMENT' | 'BULK';
 };
 
 const unitOptionsFor = (product?: Product) => {
@@ -30,6 +31,7 @@ export function CheckoutView() {
   const [techSearch, setTechSearch] = useState('');
   const [reason, setReason] = useState('');
   const [productSearch, setProductSearch] = useState('');
+  const [inventoryFilter, setInventoryFilter] = useState<'all' | 'equipment' | 'bulk'>('all');
   const [lines, setLines] = useState<TransferRequestLine[]>([{ productId: '', quantity: 1, unitLabel: '' }]);
 
   const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -55,14 +57,19 @@ export function CheckoutView() {
 
   const filteredProducts = useMemo(() => {
     const query = productSearch.trim().toLowerCase();
-    if (!query) return products;
-    return products.filter(
+    const scoped = products.filter((product) => {
+      if (inventoryFilter === 'equipment') return product.trackingMode === 'EQUIPMENT';
+      if (inventoryFilter === 'bulk') return product.trackingMode !== 'EQUIPMENT';
+      return true;
+    });
+    if (!query) return scoped;
+    return scoped.filter(
       (p) =>
         p.name.toLowerCase().includes(query) ||
         p.id.toLowerCase().includes(query) ||
         p.baseType.toLowerCase().includes(query),
     );
-  }, [products, productSearch]);
+  }, [products, productSearch, inventoryFilter]);
 
   async function fetchReference() {
     try {
@@ -202,6 +209,14 @@ export function CheckoutView() {
         <label>
           Reason (optional)
           <input value={reason} onChange={(e) => setReason(e.target.value)} />
+        </label>
+        <label>
+          Inventory filter
+          <select value={inventoryFilter} onChange={(e) => setInventoryFilter(e.target.value as 'all' | 'equipment' | 'bulk')}>
+            <option value="all">All inventory</option>
+            <option value="equipment">Equipment only</option>
+            <option value="bulk">Products only</option>
+          </select>
         </label>
         <div className="card-stack">
           <strong>Cart</strong>

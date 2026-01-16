@@ -1,5 +1,5 @@
 import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
-import { ProductBehavior, ProductCategory, UnitBaseType } from '@prisma/client';
+import { ProductBehavior, ProductCategory, ProductTrackingMode, UnitBaseType } from '@prisma/client';
 
 export class CreateProductDto {
   @IsString()
@@ -16,6 +16,10 @@ export class CreateProductDto {
   @IsOptional()
   @IsEnum(ProductCategory)
   category?: ProductCategory;
+
+  @IsOptional()
+  @IsEnum(ProductTrackingMode)
+  trackingMode?: ProductTrackingMode;
 
   @IsEnum(UnitBaseType)
   baseType!: UnitBaseType;
