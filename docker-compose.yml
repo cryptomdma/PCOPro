@@ -24,7 +24,8 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-      - ./reference:/reference:ro
+      - ./reference:/app/reference:ro
+
     depends_on:
       - db
 
