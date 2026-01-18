@@ -4,6 +4,7 @@ import { Prisma, UnitBaseType, ProductCategory, ProductBehavior, ProductTracking
 import { parse } from 'csv-parse/sync';
 import * as fs from 'fs';
 import * as path from 'path';
+import { toBaseQuantity } from '../utils/units';
 
 export type AnnotatedProductRow = {
   name: string;
@@ -18,6 +19,7 @@ export type AnnotatedProductRow = {
   isStocked: boolean;
   isDiscontinued: boolean;
   initialCheckoutQty: number;
+  sourceIndex: number;
   metadata?: { epaRegNo?: string; description?: string; category?: string; reorderLevelDisplay?: number };
 };
 
@@ -28,6 +30,13 @@ export type ImportSummary = {
   skipped: number;
   skuCodesCreated: number;
   skuCodesSkipped: number;
+  warnings: string[];
+  errors: string[];
+};
+
+export type InitialStockSummary = {
+  created: number;
+  skipped: number;
   warnings: string[];
   errors: string[];
 };
@@ -133,7 +142,7 @@ export class ImportService {
     const rows: AnnotatedProductRow[] = [];
     let skipped = 0;
 
-    for (const row of unitRows) {
+    for (const [index, row] of unitRows.entries()) {
       const name = this.pickField(row, ['product name', 'product_name', 'product', 'Product']);
       if (!name) {
         warnings.push('Skipped row with missing product name');
@@ -177,11 +186,92 @@ export class ImportService {
         isStocked,
         isDiscontinued,
         initialCheckoutQty: this.parseNumber(this.pickField(row, ['initial', 'initial ', 'initial_qty'])) ?? 0,
+        sourceIndex: index,
         metadata: metadataMap.get(name),
       });
     }
 
     return { rows, warnings, skipped };
+  }
+
+  async importInitialStock(baseDir?: string, actorId?: string): Promise<InitialStockSummary> {
+    const summary: InitialStockSummary = {
+      created: 0,
+      skipped: 0,
+      warnings: [],
+      errors: [],
+    };
+
+    const { rows, warnings, skipped } = this.loadAnnotatedRows(baseDir);
+    summary.warnings.push(...warnings);
+    summary.skipped += skipped;
+
+    const dataDir = this.resolveDataDir(baseDir);
+    const sourceFile = path.basename(path.join(dataDir, 'initial_units_annotated.csv'));
+
+    for (const row of rows) {
+      if (!row.initialCheckoutQty || row.initialCheckoutQty <= 0) {
+        summary.skipped += 1;
+        continue;
+      }
+
+      try {
+        const product = await this.prisma.product.findUnique({ where: { name: row.name } });
+        if (!product) {
+          summary.warnings.push(`Initial stock skipped; product not found for ${row.name}`);
+          summary.skipped += 1;
+          continue;
+        }
+
+        const qtyBase = toBaseQuantity(row.initialCheckoutQty, row.trackingToBase);
+        if (qtyBase <= 0) {
+          summary.skipped += 1;
+          continue;
+        }
+
+        const idempotencyKey = `initstock:${sourceFile}:${row.sourceIndex}:${product.id}:${row.initialCheckoutQty}`;
+        const existing = await this.prisma.inventoryTransaction.findUnique({ where: { idempotencyKey } });
+        if (existing) {
+          summary.skipped += 1;
+          continue;
+        }
+
+        await this.prisma.$transaction(async (tx) => {
+          const balance = await tx.inventoryBalance.upsert({
+            where: { productId_scope: { productId: product.id, scope: 'WAREHOUSE' } },
+            update: {},
+            create: { productId: product.id, scope: 'WAREHOUSE' },
+          });
+
+          const afterBase = (balance.onHandBase ?? 0) + qtyBase;
+          await tx.inventoryTransaction.create({
+            data: {
+              productId: product.id,
+              scope: 'WAREHOUSE',
+              type: 'receiving_posted',
+              quantityBase: qtyBase,
+              beforeBase: balance.onHandBase ?? 0,
+              afterBase,
+              actorId,
+              actorRole: actorId ? undefined : 'ADMIN',
+              reason: 'Initial stock import',
+              idempotencyKey,
+            },
+          });
+
+          await tx.inventoryBalance.update({
+            where: { id: balance.id },
+            data: { onHandBase: afterBase },
+          });
+        });
+
+        summary.created += 1;
+      } catch (err) {
+        summary.errors.push(`Initial stock failed for ${row.name}: ${(err as Error).message}`);
+      }
+    }
+
+    return summary;
   }
 
   private resolveDataDir(preferred?: string): string {
