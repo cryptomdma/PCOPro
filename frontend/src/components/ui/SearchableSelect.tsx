@@ -32,11 +32,15 @@ export function SearchableSelect({ label, placeholder, value, onChange, options,
     );
   }, [options, query]);
 
-  function handleSelect(next: Option) {
+  function selectOption(next: Option) {
     onChange(next.value);
-    setOpen(false);
     setQuery('');
-    triggerRef.current?.focus();
+    setOpen(false);
+    requestAnimationFrame(() => {
+      const active = document.activeElement as HTMLElement | null;
+      active?.blur();
+      triggerRef.current?.focus();
+    });
   }
 
   return (
@@ -48,53 +52,63 @@ export function SearchableSelect({ label, placeholder, value, onChange, options,
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         ref={triggerRef}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setOpen(false);
+            setQuery('');
+          }
+        }}
       >
         <span>{selected ? selected.label : placeholder || 'Select'}</span>
         <span className="muted">{selected?.subtitle ?? ''}</span>
       </button>
       {required ? <input className="sr-only" required value={value} onChange={() => undefined} /> : null}
-      {open ? (
-        <div className="searchable-panel">
-          <input
-            autoFocus
-            className="searchable-input"
-            placeholder="Search..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setOpen(false);
-                setQuery('');
-                triggerRef.current?.focus();
-              }
-              if (e.key === 'Enter') {
-                const next = filtered[0];
-                if (next) {
-                  e.preventDefault();
-                  handleSelect(next);
+      {open && (
+        <>
+          <div className="ss-backdrop" onClick={() => setOpen(false)} />
+          <div className="ss-panel">
+            <input
+              autoFocus
+              className="searchable-input"
+              placeholder="Search..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setOpen(false);
+                  setQuery('');
+                  triggerRef.current?.focus();
                 }
-              }
-            }}
-          />
-          <div className="searchable-list">
-            {filtered.length ? (
-              filtered.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className="searchable-option"
-                  onClick={() => handleSelect(opt)}
-                >
-                  <div>{opt.label}</div>
-                  {opt.subtitle ? <div className="muted">{opt.subtitle}</div> : null}
-                </button>
-              ))
-            ) : (
-              <div className="muted">No matches</div>
-            )}
+                if (e.key === 'Enter') {
+                  const next = filtered[0];
+                  if (next) {
+                    e.preventDefault();
+                    selectOption(next);
+                  }
+                }
+              }}
+            />
+            <div className="ss-list">
+              {filtered.length ? (
+                filtered.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className="searchable-option"
+                    onPointerUp={() => selectOption(opt)}
+                    onClick={() => selectOption(opt)}
+                  >
+                    <div>{opt.label}</div>
+                    {opt.subtitle ? <div className="muted">{opt.subtitle}</div> : null}
+                  </button>
+                ))
+              ) : (
+                <div className="muted">No matches</div>
+              )}
+            </div>
           </div>
-        </div>
-      ) : null}
+        </>
+      )}
     </label>
   );
 }

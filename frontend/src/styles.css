@@ -464,11 +464,18 @@ button:disabled {
   width: 100%;
 }
 
-.searchable-panel {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  right: 0;
+.ss-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 19;
+}
+
+.ss-panel {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  top: 5.5rem;
   background: var(--bgCard);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -481,12 +488,13 @@ button:disabled {
   width: 100%;
 }
 
-.searchable-list {
+.ss-list {
   margin-top: 0.5rem;
   display: grid;
   gap: 0.35rem;
-  max-height: 200px;
-  overflow: auto;
+  max-height: 50vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .searchable-option {
