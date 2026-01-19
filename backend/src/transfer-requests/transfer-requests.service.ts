@@ -109,7 +109,7 @@ export class TransferRequestsService {
     const request = await this.prisma.transferRequest.findUnique({
       where: { id },
       include: {
-        lines: true,
+        lines: { include: { product: { select: { name: true, category: true } } } },
         technician: true,
         createdByUser: true,
         finalizedByUser: true,

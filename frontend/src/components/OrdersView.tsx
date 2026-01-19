@@ -32,7 +32,13 @@ type TransferRequest = {
 };
 
 type TransferRequestDetail = TransferRequest & {
-  lines?: Array<{ id: string; productId: string; quantity: number; unitLabel: string }>;
+  lines?: Array<{
+    id: string;
+    productId: string;
+    product?: { name: string; category?: string | null };
+    quantity: number;
+    unitLabel: string;
+  }>;
 };
 
 export function OrdersView() {
@@ -331,7 +337,11 @@ export function OrdersView() {
                 <strong>Lines</strong>
                 {detail.lines.map((line) => (
                   <div key={line.id} className="card-row">
-                    <span>{line.productId}</span>
+                    <span>
+                      {line.product?.name ?? 'Unknown product'}
+                      {line.product?.category ? <span className="muted"> · {line.product.category}</span> : null}
+                      {line.product?.name ? null : <span className="muted"> · {line.productId}</span>}
+                    </span>
                     <span>
                       {line.quantity} {line.unitLabel}
                     </span>

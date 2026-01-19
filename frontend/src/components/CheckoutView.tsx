@@ -5,7 +5,7 @@ import { useToast } from './ui/Toast';
 import { SearchableSelect } from './ui/SearchableSelect';
 
 type TransferDirection = 'ISSUE' | 'RETURN';
-type TransferRequestLine = { productId: string; quantity: number; unitLabel: string };
+type TransferRequestLine = { productId: string; quantityInput: string; unitLabel: string };
 
 type Technician = { id: string; name: string; active: boolean };
 type Product = {
@@ -29,7 +29,7 @@ export function CheckoutView() {
   const [direction, setDirection] = useState<TransferDirection>('ISSUE');
   const [technicianId, setTechnicianId] = useState('');
   const [inventoryFilter, setInventoryFilter] = useState<'all' | 'equipment' | 'bulk'>('all');
-  const [lines, setLines] = useState<TransferRequestLine[]>([{ productId: '', quantity: 1, unitLabel: '' }]);
+  const [lines, setLines] = useState<TransferRequestLine[]>([{ productId: '', quantityInput: '1', unitLabel: '' }]);
 
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -82,7 +82,7 @@ export function CheckoutView() {
   }
 
   function addLine() {
-    setLines((prev) => [...prev, { productId: '', quantity: 1, unitLabel: '' }]);
+    setLines((prev) => [...prev, { productId: '', quantityInput: '1', unitLabel: '' }]);
   }
 
   function removeLine(index: number) {
@@ -96,15 +96,21 @@ export function CheckoutView() {
     if (!technicianId) {
       return { ok: false, message: 'Technician is required' };
     }
-    const trimmed = lines.filter((line) => line.productId || line.unitLabel || line.quantity);
+    const trimmed = lines.filter((line) => line.productId || line.unitLabel || line.quantityInput);
     if (trimmed.length === 0) {
       return { ok: false, message: 'At least one line item is required' };
     }
-    const invalid = trimmed.find((line) => !line.productId || !line.unitLabel || line.quantity <= 0);
+    const parsedLines = trimmed.map((line) => {
+      const quantity = Number(line.quantityInput);
+      return { ...line, quantity };
+    });
+    const invalid = parsedLines.find(
+      (line) => !line.productId || !line.unitLabel || !Number.isFinite(line.quantity) || line.quantity <= 0,
+    );
     if (invalid) {
       return { ok: false, message: 'Each line needs a product, unit, and quantity greater than 0' };
     }
-    return { ok: true, value: trimmed };
+    return { ok: true, value: parsedLines };
   }
 
   async function submitRequest(e: React.FormEvent) {
@@ -124,7 +130,7 @@ export function CheckoutView() {
         lines: validation.value,
       });
       showToast({ kind: 'success', message: 'Transfer request submitted' });
-      setLines([{ productId: '', quantity: 1, unitLabel: '' }]);
+      setLines([{ productId: '', quantityInput: '1', unitLabel: '' }]);
     } catch (err: any) {
       const message = err?.response?.data?.message || 'Failed to create transfer request';
       setError(message);
@@ -210,8 +216,14 @@ export function CheckoutView() {
                     type="number"
                     min="0.01"
                     step="0.01"
-                    value={line.quantity}
-                    onChange={(e) => updateLine(idx, { quantity: Number(e.target.value) || 0 })}
+                    value={line.quantityInput}
+                    onChange={(e) => updateLine(idx, { quantityInput: e.target.value })}
+                    onBlur={(e) => {
+                      const next = e.target.value.trim();
+                      if (next === '') {
+                        updateLine(idx, { quantityInput: '1' });
+                      }
+                    }}
                     required
                   />
                 </label>
