@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Link } from 'react-router-dom';
-import { OfflineTag } from './common/OfflineTag';
 import { ModalShell } from './ui/ModalShell';
 
 type Product = {
@@ -10,6 +9,7 @@ type Product = {
   name: string;
   description?: string;
   epaRegNo?: string;
+  category?: string | null;
   trackingUnitLabel: string;
   checkoutUnitLabel: string;
   balances?: { onHandBase: number } | null;
@@ -35,7 +35,6 @@ export function ProductsView() {
           <Link to="/equipment" className="ghost-button">
             Equipment
           </Link>
-          <OfflineTag />
         </div>
       </header>
       <div className="grid">
@@ -69,6 +68,10 @@ export function ProductsView() {
             <div>
               <div className="muted">Description</div>
               <div>{selected.description || 'No description provided.'}</div>
+            </div>
+            <div>
+              <div className="muted">Category</div>
+              <div>{selected.category || '—'}</div>
             </div>
             <div>
               <div className="muted">QR Code</div>

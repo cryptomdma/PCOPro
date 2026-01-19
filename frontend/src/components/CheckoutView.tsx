@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { OfflineTag } from './common/OfflineTag';
 import { useAuth } from '../auth';
 import { useToast } from './ui/Toast';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 type TransferDirection = 'ISSUE' | 'RETURN';
 type TransferRequestLine = { productId: string; quantity: number; unitLabel: string };
@@ -28,9 +28,6 @@ export function CheckoutView() {
 
   const [direction, setDirection] = useState<TransferDirection>('ISSUE');
   const [technicianId, setTechnicianId] = useState('');
-  const [techSearch, setTechSearch] = useState('');
-  const [reason, setReason] = useState('');
-  const [productSearch, setProductSearch] = useState('');
   const [inventoryFilter, setInventoryFilter] = useState<'all' | 'equipment' | 'bulk'>('all');
   const [lines, setLines] = useState<TransferRequestLine[]>([{ productId: '', quantity: 1, unitLabel: '' }]);
 
@@ -47,29 +44,13 @@ export function CheckoutView() {
     fetchReference();
   }, [user]);
 
-  const filteredTechnicians = useMemo(() => {
-    const query = techSearch.trim().toLowerCase();
-    if (!query) return technicians;
-    return technicians.filter(
-      (t) => t.name.toLowerCase().includes(query) || t.id.toLowerCase().includes(query),
-    );
-  }, [technicians, techSearch]);
-
   const filteredProducts = useMemo(() => {
-    const query = productSearch.trim().toLowerCase();
-    const scoped = products.filter((product) => {
+    return products.filter((product) => {
       if (inventoryFilter === 'equipment') return product.trackingMode === 'EQUIPMENT';
       if (inventoryFilter === 'bulk') return product.trackingMode !== 'EQUIPMENT';
       return true;
     });
-    if (!query) return scoped;
-    return scoped.filter(
-      (p) =>
-        p.name.toLowerCase().includes(query) ||
-        p.id.toLowerCase().includes(query) ||
-        p.baseType.toLowerCase().includes(query),
-    );
-  }, [products, productSearch, inventoryFilter]);
+  }, [products, inventoryFilter]);
 
   async function fetchReference() {
     try {
@@ -140,12 +121,10 @@ export function CheckoutView() {
       await axios.post('/api/v1/transfer-requests', {
         direction,
         technicianId,
-        reason,
         lines: validation.value,
       });
       showToast({ kind: 'success', message: 'Transfer request submitted' });
       setLines([{ productId: '', quantity: 1, unitLabel: '' }]);
-      setReason('');
     } catch (err: any) {
       const message = err?.response?.data?.message || 'Failed to create transfer request';
       setError(message);
@@ -166,7 +145,6 @@ export function CheckoutView() {
           <h2>{headerTitle}</h2>
           <p>Build a cart and submit a transfer request.</p>
         </div>
-        <OfflineTag />
       </header>
 
       {error ? <div className="error-panel">{error}</div> : null}
@@ -182,34 +160,22 @@ export function CheckoutView() {
         </label>
         {!isTech ? (
           <>
-            <label>
-              Find technician
-              <input
-                placeholder="Search name or id"
-                value={techSearch}
-                onChange={(e) => setTechSearch(e.target.value)}
-                autoComplete="off"
-              />
-            </label>
-            <label>
-              Technician
-              <select value={technicianId} onChange={(e) => setTechnicianId(e.target.value)} required>
-                <option value="">Select technician</option>
-                {filteredTechnicians.map((tech) => (
-                  <option key={tech.id} value={tech.id}>
-                    {tech.name} ({tech.id})
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SearchableSelect
+              label="Technician"
+              placeholder="Select technician"
+              value={technicianId}
+              onChange={setTechnicianId}
+              options={technicians.map((tech) => ({
+                value: tech.id,
+                label: tech.name,
+                subtitle: tech.id,
+              }))}
+              required
+            />
           </>
         ) : (
           <div className="muted">Requesting as technician {technicianId || 'Unknown'}</div>
         )}
-        <label>
-          Reason (optional)
-          <input value={reason} onChange={(e) => setReason(e.target.value)} />
-        </label>
         <label>
           Inventory filter
           <select value={inventoryFilter} onChange={(e) => setInventoryFilter(e.target.value as 'all' | 'equipment' | 'bulk')}>
@@ -220,32 +186,24 @@ export function CheckoutView() {
         </label>
         <div className="card-stack">
           <strong>Cart</strong>
-          <label>
-            Find product
-            <input
-              placeholder="Search name, id, or unit"
-              value={productSearch}
-              onChange={(e) => setProductSearch(e.target.value)}
-              autoComplete="off"
-            />
-          </label>
           {lines.map((line, idx) => {
             const product = products.find((p) => p.id === line.productId);
             const options = unitOptionsFor(product);
             const unitLabel = options.includes(line.unitLabel) ? line.unitLabel : '';
             return (
               <div key={idx} className="line-row">
-                <label>
-                  Product
-                  <select value={line.productId} onChange={(e) => onProductChange(idx, e.target.value)} required>
-                    <option value="">Select product</option>
-                    {filteredProducts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.baseType})
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <SearchableSelect
+                  label="Product"
+                  placeholder="Select product"
+                  value={line.productId}
+                  onChange={(value) => onProductChange(idx, value)}
+                  options={filteredProducts.map((p) => ({
+                    value: p.id,
+                    label: p.name,
+                    subtitle: p.baseType,
+                  }))}
+                  required
+                />
                 <label>
                   Quantity
                   <input

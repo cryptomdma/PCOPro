@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { OfflineQueueIndicator } from '../common/OfflineQueueIndicator';
 import { useAuth } from '../../auth';
@@ -30,32 +31,68 @@ export function Header() {
   const { darkMode, toggleDarkMode } = useTheme();
   const title = titleForPath(location.pathname, user?.role);
   const canGoBack = location.pathname !== '/';
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  const menuItems = [
+    { label: 'Inventory', path: '/' },
+    { label: 'Issue', path: '/checkout' },
+    { label: 'Orders', path: '/orders' },
+    { label: 'Products', path: '/products' },
+    { label: 'Settings', path: '' },
+  ];
 
   return (
-    <header className="app-header">
-      <div className="header-side">
-        <button type="button" className="ghost-button" onClick={() => (canGoBack ? navigate(-1) : null)}>
-          {canGoBack ? 'Back' : 'Menu'}
-        </button>
-      </div>
-      <div className="header-title">{title}</div>
-      <div className="header-side header-right">
-        <button type="button" className="ghost-button" onClick={toggleDarkMode}>
-          {darkMode ? 'Light' : 'Dark'}
-        </button>
-        <OfflineQueueIndicator />
-        {user ? (
-          <div className="user-menu">
-            <div className="user-meta">
-              <div>{user.email}</div>
-              <div className="muted">{user.role}</div>
+    <>
+      <header className="app-header">
+        <div className="header-side">
+          <button type="button" className="ghost-button" onClick={() => (canGoBack ? navigate(-1) : setMenuOpen(true))}>
+            {canGoBack ? 'Back' : 'Menu'}
+          </button>
+        </div>
+        <div className="header-title">{title}</div>
+        <div className="header-side header-right">
+          <button type="button" className="ghost-button" onClick={toggleDarkMode}>
+            {darkMode ? 'Light' : 'Dark'}
+          </button>
+          <OfflineQueueIndicator />
+          {user ? (
+            <div className="user-menu">
+              <div className="user-meta">
+                <div>{user.email}</div>
+                <div className="muted">{user.role}</div>
+              </div>
+              <button type="button" onClick={logout}>
+                Logout
+              </button>
             </div>
-            <button type="button" onClick={logout}>
-              Logout
-            </button>
+          ) : null}
+        </div>
+      </header>
+      {menuOpen ? (
+        <div className="menu-backdrop" onClick={() => setMenuOpen(false)}>
+          <div className="menu-panel" onClick={(e) => e.stopPropagation()}>
+            {menuItems.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className="menu-item"
+                disabled={!item.path}
+                onClick={() => {
+                  if (!item.path) return;
+                  navigate(item.path);
+                  setMenuOpen(false);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
-        ) : null}
-      </div>
-    </header>
+        </div>
+      ) : null}
+    </>
   );
 }

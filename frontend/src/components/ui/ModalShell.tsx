@@ -17,8 +17,8 @@ export function ModalShell({
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">{title}</div>
-          <button type="button" onClick={onClose} className="ghost-button">
-            Close
+          <button type="button" onClick={onClose} className="ghost-button" aria-label="Close">
+            ×
           </button>
         </div>
         <div className="modal-body">{children}</div>
