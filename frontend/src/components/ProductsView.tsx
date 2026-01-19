@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ModalShell } from './ui/ModalShell';
 
 type Product = {
@@ -14,22 +14,45 @@ type Product = {
   checkoutUnitLabel: string;
   balances?: { onHandBase: number } | null;
   trackingToBase: number;
+  reorderLevelBase?: number | null;
 };
 
 export function ProductsView() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Product | null>(null);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const lowStockOnly = searchParams.get('filter') === 'low';
 
   useEffect(() => {
     axios.get('/api/v1/products').then((res) => setProducts(res.data));
   }, []);
+
+  const lowStockIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const product of products) {
+      if (!product.reorderLevelBase || product.reorderLevelBase <= 0) continue;
+      const onHandBase = product.balances?.onHandBase ?? 0;
+      const onHandTracking = onHandBase / product.trackingToBase;
+      const reorderTracking = product.reorderLevelBase / product.trackingToBase;
+      if (onHandTracking <= reorderTracking) {
+        ids.add(product.id);
+      }
+    }
+    return ids;
+  }, [products]);
+
+  const visibleProducts = useMemo(() => {
+    if (!lowStockOnly) return products;
+    return products.filter((product) => lowStockIds.has(product.id));
+  }, [products, lowStockIds, lowStockOnly]);
 
   return (
     <section>
       <header className="section-header">
         <div>
           <h2>Inventory List</h2>
-          <p>Mirrors Excel Inventory List with reorder flagging.</p>
+          <p>{lowStockOnly ? 'Showing low stock items only.' : 'Mirrors Excel Inventory List with reorder flagging.'}</p>
         </div>
         <div className="header-side">
           <Link to="/equipment" className="ghost-button">
@@ -38,12 +61,15 @@ export function ProductsView() {
         </div>
       </header>
       <div className="grid">
-        {products.map((product) => {
+        {visibleProducts.map((product) => {
           const onHandTracking = product.balances ? product.balances.onHandBase / product.trackingToBase : 0;
+          const isLow = lowStockIds.has(product.id);
           return (
             <article key={product.id} className="card clickable" onClick={() => setSelected(product)}>
               <div>
-                <div className="card-title">{product.name}</div>
+                <div className="card-title">
+                  {product.name} {isLow ? <span className="badge low">LOW</span> : null}
+                </div>
                 <p className="muted">EPA: {product.epaRegNo ?? 'N/A'}</p>
                 <p>
                   On-hand: <strong>{onHandTracking}</strong> {product.trackingUnitLabel}

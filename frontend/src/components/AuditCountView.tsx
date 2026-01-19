@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { OfflineTag } from './common/OfflineTag';
 
 type InventoryBalance = {
   productId: string;
@@ -105,7 +104,6 @@ export function AuditCountView() {
           <h2>Audit Count / True-Up</h2>
           <p>Record a physical count and true-up ledger balances.</p>
         </div>
-        <OfflineTag />
       </header>
 
       {error ? (

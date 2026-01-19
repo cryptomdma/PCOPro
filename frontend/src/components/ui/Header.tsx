@@ -5,7 +5,8 @@ import { useAuth } from '../../auth';
 import { useTheme } from './theme';
 
 const TITLE_MAP: Array<{ path: string; title: string }> = [
-  { path: '/', title: 'Inventory' },
+  { path: '/', title: 'Dashboard' },
+  { path: '/inventory', title: 'Inventory' },
   { path: '/products', title: 'Products' },
   { path: '/equipment', title: 'Equipment' },
   { path: '/receiving', title: 'Incoming' },
@@ -38,10 +39,12 @@ export function Header() {
   }, [location.pathname]);
 
   const menuItems = [
-    { label: 'Inventory', path: '/' },
+    { label: 'Dashboard', path: '/' },
+    { label: 'Inventory', path: '/inventory' },
     { label: 'Issue', path: '/checkout' },
     { label: 'Orders', path: '/orders' },
     { label: 'Products', path: '/products' },
+    { label: 'Analytics', path: '/analytics' },
     { label: 'Settings', path: '' },
   ];
 

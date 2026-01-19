@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 type Option = {
   value: string;
@@ -18,6 +18,7 @@ type Props = {
 export function SearchableSelect({ label, placeholder, value, onChange, options, required }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   const selected = options.find((opt) => opt.value === value);
   const filtered = useMemo(() => {
@@ -35,6 +36,7 @@ export function SearchableSelect({ label, placeholder, value, onChange, options,
     onChange(next.value);
     setOpen(false);
     setQuery('');
+    triggerRef.current?.focus();
   }
 
   return (
@@ -45,6 +47,7 @@ export function SearchableSelect({ label, placeholder, value, onChange, options,
         className="searchable-trigger"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
+        ref={triggerRef}
       >
         <span>{selected ? selected.label : placeholder || 'Select'}</span>
         <span className="muted">{selected?.subtitle ?? ''}</span>
@@ -58,6 +61,20 @@ export function SearchableSelect({ label, placeholder, value, onChange, options,
             placeholder="Search..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setOpen(false);
+                setQuery('');
+                triggerRef.current?.focus();
+              }
+              if (e.key === 'Enter') {
+                const next = filtered[0];
+                if (next) {
+                  e.preventDefault();
+                  handleSelect(next);
+                }
+              }
+            }}
           />
           <div className="searchable-list">
             {filtered.length ? (

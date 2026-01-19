@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Link } from 'react-router-dom';
-import { OfflineTag } from './common/OfflineTag';
 import { ModalShell } from './ui/ModalShell';
 
 type Product = {
@@ -53,10 +52,9 @@ export function EquipmentView() {
           <p>Tracked equipment and gear that can be issued or requested.</p>
         </div>
         <div className="header-side">
-          <Link to="/" className="ghost-button">
-            Products
+          <Link to="/inventory" className="ghost-button">
+            Inventory
           </Link>
-          <OfflineTag />
         </div>
       </header>
 

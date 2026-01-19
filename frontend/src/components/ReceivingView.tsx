@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { OfflineTag } from './common/OfflineTag';
 
 export function ReceivingView() {
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
@@ -25,7 +24,6 @@ export function ReceivingView() {
           <h2>Incoming (Receiving)</h2>
           <p>Stage items then post to create ledger entries.</p>
         </div>
-        <OfflineTag />
       </header>
       <div className="form card">
         <label>

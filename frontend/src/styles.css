@@ -137,6 +137,9 @@ a {
 .card-title {
   font-weight: 700;
   margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .card-row {
@@ -263,6 +266,11 @@ button:disabled {
 .badge.info {
   background: #1d4ed8;
   color: #dbeafe;
+}
+
+.badge.low {
+  background: #b91c1c;
+  color: #fee2e2;
 }
 
 .activity {
@@ -453,6 +461,7 @@ button:disabled {
   padding: 0.65rem 0.85rem;
   border-radius: 12px;
   color: var(--text);
+  width: 100%;
 }
 
 .searchable-panel {
@@ -525,6 +534,28 @@ button:disabled {
 .menu-item:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard-card {
+  display: grid;
+  gap: 0.4rem;
+  background: var(--bgCard);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard-value {
+  font-size: 1.8rem;
+  font-weight: 700;
 }
 
 .sr-only {

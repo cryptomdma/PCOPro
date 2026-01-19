@@ -9,6 +9,7 @@ import { EquipmentView } from './components/EquipmentView';
 import { Header } from './components/ui/Header';
 import { BottomNav } from './components/ui/BottomNav';
 import { ToastHost } from './components/ui/Toast';
+import { DashboardView } from './components/DashboardView';
 
 export default function App() {
   return (
@@ -16,7 +17,8 @@ export default function App() {
       <Header />
       <main className="page">
         <Routes>
-          <Route path="/" element={<ProductsView />} />
+          <Route path="/" element={<DashboardView />} />
+          <Route path="/inventory" element={<ProductsView />} />
           <Route path="/products" element={<ProductsView />} />
           <Route path="/equipment" element={<EquipmentView />} />
           <Route path="/receiving" element={<ReceivingView />} />
