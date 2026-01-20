@@ -234,11 +234,25 @@ button:disabled {
   overflow: hidden;
 }
 
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .table th,
 .table td {
   border-bottom: 1px solid var(--border);
   padding: 0.65rem;
   text-align: left;
+}
+
+.table tfoot td {
+  background: var(--bgHeader);
+  border-bottom: none;
+}
+
+.totals-row td {
+  font-weight: 700;
 }
 
 .badge {

@@ -201,6 +201,9 @@ model InventoryTransaction {
 
   @@unique([idempotencyKey])
   @@index([transferIdempotencyKey])
+  @@index([type, createdAt])
+  @@index([productId])
+  @@index([scope])
 }
 
 model IncomingReceipt {
