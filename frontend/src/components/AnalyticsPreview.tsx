@@ -31,7 +31,7 @@ type UsageResponse = {
     start: string;
     end: string;
     groupBy: GroupBy;
-    filters: Record<string, string | null>;
+    filters: Record<string, string | string[] | null>;
   };
   rows: UsageRow[];
   totals: { quantityTracking: number; transactions: number };
