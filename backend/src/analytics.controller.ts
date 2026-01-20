@@ -25,7 +25,10 @@ export class AnalyticsController {
       return this.emptyUsageResponse(start, end, groupBy, query);
     }
 
-    const productFilter = query.productId ? { productId: query.productId } : {};
+    const productIds = query.productId ?? [];
+    const queryTechnicianIds = query.technicianId ?? [];
+
+    const productFilter = productIds.length ? { productId: { in: productIds } } : {};
     const categoryFilter = query.category ? { product: { category: query.category as ProductCategory } } : {};
     const locationFilter = query.locationId ? { scope: query.locationId } : {};
 
@@ -36,8 +39,8 @@ export class AnalyticsController {
         ...productFilter,
         ...categoryFilter,
         ...locationFilter,
-        ...(query.technicianId
-          ? { sourceCheckoutLine: { request: { technician: { technicianId: query.technicianId } } } }
+        ...(queryTechnicianIds.length
+          ? { sourceCheckoutLine: { request: { technician: { technicianId: { in: queryTechnicianIds } } } } }
           : {}),
       },
       include: {
@@ -51,8 +54,8 @@ export class AnalyticsController {
       },
     });
 
-    const transferScopeFilter = query.technicianId
-      ? { scope: `TRUCK:${query.technicianId}` }
+    const transferScopeFilter = queryTechnicianIds.length
+      ? { scope: { in: queryTechnicianIds.map((id) => `TRUCK:${id}`) } }
       : query.locationId
         ? { scope: query.locationId }
         : { scope: { startsWith: 'TRUCK:' } };
@@ -71,17 +74,17 @@ export class AnalyticsController {
       },
     });
 
-    const technicianIds = new Set<string>();
+    const technicianIdSet = new Set<string>();
     for (const tx of transferTransactions) {
       const scopeId = this.extractTechnicianIdFromScope(tx.scope);
-      if (scopeId) technicianIds.add(scopeId);
+      if (scopeId) technicianIdSet.add(scopeId);
     }
     for (const tx of checkoutTransactions) {
       const userTechId = tx.sourceCheckoutLine?.request?.technician?.technicianId;
-      if (userTechId) technicianIds.add(userTechId);
+      if (userTechId) technicianIdSet.add(userTechId);
     }
-    const technicians = technicianIds.size
-      ? await this.prisma.technician.findMany({ where: { id: { in: Array.from(technicianIds) } } })
+    const technicians = technicianIdSet.size
+      ? await this.prisma.technician.findMany({ where: { id: { in: Array.from(technicianIdSet) } } })
       : [];
     const technicianNameById = new Map(technicians.map((tech) => [tech.id, tech.name]));
 
@@ -154,7 +157,7 @@ export class AnalyticsController {
         technicianName = technicianName ?? 'Unknown technician';
       }
 
-      if (includeTechnician && query.technicianId && technicianId !== query.technicianId) {
+      if (includeTechnician && queryTechnicianIds.length && (!technicianId || !queryTechnicianIds.includes(technicianId))) {
         return;
       }
 
@@ -197,6 +200,8 @@ export class AnalyticsController {
       trackingUnitLabel: row.trackingUnitLabel,
       checkoutUnitLabel: row.checkoutUnitLabel,
       transactions: row.transactionIds.size,
+      sourcesPreview: Array.from(row.transactionIds).sort().slice(0, 25),
+      sourcesTotal: row.transactionIds.size,
     }));
 
     rowsArray.sort((a, b) => b.quantityTracking - a.quantityTracking || b.quantityBase - a.quantityBase);
@@ -211,8 +216,8 @@ export class AnalyticsController {
         groupBy,
         filters: {
           locationId: query.locationId ?? null,
-          technicianId: query.technicianId ?? null,
-          productId: query.productId ?? null,
+          technicianId: queryTechnicianIds.length ? queryTechnicianIds : null,
+          productId: productIds.length ? productIds : null,
           category: query.category ?? null,
           direction,
         },
@@ -233,6 +238,8 @@ export class AnalyticsController {
   }
 
   private emptyUsageResponse(start: Date, end: Date, groupBy: string, query: UsageAnalyticsQueryDto) {
+    const productIds = query.productId ?? [];
+    const technicianIds = query.technicianId ?? [];
     return {
       meta: {
         start: start.toISOString(),
@@ -240,8 +247,8 @@ export class AnalyticsController {
         groupBy,
         filters: {
           locationId: query.locationId ?? null,
-          technicianId: query.technicianId ?? null,
-          productId: query.productId ?? null,
+          technicianId: technicianIds.length ? technicianIds : null,
+          productId: productIds.length ? productIds : null,
           category: query.category ?? null,
           direction: query.direction ?? TransferDirection.ISSUE,
         },

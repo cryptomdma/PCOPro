@@ -1,6 +1,17 @@
 import { IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ProductCategory, TransferDirection } from '@prisma/client';
+
+const normalizeIdList = (value: unknown): string[] | undefined => {
+  if (value === null || value === undefined) return undefined;
+  const raw = Array.isArray(value) ? value : [value];
+  const parts = raw
+    .flatMap((item) => String(item).split(','))
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!parts.length) return undefined;
+  return Array.from(new Set(parts));
+};
 
 export class UsageAnalyticsQueryDto {
   @IsOptional()
@@ -20,12 +31,14 @@ export class UsageAnalyticsQueryDto {
   locationId?: string;
 
   @IsOptional()
-  @IsString()
-  technicianId?: string;
+  @IsString({ each: true })
+  @Transform(({ value }) => normalizeIdList(value))
+  technicianId?: string[];
 
   @IsOptional()
-  @IsString()
-  productId?: string;
+  @IsString({ each: true })
+  @Transform(({ value }) => normalizeIdList(value))
+  productId?: string[];
 
   @IsOptional()
   @IsEnum(ProductCategory)

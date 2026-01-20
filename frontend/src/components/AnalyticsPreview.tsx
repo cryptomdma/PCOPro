@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { SearchableSelect } from './ui/SearchableSelect';
+import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
 
 type GroupBy = 'product' | 'technician' | 'product_technician';
 
@@ -22,6 +22,8 @@ type UsageRow = {
   quantityTracking: number;
   transactions: number;
   trackingUnitLabel: string | null;
+  sourcesPreview: string[];
+  sourcesTotal: number;
 };
 
 type UsageResponse = {
@@ -63,8 +65,8 @@ export function AnalyticsPreview() {
   const [startInput, setStartInput] = useState(toLocalInput(defaultStart));
   const [endInput, setEndInput] = useState(toLocalInput(now));
   const [groupBy, setGroupBy] = useState<GroupBy>('product');
-  const [technicianId, setTechnicianId] = useState('');
-  const [productId, setProductId] = useState('');
+  const [technicianIds, setTechnicianIds] = useState<string[]>([]);
+  const [productIds, setProductIds] = useState<string[]>([]);
   const [category, setCategory] = useState('');
   const [locationId, setLocationId] = useState('');
 
@@ -73,6 +75,7 @@ export function AnalyticsPreview() {
   const [usage, setUsage] = useState<UsageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRow, setSelectedRow] = useState<UsageRow | null>(null);
 
   const categories = useMemo(() => Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(), [products]);
 
@@ -101,15 +104,16 @@ export function AnalyticsPreview() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string> = { groupBy };
-      if (startInput) params.start = new Date(startInput).toISOString();
-      if (endInput) params.end = new Date(endInput).toISOString();
-      if (technicianId) params.technicianId = technicianId;
-      if (productId) params.productId = productId;
-      if (category) params.category = category;
-      if (locationId) params.locationId = locationId;
+      const params = new URLSearchParams();
+      params.set('groupBy', groupBy);
+      if (startInput) params.set('start', new Date(startInput).toISOString());
+      if (endInput) params.set('end', new Date(endInput).toISOString());
+      if (category) params.set('category', category);
+      if (locationId) params.set('locationId', locationId);
+      technicianIds.forEach((id) => params.append('technicianId', id));
+      productIds.forEach((id) => params.append('productId', id));
 
-      const response = await axios.get<UsageResponse>('/api/v1/analytics/usage', { params });
+      const response = await axios.get<UsageResponse>(`/api/v1/analytics/usage?${params.toString()}`);
       setUsage(response.data);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to load analytics');
@@ -222,18 +226,18 @@ export function AnalyticsPreview() {
           </label>
         </div>
         <div className="grid two-col">
-          <SearchableSelect
+          <MultiSearchableSelect
             label="Technician"
-            placeholder="All technicians"
-            value={technicianId}
-            onChange={setTechnicianId}
+            placeholder="Select technicians"
+            values={technicianIds}
+            onChange={setTechnicianIds}
             options={technicians.map((tech) => ({ value: tech.id, label: tech.name, subtitle: tech.id }))}
           />
-          <SearchableSelect
+          <MultiSearchableSelect
             label="Product"
-            placeholder="All products"
-            value={productId}
-            onChange={setProductId}
+            placeholder="Select products"
+            values={productIds}
+            onChange={setProductIds}
             options={products.map((product) => ({ value: product.id, label: product.name, subtitle: product.category }))}
           />
           <label>
@@ -283,7 +287,11 @@ export function AnalyticsPreview() {
               </thead>
               <tbody>
                 {rows.map((row, idx) => (
-                  <tr key={`${row.productId ?? 'product'}-${row.technicianId ?? 'tech'}-${idx}`}>
+                  <tr
+                    key={`${row.productId ?? 'product'}-${row.technicianId ?? 'tech'}-${idx}`}
+                    className="table-row"
+                    onClick={() => setSelectedRow(row)}
+                  >
                     {groupBy === 'product' ? (
                       <>
                         <td>{row.productName}</td>
@@ -343,6 +351,79 @@ export function AnalyticsPreview() {
           </div>
         )}
       </div>
+      {selectedRow ? (
+        <div className="modal-backdrop" onClick={() => setSelectedRow(null)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">Details</div>
+              <button type="button" className="ghost-button" onClick={() => setSelectedRow(null)}>
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="card-stack">
+                {groupBy !== 'technician' ? (
+                  <div>
+                    <strong>Product</strong>
+                    <div className="muted">{selectedRow.productName ?? 'Unknown'}</div>
+                  </div>
+                ) : null}
+                {groupBy !== 'product' ? (
+                  <div>
+                    <strong>Technician</strong>
+                    <div className="muted">{selectedRow.technicianName ?? 'Unknown'}</div>
+                  </div>
+                ) : null}
+                {groupBy !== 'technician' ? (
+                  <div>
+                    <strong>Category</strong>
+                    <div className="muted">{selectedRow.category ?? 'Uncategorized'}</div>
+                  </div>
+                ) : null}
+                <div>
+                  <strong>Totals</strong>
+                  <div className="muted">
+                    {formatNumber(selectedRow.quantityTracking)} {selectedRow.trackingUnitLabel ?? ''} •{' '}
+                    {formatNumber(selectedRow.transactions)} transactions
+                  </div>
+                </div>
+              </div>
+              <div className="card-stack">
+                <div className="card-title">Sources</div>
+                {selectedRow.sourcesTotal > selectedRow.sourcesPreview.length ? (
+                  <div className="muted">
+                    Showing {selectedRow.sourcesPreview.length} of {selectedRow.sourcesTotal}
+                  </div>
+                ) : null}
+                {selectedRow.sourcesPreview.length ? (
+                  <div className="card-stack">
+                    {selectedRow.sourcesPreview.map((source) => {
+                      const id = source.includes(':') ? source.split(':').slice(1).join(':') : source;
+                      const link = source.startsWith('checkout:')
+                        ? `/orders?requestId=${encodeURIComponent(id)}`
+                        : source.startsWith('transfer:')
+                          ? `/orders?transferGroupId=${encodeURIComponent(id)}`
+                          : '/orders';
+                      const label = source.startsWith('checkout:')
+                        ? `Checkout ${id}`
+                        : source.startsWith('transfer:')
+                          ? `Transfer ${id}`
+                          : source;
+                      return (
+                        <a key={source} href={link} className="card clickable">
+                          {label}
+                        </a>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="muted">No sources available.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

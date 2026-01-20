@@ -246,6 +246,14 @@ button:disabled {
   text-align: left;
 }
 
+.table-row {
+  cursor: pointer;
+}
+
+.table-row:hover {
+  background: rgba(15, 23, 42, 0.5);
+}
+
 .table tfoot td {
   background: var(--bgHeader);
   border-bottom: none;
@@ -462,6 +470,48 @@ button:disabled {
   display: grid;
   gap: 0.35rem;
   min-width: 0;
+}
+
+.multi-select {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: var(--bgInput);
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.chip button {
+  border: none;
+  background: transparent;
+  color: var(--textMuted);
+  font-size: 0.95rem;
+  padding: 0;
+  width: auto;
+}
+
+.chip-clear {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--textMuted);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-weight: 600;
+  width: auto;
 }
 
 .searchable-trigger {
