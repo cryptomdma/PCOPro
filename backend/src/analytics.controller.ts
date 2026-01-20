@@ -37,12 +37,12 @@ export class AnalyticsController {
         ...categoryFilter,
         ...locationFilter,
         ...(query.technicianId
-          ? { checkoutLine: { request: { technician: { technicianId: query.technicianId } } } }
+          ? { sourceCheckoutLine: { request: { technician: { technicianId: query.technicianId } } } }
           : {}),
       },
       include: {
         product: { select: { id: true, name: true, category: true, trackingUnitLabel: true, checkoutUnitLabel: true, trackingToBase: true } },
-        checkoutLine: {
+        sourceCheckoutLine: {
           select: {
             requestId: true,
             request: { select: { id: true, technician: { select: { id: true, name: true, technicianId: true } } } },
@@ -77,7 +77,7 @@ export class AnalyticsController {
       if (scopeId) technicianIds.add(scopeId);
     }
     for (const tx of checkoutTransactions) {
-      const userTechId = tx.checkoutLine?.request?.technician?.technicianId;
+      const userTechId = tx.sourceCheckoutLine?.request?.technician?.technicianId;
       if (userTechId) technicianIds.add(userTechId);
     }
     const technicians = technicianIds.size
@@ -122,7 +122,7 @@ export class AnalyticsController {
       return rows.get(key)!;
     };
 
-    const accumulate = (tx: InventoryTransaction & { product: any; checkoutLine?: any }) => {
+    const accumulate = (tx: InventoryTransaction & { product: any; sourceCheckoutLine?: any }) => {
       const product = tx.product;
       if (!product) return;
       const baseQty = Math.abs(tx.quantityBase);
@@ -133,12 +133,12 @@ export class AnalyticsController {
       let transactionKey = `tx:${tx.id}`;
 
       if (tx.type === 'checkout_finalized') {
-        const user = tx.checkoutLine?.request?.technician;
+        const user = tx.sourceCheckoutLine?.request?.technician;
         const mappedTechId = user?.technicianId ?? null;
         technicianId = mappedTechId ?? user?.id ?? null;
         technicianName = mappedTechId ? technicianNameById.get(mappedTechId) ?? user?.name ?? null : user?.name ?? null;
-        if (tx.checkoutLine?.requestId) {
-          transactionKey = `checkout:${tx.checkoutLine.requestId}`;
+        if (tx.sourceCheckoutLine?.requestId) {
+          transactionKey = `checkout:${tx.sourceCheckoutLine.requestId}`;
         }
       } else if (tx.type === 'transfer') {
         const scopeId = this.extractTechnicianIdFromScope(tx.scope);
