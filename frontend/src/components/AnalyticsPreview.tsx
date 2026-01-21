@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
+import { ModalShell } from './ui/ModalShell';
+import { RequestDetailsModal, RequestDetailsSource } from './RequestDetailsModal';
 
 type GroupBy = 'product' | 'technician' | 'product_technician';
 
@@ -13,6 +15,15 @@ type Product = {
 
 type Technician = { id: string; name: string };
 
+type UsageSourcePreview = {
+  type: 'checkout' | 'transfer';
+  technicianName: string | null;
+  createdAt: string;
+  finalizedAt: string | null;
+  requestId: string | null;
+  transferGroupId: string | null;
+};
+
 type UsageRow = {
   productId: string | null;
   productName: string | null;
@@ -22,7 +33,7 @@ type UsageRow = {
   quantityTracking: number;
   transactions: number;
   trackingUnitLabel: string | null;
-  sourcesPreview: string[];
+  sourcesPreview: UsageSourcePreview[];
   sourcesTotal: number;
 };
 
@@ -58,6 +69,11 @@ const escapeCsv = (value: string | number | null | undefined) => {
   return text;
 };
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return 'Unknown time';
+  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+};
+
 export function AnalyticsPreview() {
   const now = useMemo(() => new Date(), []);
   const defaultStart = useMemo(() => new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000), [now]);
@@ -76,6 +92,7 @@ export function AnalyticsPreview() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<UsageRow | null>(null);
+  const [selectedSource, setSelectedSource] = useState<RequestDetailsSource | null>(null);
 
   const categories = useMemo(() => Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(), [products]);
 
@@ -121,6 +138,16 @@ export function AnalyticsPreview() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function resetFilters() {
+    setStartInput(toLocalInput(defaultStart));
+    setEndInput(toLocalInput(now));
+    setGroupBy('product');
+    setTechnicianIds([]);
+    setProductIds([]);
+    setCategory('');
+    setLocationId('');
   }
 
   function exportCsv() {
@@ -195,65 +222,72 @@ export function AnalyticsPreview() {
         </button>
       </header>
 
-      <div className="card card-stack">
-        <div className="grid two-col">
-          <label>
-            Start
-            <input type="datetime-local" value={startInput} onChange={(e) => setStartInput(e.target.value)} />
-          </label>
-          <label>
-            End
-            <input type="datetime-local" value={endInput} onChange={(e) => setEndInput(e.target.value)} />
-          </label>
-          <label>
-            Group by
-            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
-              <option value="product">Product</option>
-              <option value="technician">Technician</option>
-              <option value="product_technician">Product + Technician</option>
-            </select>
-          </label>
-          <label>
-            Category
-            <select value={category} onChange={(e) => setCategory(e.target.value)}>
-              <option value="">All categories</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="grid two-col">
-          <MultiSearchableSelect
-            label="Technician"
-            placeholder="Select technicians"
-            values={technicianIds}
-            onChange={setTechnicianIds}
-            options={technicians.map((tech) => ({ value: tech.id, label: tech.name, subtitle: tech.id }))}
-          />
-          <MultiSearchableSelect
-            label="Product"
-            placeholder="Select products"
-            values={productIds}
-            onChange={setProductIds}
-            options={products.map((product) => ({ value: product.id, label: product.name, subtitle: product.category }))}
-          />
-          <label>
-            Location (optional)
-            <input
-              type="text"
-              placeholder="Scope or location ID"
-              value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
+      <div className="card analytics-filter-panel">
+        <div className="analytics-filter-content">
+          <div className="grid two-col">
+            <label>
+              Start
+              <input type="datetime-local" value={startInput} onChange={(e) => setStartInput(e.target.value)} />
+            </label>
+            <label>
+              End
+              <input type="datetime-local" value={endInput} onChange={(e) => setEndInput(e.target.value)} />
+            </label>
+            <label>
+              Group by
+              <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+                <option value="product">Product</option>
+                <option value="technician">Technician</option>
+                <option value="product_technician">Product + Technician</option>
+              </select>
+            </label>
+            <label>
+              Category
+              <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                <option value="">All categories</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="grid two-col">
+            <MultiSearchableSelect
+              label="Technician"
+              placeholder="Select technicians"
+              values={technicianIds}
+              onChange={setTechnicianIds}
+              options={technicians.map((tech) => ({ value: tech.id, label: tech.name, subtitle: tech.id }))}
             />
-          </label>
-          <button type="button" onClick={fetchUsage} disabled={loading}>
+            <MultiSearchableSelect
+              label="Product"
+              placeholder="Select products"
+              values={productIds}
+              onChange={setProductIds}
+              options={products.map((product) => ({ value: product.id, label: product.name, subtitle: product.category }))}
+            />
+            <label>
+              Location (optional)
+              <input
+                type="text"
+                placeholder="Scope or location ID"
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+              />
+            </label>
+          </div>
+          {error ? <div className="error-panel">{error}</div> : null}
+        </div>
+        <div className="analytics-filter-actions">
+          <button type="button" className="ghost-button" onClick={resetFilters}>
+            Clear
+          </button>
+          <button type="button" className="apply-button" onClick={fetchUsage} disabled={loading}>
             {loading ? 'Loading...' : 'Apply'}
           </button>
         </div>
-        {error ? <div className="error-panel">{error}</div> : null}
       </div>
 
       <div className="card card-stack">
@@ -266,7 +300,7 @@ export function AnalyticsPreview() {
           </div>
           {usage ? (
             <div className="muted">
-              {formatNumber(usage.totals.quantityTracking)} tracking units • {formatNumber(usage.totals.transactions)} transactions
+              {formatNumber(usage.totals.quantityTracking)} tracking units | {formatNumber(usage.totals.transactions)} transactions
             </div>
           ) : null}
         </div>
@@ -351,79 +385,88 @@ export function AnalyticsPreview() {
           </div>
         )}
       </div>
-      {selectedRow ? (
-        <div className="modal-backdrop" onClick={() => setSelectedRow(null)}>
-          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">Details</div>
-              <button type="button" className="ghost-button" onClick={() => setSelectedRow(null)}>
-                Close
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="card-stack">
-                {groupBy !== 'technician' ? (
-                  <div>
-                    <strong>Product</strong>
-                    <div className="muted">{selectedRow.productName ?? 'Unknown'}</div>
-                  </div>
-                ) : null}
-                {groupBy !== 'product' ? (
-                  <div>
-                    <strong>Technician</strong>
-                    <div className="muted">{selectedRow.technicianName ?? 'Unknown'}</div>
-                  </div>
-                ) : null}
-                {groupBy !== 'technician' ? (
-                  <div>
-                    <strong>Category</strong>
-                    <div className="muted">{selectedRow.category ?? 'Uncategorized'}</div>
-                  </div>
-                ) : null}
+
+      <ModalShell open={Boolean(selectedRow)} title="Details" onClose={() => setSelectedRow(null)}>
+        {selectedRow ? (
+          <div className="card-stack">
+            <div className="card-stack">
+              {groupBy !== 'technician' ? (
                 <div>
-                  <strong>Totals</strong>
-                  <div className="muted">
-                    {formatNumber(selectedRow.quantityTracking)} {selectedRow.trackingUnitLabel ?? ''} •{' '}
-                    {formatNumber(selectedRow.transactions)} transactions
-                  </div>
+                  <strong>Product</strong>
+                  <div className="muted">{selectedRow.productName ?? 'Unknown'}</div>
+                </div>
+              ) : null}
+              {groupBy !== 'product' ? (
+                <div>
+                  <strong>Technician</strong>
+                  <div className="muted">{selectedRow.technicianName ?? 'Unknown'}</div>
+                </div>
+              ) : null}
+              {groupBy !== 'technician' ? (
+                <div>
+                  <strong>Category</strong>
+                  <div className="muted">{selectedRow.category ?? 'Uncategorized'}</div>
+                </div>
+              ) : null}
+              <div>
+                <strong>Totals</strong>
+                <div className="muted">
+                  {formatNumber(selectedRow.quantityTracking)} {selectedRow.trackingUnitLabel ?? ''} |{' '}
+                  {formatNumber(selectedRow.transactions)} transactions
                 </div>
               </div>
-              <div className="card-stack">
-                <div className="card-title">Sources</div>
-                {selectedRow.sourcesTotal > selectedRow.sourcesPreview.length ? (
-                  <div className="muted">
-                    Showing {selectedRow.sourcesPreview.length} of {selectedRow.sourcesTotal}
-                  </div>
-                ) : null}
-                {selectedRow.sourcesPreview.length ? (
-                  <div className="card-stack">
-                    {selectedRow.sourcesPreview.map((source) => {
-                      const id = source.includes(':') ? source.split(':').slice(1).join(':') : source;
-                      const link = source.startsWith('checkout:')
-                        ? `/orders?requestId=${encodeURIComponent(id)}`
-                        : source.startsWith('transfer:')
-                          ? `/orders?transferGroupId=${encodeURIComponent(id)}`
-                          : '/orders';
-                      const label = source.startsWith('checkout:')
-                        ? `Checkout ${id}`
-                        : source.startsWith('transfer:')
-                          ? `Transfer ${id}`
-                          : source;
+            </div>
+            <div className="card-stack">
+              <div className="card-title">Sources</div>
+              {selectedRow.sourcesTotal > selectedRow.sourcesPreview.length ? (
+                <div className="muted">
+                  Showing {selectedRow.sourcesPreview.length} of {selectedRow.sourcesTotal}
+                </div>
+              ) : null}
+              {selectedRow.sourcesPreview.length ? (
+                <div className="card-stack">
+                  {selectedRow.sourcesPreview.map((source, index) => {
+                    const typeLabel = source.type === 'checkout' ? 'Checkout' : 'Transfer Issue';
+                    const techLabel = source.technicianName ?? 'Unknown tech';
+                    const eventAt = source.finalizedAt ?? source.createdAt;
+                    const display = `${typeLabel} • ${techLabel} • ${formatDateTime(eventAt)}`;
+                    const requestId = source.transferGroupId ?? source.requestId ?? null;
+                    if (!requestId) {
                       return (
-                        <a key={source} href={link} className="card clickable">
-                          {label}
-                        </a>
+                        <div key={`${source.type}-${index}`} className="card">
+                          {display}
+                        </div>
                       );
-                    })}
-                  </div>
-                ) : (
-                  <div className="muted">No sources available.</div>
-                )}
-              </div>
+                    }
+                    return (
+                      <button
+                        key={`${source.type}-${requestId}-${index}`}
+                        type="button"
+                        className="card clickable"
+                        onClick={() =>
+                          setSelectedSource({
+                            type: source.type,
+                            requestId,
+                            transferGroupId: source.transferGroupId,
+                            technicianName: source.technicianName ?? null,
+                            eventAt,
+                          })
+                        }
+                      >
+                        {display}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="muted">No sources available.</div>
+              )}
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </ModalShell>
+
+      <RequestDetailsModal open={Boolean(selectedSource)} source={selectedSource} onClose={() => setSelectedSource(null)} />
     </section>
   );
 }

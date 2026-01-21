@@ -38,18 +38,20 @@ export function MultiSearchableSelect({ label, placeholder, values, options, onC
     <div className="multi-select">
       <SearchableSelect label={label} placeholder={placeholder} value="" onChange={addValue} options={options} />
       {values.length ? (
-        <div className="chip-row">
-          {selectedOptions.map((opt) => (
-            <span key={opt.value} className="chip">
-              {opt.label}
-              <button type="button" aria-label={`Remove ${opt.label}`} onClick={() => removeValue(opt.value)}>
-                ×
-              </button>
-            </span>
-          ))}
-          <button type="button" className="chip-clear" onClick={clearAll}>
-            Clear
-          </button>
+        <div className="chip-scroll">
+          <div className="chip-row">
+            {selectedOptions.map((opt) => (
+              <span key={opt.value} className="chip">
+                {opt.label}
+                <button type="button" aria-label={`Remove ${opt.label}`} onClick={() => removeValue(opt.value)}>
+                  X
+                </button>
+              </span>
+            ))}
+            <button type="button" className="chip-clear" onClick={clearAll}>
+              Clear
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

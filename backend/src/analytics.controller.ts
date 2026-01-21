@@ -90,6 +90,15 @@ export class AnalyticsController {
 
     const includeProduct = groupBy === 'product' || groupBy === 'product_technician';
     const includeTechnician = groupBy === 'technician' || groupBy === 'product_technician';
+    type UsageSourcePreview = {
+      type: 'checkout' | 'transfer';
+      technicianName: string | null;
+      createdAt: string;
+      finalizedAt: string | null;
+      requestId: string | null;
+      transferGroupId: string | null;
+    };
+
     type UsageRowState = {
       productId: string | null;
       productName: string | null;
@@ -100,7 +109,7 @@ export class AnalyticsController {
       quantityTracking: number;
       trackingUnitLabel: string | null;
       checkoutUnitLabel: string | null;
-      transactionIds: Set<string>;
+      sources: Map<string, UsageSourcePreview>;
     };
 
     const rows = new Map<string, UsageRowState>();
@@ -118,7 +127,7 @@ export class AnalyticsController {
           quantityTracking: 0,
           trackingUnitLabel: null,
           checkoutUnitLabel: null,
-          transactionIds: new Set<string>(),
+          sources: new Map<string, UsageSourcePreview>(),
           ...seed,
         });
       }
@@ -134,6 +143,7 @@ export class AnalyticsController {
       let technicianId: string | null = null;
       let technicianName: string | null = null;
       let transactionKey = `tx:${tx.id}`;
+      let sourcePreview: UsageSourcePreview | null = null;
 
       if (tx.type === 'checkout_finalized') {
         const user = tx.sourceCheckoutLine?.request?.technician;
@@ -143,6 +153,14 @@ export class AnalyticsController {
         if (tx.sourceCheckoutLine?.requestId) {
           transactionKey = `checkout:${tx.sourceCheckoutLine.requestId}`;
         }
+        sourcePreview = {
+          type: 'checkout',
+          technicianName: technicianName ?? null,
+          createdAt: tx.createdAt.toISOString(),
+          finalizedAt: tx.createdAt.toISOString(),
+          requestId: tx.sourceCheckoutLine?.requestId ?? null,
+          transferGroupId: null,
+        };
       } else if (tx.type === 'transfer') {
         const scopeId = this.extractTechnicianIdFromScope(tx.scope);
         technicianId = scopeId;
@@ -150,6 +168,14 @@ export class AnalyticsController {
         if (tx.transferGroupId) {
           transactionKey = `transfer:${tx.transferGroupId}`;
         }
+        sourcePreview = {
+          type: 'transfer',
+          technicianName: technicianName ?? null,
+          createdAt: tx.createdAt.toISOString(),
+          finalizedAt: tx.createdAt.toISOString(),
+          requestId: tx.transferGroupId ?? null,
+          transferGroupId: tx.transferGroupId ?? null,
+        };
       }
 
       if (includeTechnician && !technicianId) {
@@ -178,7 +204,9 @@ export class AnalyticsController {
 
       row.quantityBase += baseQty;
       row.quantityTracking += trackingQty;
-      row.transactionIds.add(transactionKey);
+      if (sourcePreview && !row.sources.has(transactionKey)) {
+        row.sources.set(transactionKey, sourcePreview);
+      }
       totalTransactions.add(transactionKey);
     };
 
@@ -189,7 +217,14 @@ export class AnalyticsController {
       accumulate(tx as any);
     }
 
-    const rowsArray = Array.from(rows.values()).map((row) => ({
+    const rowsArray = Array.from(rows.values()).map((row) => {
+      const sourcesArray = Array.from(row.sources.values()).sort((a, b) => {
+        const aTime = new Date(a.finalizedAt ?? a.createdAt).getTime();
+        const bTime = new Date(b.finalizedAt ?? b.createdAt).getTime();
+        return bTime - aTime;
+      });
+
+      return {
       productId: row.productId,
       productName: row.productName,
       category: row.category,
@@ -199,10 +234,11 @@ export class AnalyticsController {
       quantityTracking: Math.round(row.quantityTracking * 100) / 100,
       trackingUnitLabel: row.trackingUnitLabel,
       checkoutUnitLabel: row.checkoutUnitLabel,
-      transactions: row.transactionIds.size,
-      sourcesPreview: Array.from(row.transactionIds).sort().slice(0, 25),
-      sourcesTotal: row.transactionIds.size,
-    }));
+      transactions: row.sources.size,
+      sourcesPreview: sourcesArray.slice(0, 25),
+      sourcesTotal: row.sources.size,
+    };
+    });
 
     rowsArray.sort((a, b) => b.quantityTracking - a.quantityTracking || b.quantityBase - a.quantityBase);
 

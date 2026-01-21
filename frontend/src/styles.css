@@ -154,6 +154,38 @@ a {
   gap: 0.75rem;
 }
 
+.analytics-filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.analytics-filter-content {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
+.analytics-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  height: 56px;
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+  background: var(--bgCard);
+}
+
+.apply-button {
+  width: 120px;
+  height: 40px;
+  flex: 0 0 auto;
+}
+
 .line-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr auto;
@@ -475,6 +507,14 @@ button:disabled {
 .multi-select {
   display: grid;
   gap: 0.5rem;
+}
+
+.chip-scroll {
+  max-height: 96px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.35rem;
 }
 
 .chip-row {

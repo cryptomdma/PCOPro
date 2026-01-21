@@ -38,6 +38,13 @@ export class CheckoutService {
     });
   }
 
+  detail(id: string) {
+    return this.prisma.checkoutRequest.findUnique({
+      where: { id },
+      include: { lines: true, technician: { select: { id: true, name: true, technicianId: true } } },
+    });
+  }
+
   async finalize(id: string, actorId?: string) {
     const request = await this.prisma.checkoutRequest.findUnique({
       where: { id },

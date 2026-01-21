@@ -3,8 +3,8 @@ import axios from 'axios';
 import { useAuth } from '../auth';
 import { useToast } from './ui/Toast';
 import { useConfirm } from './ui/ConfirmDialog';
-import { ModalShell } from './ui/ModalShell';
 import { StatusBadge } from './ui/StatusBadge';
+import { RequestDetailsModal, RequestDetailsSource } from './RequestDetailsModal';
 
 type TransferDirection = 'ISSUE' | 'RETURN';
 type TransferRequestStatus =
@@ -31,16 +31,6 @@ type TransferRequest = {
   technician?: { id: string; name: string };
 };
 
-type TransferRequestDetail = TransferRequest & {
-  lines?: Array<{
-    id: string;
-    productId: string;
-    product?: { name: string; category?: string | null };
-    quantity: number;
-    unitLabel: string;
-  }>;
-};
-
 export function OrdersView() {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -48,8 +38,7 @@ export function OrdersView() {
 
   const [openRequests, setOpenRequests] = useState<TransferRequest[]>([]);
   const [historyRequests, setHistoryRequests] = useState<TransferRequest[]>([]);
-  const [detail, setDetail] = useState<TransferRequestDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<RequestDetailsSource | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -124,8 +113,7 @@ export function OrdersView() {
     setError(null);
     setActionBusy(true);
     try {
-      const res = await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/finalize`);
-      setDetail(res.data);
+      await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/finalize`);
       await refreshQueues();
       showToast({ kind: 'success', message: 'Transfer finalized' });
     } catch (err: any) {
@@ -139,8 +127,7 @@ export function OrdersView() {
     setError(null);
     setActionBusy(true);
     try {
-      const res = await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/acknowledge`);
-      setDetail(res.data);
+      await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/acknowledge`);
       await refreshQueues();
       showToast({ kind: 'success', message: 'Acknowledged receipt' });
     } catch (err: any) {
@@ -156,8 +143,7 @@ export function OrdersView() {
     setError(null);
     setActionBusy(true);
     try {
-      const res = await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/dispute`, { note });
-      setDetail(res.data);
+      await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/dispute`, { note });
       await refreshQueues();
       showToast({ kind: 'success', message: 'Dispute submitted' });
     } catch (err: any) {
@@ -167,17 +153,14 @@ export function OrdersView() {
     }
   }
 
-  async function openDetail(request: TransferRequest) {
-    setDetail(request);
-    setDetailLoading(true);
-    try {
-      const res = await axios.get<TransferRequestDetail>(`/api/v1/transfer-requests/${request.id}`);
-      setDetail(res.data);
-    } catch (err: any) {
-      handleError('load detail failed', err, 'Failed to load request detail');
-    } finally {
-      setDetailLoading(false);
-    }
+  function openDetail(request: TransferRequest) {
+    setSelectedSource({
+      type: 'transfer',
+      requestId: request.id,
+      transferGroupId: request.id,
+      technicianName: request.technician?.name ?? null,
+      eventAt: request.finalizedAt ?? request.createdAt,
+    });
   }
 
   return (
@@ -322,37 +305,7 @@ export function OrdersView() {
         </ul>
       </div>
 
-      <ModalShell open={Boolean(detail)} title="Request Detail" onClose={() => setDetail(null)}>
-        {detail ? (
-          <div className="card-stack">
-            <div className="card-row">
-              <strong>{detail.direction}</strong>
-              <StatusBadge status={detail.status} />
-            </div>
-            <div className="muted">Technician: {detail.technician?.name ?? detail.technicianId}</div>
-            {detail.reason ? <div className="muted">Reason: {detail.reason}</div> : null}
-            {detailLoading ? <div className="muted">Loading lines...</div> : null}
-            {detail.lines && detail.lines.length > 0 ? (
-              <div className="card-stack">
-                <strong>Lines</strong>
-                {detail.lines.map((line) => (
-                  <div key={line.id} className="card-row">
-                    <span>
-                      {line.product?.name ?? 'Unknown product'}
-                      {line.product?.category ? <span className="muted"> · {line.product.category}</span> : null}
-                      {line.product?.name ? null : <span className="muted"> · {line.productId}</span>}
-                    </span>
-                    <span>
-                      {line.quantity} {line.unitLabel}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {detail.disputeNote ? <div className="muted">Dispute note: {detail.disputeNote}</div> : null}
-          </div>
-        ) : null}
-      </ModalShell>
+      <RequestDetailsModal open={Boolean(selectedSource)} source={selectedSource} onClose={() => setSelectedSource(null)} />
     </section>
   );
 }

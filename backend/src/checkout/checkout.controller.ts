@@ -11,6 +11,11 @@ export class CheckoutController {
     return this.checkout.list();
   }
 
+  @Get(':id')
+  detail(@Param('id') id: string) {
+    return this.checkout.detail(id);
+  }
+
   @Post('requests')
   create(@Body() dto: CreateCheckoutDto) {
     return this.checkout.create(dto, false);
