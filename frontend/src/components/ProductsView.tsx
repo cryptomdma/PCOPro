@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { QRCodeCanvas } from 'qrcode.react';
 import { Link, useLocation } from 'react-router-dom';
-import { ModalShell } from './ui/ModalShell';
+import { ProductDetailsModal } from './products/ProductDetailsModal';
 
 type Product = {
   id: string;
@@ -80,34 +79,7 @@ export function ProductsView() {
           );
         })}
       </div>
-      <ModalShell open={Boolean(selected)} title={selected?.name} onClose={() => setSelected(null)}>
-        {selected ? (
-          <div className="card-stack">
-            <div>
-              <div className="muted">Product ID</div>
-              <div>{selected.id}</div>
-            </div>
-            <div>
-              <div className="muted">EPA</div>
-              <div>{selected.epaRegNo ?? 'N/A'}</div>
-            </div>
-            <div>
-              <div className="muted">Description</div>
-              <div>{selected.description || 'No description provided.'}</div>
-            </div>
-            <div>
-              <div className="muted">Category</div>
-              <div>{selected.category || '—'}</div>
-            </div>
-            <div>
-              <div className="muted">QR Code</div>
-              <div className="qr-preview">
-                <QRCodeCanvas value={`MGPC:prod:${selected.id}`} size={160} />
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </ModalShell>
+      <ProductDetailsModal open={Boolean(selected)} product={selected} onClose={() => setSelected(null)} />
     </section>
   );
 }

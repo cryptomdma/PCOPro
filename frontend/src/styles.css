@@ -515,6 +515,12 @@ button:disabled {
   justify-content: center;
 }
 
+.qr-preview canvas,
+.qr-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .searchable-select {
   position: relative;
   display: grid;

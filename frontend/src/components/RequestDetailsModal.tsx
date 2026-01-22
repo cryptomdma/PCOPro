@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { QRCodeCanvas } from 'qrcode.react';
 import { ModalShell } from './ui/ModalShell';
 import { StatusBadge } from './ui/StatusBadge';
+import { ProductDetailsModal } from './products/ProductDetailsModal';
 
 export type RequestDetailsSource = {
   type: 'checkout' | 'transfer';
@@ -59,7 +59,6 @@ export function RequestDetailsModal({
   const [productById, setProductById] = useState<Record<string, ProductSummary>>({});
   const [productsLoaded, setProductsLoaded] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [productFetchError, setProductFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !source) return;
@@ -112,9 +111,7 @@ export function RequestDetailsModal({
       .then((res) => {
         setProductById((prev) => ({ ...prev, [res.data.id]: res.data }));
       })
-      .catch((err: any) => {
-        setProductFetchError(err?.response?.data?.message || 'Product not found');
-      });
+      .catch(() => undefined);
   }, [open, selectedProductId, productById]);
 
   const technicianLabel = useMemo(() => {
@@ -174,7 +171,6 @@ export function RequestDetailsModal({
                       type="button"
                       className="line-item-button"
                       onClick={() => {
-                        setProductFetchError(null);
                         setSelectedProductId(line.productId);
                       }}
                     >
@@ -182,7 +178,7 @@ export function RequestDetailsModal({
                         {product?.name ?? line.productId}
                         {product?.category ? <span className="muted"> | {product.category}</span> : null}
                       </span>
-                      <span className="muted">›</span>
+                      <span className="muted">{'>'}</span>
                     </button>
                     <span>
                       {line.quantity} {line.unitLabel}
@@ -217,7 +213,6 @@ export function RequestDetailsModal({
                       type="button"
                       className="line-item-button"
                       onClick={() => {
-                        setProductFetchError(null);
                         setSelectedProductId(line.productId);
                       }}
                     >
@@ -225,7 +220,7 @@ export function RequestDetailsModal({
                         {product?.name ?? line.productId}
                         {product?.category ? <span className="muted"> | {product.category}</span> : null}
                       </span>
-                      <span className="muted">›</span>
+                      <span className="muted">{'>'}</span>
                     </button>
                     <span>
                       {quantity} {line.checkoutUnitLabel}
@@ -238,44 +233,7 @@ export function RequestDetailsModal({
         </div>
       ) : null}
 
-      <ModalShell
-        open={Boolean(selectedProductId)}
-        title={selectedProduct?.name ?? 'Product'}
-        onClose={() => setSelectedProductId(null)}
-      >
-        {productFetchError ? <div className="error-panel">{productFetchError}</div> : null}
-        {selectedProduct ? (
-          <div className="card-stack">
-            <div>
-              <div className="muted">Product ID</div>
-              <div>{selectedProduct.id}</div>
-            </div>
-            {selectedProduct.category ? (
-              <div>
-                <div className="muted">Category</div>
-                <div>{selectedProduct.category}</div>
-              </div>
-            ) : null}
-            {selectedProduct.epaRegNo ? (
-              <div>
-                <div className="muted">EPA</div>
-                <div>{selectedProduct.epaRegNo}</div>
-              </div>
-            ) : null}
-            {selectedProduct.description ? (
-              <div>
-                <div className="muted">Description</div>
-                <div>{selectedProduct.description}</div>
-              </div>
-            ) : null}
-            <div className="qr-preview">
-              <QRCodeCanvas value={`MGPC:prod:${selectedProduct.id}`} size={160} />
-            </div>
-          </div>
-        ) : (
-          <div className="muted">Product not found.</div>
-        )}
-      </ModalShell>
+      <ProductDetailsModal open={Boolean(selectedProductId)} product={selectedProduct} onClose={() => setSelectedProductId(null)} />
     </ModalShell>
   );
 }
