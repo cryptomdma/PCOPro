@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Link, useLocation } from 'react-router-dom';
 import { ProductDetailsModal } from './products/ProductDetailsModal';
+import { formatProductType } from './products/productType';
 
 type Product = {
   id: string;
@@ -9,6 +10,7 @@ type Product = {
   description?: string;
   epaRegNo?: string;
   category?: string | null;
+  productType?: string | null;
   trackingUnitLabel: string;
   checkoutUnitLabel: string;
   balances?: { onHandBase: number } | null;
@@ -70,6 +72,9 @@ export function ProductsView() {
                   {product.name} {isLow ? <span className="badge low">LOW</span> : null}
                 </div>
                 <p className="muted">EPA: {product.epaRegNo ?? 'N/A'}</p>
+                <p className="muted">
+                  {product.category ?? 'Uncategorized'} • {formatProductType(product.productType)}
+                </p>
                 <p>
                   On-hand: <strong>{onHandTracking}</strong> {product.trackingUnitLabel}
                 </p>

@@ -35,6 +35,18 @@ enum ProductBehavior {
   REGULATED_CUSTOMER_BOUND
 }
 
+enum ProductType {
+  DUST
+  GRANULE
+  CONCENTRATE
+  AEROSOL
+  ANT_BAIT
+  ROACH_BAIT
+  RODENT_BAIT
+  SANITATION
+  OTHER
+}
+
 enum ProductTrackingMode {
   EQUIPMENT
   BULK
@@ -114,6 +126,7 @@ model Product {
   category          ProductCategory @default(CHEMICAL)
   behavior          ProductBehavior @default(CONSUMABLE)
   trackingMode      ProductTrackingMode @default(BULK)
+  productType       ProductType?
   baseType          UnitBaseType
   trackingUnitLabel String
   checkoutUnitLabel String

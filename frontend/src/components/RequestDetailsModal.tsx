@@ -41,6 +41,10 @@ type ProductSummary = {
   category?: string | null;
   epaRegNo?: string | null;
   description?: string | null;
+  productType?: string | null;
+  trackingUnitLabel?: string;
+  trackingToBase?: number;
+  balances?: { onHandBase: number } | null;
 };
 
 export function RequestDetailsModal({

@@ -1,5 +1,6 @@
 import { QRCodeCanvas } from 'qrcode.react';
 import { ModalShell } from '../ui/ModalShell';
+import { formatProductType } from './productType';
 
 export type ProductDetails = {
   id: string;
@@ -7,6 +8,10 @@ export type ProductDetails = {
   category?: string | null;
   epaRegNo?: string | null;
   description?: string | null;
+  productType?: string | null;
+  trackingUnitLabel?: string;
+  trackingToBase?: number;
+  balances?: { onHandBase: number } | null;
 };
 
 export function ProductDetailsModal({
@@ -18,6 +23,11 @@ export function ProductDetailsModal({
   product: ProductDetails | null;
   onClose: () => void;
 }) {
+  const onHandTracking =
+    product?.balances && product.trackingToBase
+      ? Math.round((product.balances.onHandBase / product.trackingToBase) * 100) / 100
+      : null;
+
   return (
     <ModalShell open={open} title={product?.name ?? 'Product'} onClose={onClose}>
       {product ? (
@@ -25,6 +35,18 @@ export function ProductDetailsModal({
           <div>
             <div className="muted">Product ID</div>
             <div>{product.id}</div>
+          </div>
+          <div>
+            <div className="muted">On-hand</div>
+            <div>
+              {onHandTracking !== null && product.trackingUnitLabel
+                ? `${onHandTracking} ${product.trackingUnitLabel}`
+                : '—'}
+            </div>
+          </div>
+          <div>
+            <div className="muted">Type</div>
+            <div>{formatProductType(product.productType)}</div>
           </div>
           <div>
             <div className="muted">EPA</div>
