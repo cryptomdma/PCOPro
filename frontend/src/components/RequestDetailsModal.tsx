@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { ModalShell } from './ui/ModalShell';
 import { StatusBadge } from './ui/StatusBadge';
@@ -34,6 +34,12 @@ type CheckoutRequestDetail = {
   lines?: Array<{ id: string; productId: string; qtyRequested: number; qtyIssued?: number; checkoutUnitLabel: string }>;
 };
 
+type ProductSummary = {
+  id: string;
+  name: string;
+  category?: string | null;
+};
+
 export function RequestDetailsModal({
   open,
   source,
@@ -47,6 +53,8 @@ export function RequestDetailsModal({
   const [error, setError] = useState<string | null>(null);
   const [transferDetail, setTransferDetail] = useState<TransferRequestDetail | null>(null);
   const [checkoutDetail, setCheckoutDetail] = useState<CheckoutRequestDetail | null>(null);
+  const [productById, setProductById] = useState<Record<string, ProductSummary>>({});
+  const [productsLoaded, setProductsLoaded] = useState(false);
 
   useEffect(() => {
     if (!open || !source) return;
@@ -74,6 +82,46 @@ export function RequestDetailsModal({
       .finally(() => setLoading(false));
   }, [open, source]);
 
+  useEffect(() => {
+    if (!open || productsLoaded) return;
+    axios
+      .get<ProductSummary[]>('/api/v1/products', { params: { limit: 500 } })
+      .then((res) => {
+        const map: Record<string, ProductSummary> = {};
+        res.data.forEach((product) => {
+          map[product.id] = product;
+        });
+        setProductById(map);
+        setProductsLoaded(true);
+      })
+      .catch(() => {
+        setProductsLoaded(true);
+      });
+  }, [open, productsLoaded]);
+
+  const technicianLabel = useMemo(() => {
+    return (
+      source?.technicianName ??
+      transferDetail?.technician?.name ??
+      transferDetail?.technicianId ??
+      checkoutDetail?.technician?.name ??
+      checkoutDetail?.technicianId ??
+      'Unknown'
+    );
+  }, [source, transferDetail, checkoutDetail]);
+
+  const eventAt = useMemo(() => {
+    return (
+      source?.eventAt ??
+      transferDetail?.finalizedAt ??
+      transferDetail?.createdAt ??
+      checkoutDetail?.requestDate ??
+      null
+    );
+  }, [source, transferDetail, checkoutDetail]);
+
+  const formattedEventAt = eventAt ? new Date(eventAt).toLocaleString() : 'Unknown time';
+
   return (
     <ModalShell open={open} title="Request Details" onClose={onClose}>
       {loading ? <div className="muted">Loading details...</div> : null}
@@ -81,23 +129,37 @@ export function RequestDetailsModal({
 
       {transferDetail ? (
         <div className="card-stack">
+          <div className="muted">Technician: {technicianLabel}</div>
+          <div className="muted">Date: {formattedEventAt}</div>
           <div className="card-row">
             <strong>{transferDetail.direction}</strong>
             <StatusBadge status={transferDetail.status} />
           </div>
-          <div className="muted">Technician: {transferDetail.technician?.name ?? transferDetail.technicianId}</div>
+          <div className="muted">Created: {new Date(transferDetail.createdAt).toLocaleString()}</div>
+          {transferDetail.finalizedAt ? (
+            <div className="muted">Finalized: {new Date(transferDetail.finalizedAt).toLocaleString()}</div>
+          ) : null}
+          {transferDetail.acknowledgedAt ? (
+            <div className="muted">Acknowledged: {new Date(transferDetail.acknowledgedAt).toLocaleString()}</div>
+          ) : null}
           {transferDetail.reason ? <div className="muted">Reason: {transferDetail.reason}</div> : null}
           {transferDetail.lines && transferDetail.lines.length > 0 ? (
             <div className="card-stack">
               <strong>Lines</strong>
-              {transferDetail.lines.map((line) => (
-                <div key={line.id} className="card-row">
-                  <span>{line.productId}</span>
-                  <span>
-                    {line.quantity} {line.unitLabel}
-                  </span>
-                </div>
-              ))}
+              {transferDetail.lines.map((line) => {
+                const product = productById[line.productId];
+                return (
+                  <div key={line.id} className="card-row">
+                    <span>
+                      {product?.name ?? line.productId}
+                      {product?.category ? <span className="muted"> | {product.category}</span> : null}
+                    </span>
+                    <span>
+                      {line.quantity} {line.unitLabel}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : null}
           {transferDetail.disputeNote ? <div className="muted">Dispute note: {transferDetail.disputeNote}</div> : null}
@@ -106,23 +168,31 @@ export function RequestDetailsModal({
 
       {checkoutDetail ? (
         <div className="card-stack">
+          <div className="muted">Technician: {technicianLabel}</div>
+          <div className="muted">Date: {formattedEventAt}</div>
           <div className="card-row">
             <strong>Checkout</strong>
             <StatusBadge status={checkoutDetail.status} />
           </div>
-          <div className="muted">Technician: {checkoutDetail.technician?.name ?? checkoutDetail.technicianId}</div>
           <div className="muted">Requested: {new Date(checkoutDetail.requestDate).toLocaleString()}</div>
           {checkoutDetail.lines && checkoutDetail.lines.length > 0 ? (
             <div className="card-stack">
               <strong>Lines</strong>
-              {checkoutDetail.lines.map((line) => (
-                <div key={line.id} className="card-row">
-                  <span>{line.productId}</span>
-                  <span>
-                    {line.qtyRequested} {line.checkoutUnitLabel}
-                  </span>
-                </div>
-              ))}
+              {checkoutDetail.lines.map((line) => {
+                const product = productById[line.productId];
+                const quantity = line.qtyIssued ?? line.qtyRequested;
+                return (
+                  <div key={line.id} className="card-row">
+                    <span>
+                      {product?.name ?? line.productId}
+                      {product?.category ? <span className="muted"> | {product.category}</span> : null}
+                    </span>
+                    <span>
+                      {quantity} {line.checkoutUnitLabel}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : null}
         </div>
