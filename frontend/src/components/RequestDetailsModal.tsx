@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { QRCodeCanvas } from 'qrcode.react';
 import { ModalShell } from './ui/ModalShell';
 import { StatusBadge } from './ui/StatusBadge';
 
@@ -38,6 +39,8 @@ type ProductSummary = {
   id: string;
   name: string;
   category?: string | null;
+  epaRegNo?: string | null;
+  description?: string | null;
 };
 
 export function RequestDetailsModal({
@@ -55,6 +58,8 @@ export function RequestDetailsModal({
   const [checkoutDetail, setCheckoutDetail] = useState<CheckoutRequestDetail | null>(null);
   const [productById, setProductById] = useState<Record<string, ProductSummary>>({});
   const [productsLoaded, setProductsLoaded] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [productFetchError, setProductFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !source) return;
@@ -99,6 +104,19 @@ export function RequestDetailsModal({
       });
   }, [open, productsLoaded]);
 
+  useEffect(() => {
+    if (!open || !selectedProductId) return;
+    if (productById[selectedProductId]) return;
+    axios
+      .get<ProductSummary>(`/api/v1/products/${selectedProductId}`)
+      .then((res) => {
+        setProductById((prev) => ({ ...prev, [res.data.id]: res.data }));
+      })
+      .catch((err: any) => {
+        setProductFetchError(err?.response?.data?.message || 'Product not found');
+      });
+  }, [open, selectedProductId, productById]);
+
   const technicianLabel = useMemo(() => {
     return (
       source?.technicianName ??
@@ -121,6 +139,8 @@ export function RequestDetailsModal({
   }, [source, transferDetail, checkoutDetail]);
 
   const formattedEventAt = eventAt ? new Date(eventAt).toLocaleString() : 'Unknown time';
+
+  const selectedProduct = selectedProductId ? productById[selectedProductId] : null;
 
   return (
     <ModalShell open={open} title="Request Details" onClose={onClose}>
@@ -150,10 +170,20 @@ export function RequestDetailsModal({
                 const product = productById[line.productId];
                 return (
                   <div key={line.id} className="card-row">
-                    <span>
-                      {product?.name ?? line.productId}
-                      {product?.category ? <span className="muted"> | {product.category}</span> : null}
-                    </span>
+                    <button
+                      type="button"
+                      className="line-item-button"
+                      onClick={() => {
+                        setProductFetchError(null);
+                        setSelectedProductId(line.productId);
+                      }}
+                    >
+                      <span>
+                        {product?.name ?? line.productId}
+                        {product?.category ? <span className="muted"> | {product.category}</span> : null}
+                      </span>
+                      <span className="muted">›</span>
+                    </button>
                     <span>
                       {line.quantity} {line.unitLabel}
                     </span>
@@ -183,10 +213,20 @@ export function RequestDetailsModal({
                 const quantity = line.qtyIssued ?? line.qtyRequested;
                 return (
                   <div key={line.id} className="card-row">
-                    <span>
-                      {product?.name ?? line.productId}
-                      {product?.category ? <span className="muted"> | {product.category}</span> : null}
-                    </span>
+                    <button
+                      type="button"
+                      className="line-item-button"
+                      onClick={() => {
+                        setProductFetchError(null);
+                        setSelectedProductId(line.productId);
+                      }}
+                    >
+                      <span>
+                        {product?.name ?? line.productId}
+                        {product?.category ? <span className="muted"> | {product.category}</span> : null}
+                      </span>
+                      <span className="muted">›</span>
+                    </button>
                     <span>
                       {quantity} {line.checkoutUnitLabel}
                     </span>
@@ -197,6 +237,45 @@ export function RequestDetailsModal({
           ) : null}
         </div>
       ) : null}
+
+      <ModalShell
+        open={Boolean(selectedProductId)}
+        title={selectedProduct?.name ?? 'Product'}
+        onClose={() => setSelectedProductId(null)}
+      >
+        {productFetchError ? <div className="error-panel">{productFetchError}</div> : null}
+        {selectedProduct ? (
+          <div className="card-stack">
+            <div>
+              <div className="muted">Product ID</div>
+              <div>{selectedProduct.id}</div>
+            </div>
+            {selectedProduct.category ? (
+              <div>
+                <div className="muted">Category</div>
+                <div>{selectedProduct.category}</div>
+              </div>
+            ) : null}
+            {selectedProduct.epaRegNo ? (
+              <div>
+                <div className="muted">EPA</div>
+                <div>{selectedProduct.epaRegNo}</div>
+              </div>
+            ) : null}
+            {selectedProduct.description ? (
+              <div>
+                <div className="muted">Description</div>
+                <div>{selectedProduct.description}</div>
+              </div>
+            ) : null}
+            <div className="qr-preview">
+              <QRCodeCanvas value={`MGPC:prod:${selectedProduct.id}`} size={160} />
+            </div>
+          </div>
+        ) : (
+          <div className="muted">Product not found.</div>
+        )}
+      </ModalShell>
     </ModalShell>
   );
 }

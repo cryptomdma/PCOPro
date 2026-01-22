@@ -200,6 +200,24 @@ a {
   justify-content: flex-end;
 }
 
+.line-item-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.line-item-button:hover {
+  color: var(--textSecondary);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
