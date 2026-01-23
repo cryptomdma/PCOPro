@@ -36,7 +36,11 @@ export type ImportSummary = {
 
 export type InitialStockSummary = {
   created: number;
+  rowsRead: number;
+  rowsProcessed: number;
+  rowsSkippedZero: number;
   skipped: number;
+  idempotencyKeys: string[];
   warnings: string[];
   errors: string[];
 };
@@ -122,7 +126,12 @@ export class ImportService {
     return summary;
   }
 
-  loadAnnotatedRows(baseDir?: string): { rows: AnnotatedProductRow[]; warnings: string[]; skipped: number } {
+  loadAnnotatedRows(baseDir?: string): {
+    rows: AnnotatedProductRow[];
+    warnings: string[];
+    skipped: number;
+    rowsRead: number;
+  } {
     const dataDir = this.resolveDataDir(baseDir);
     const unitsPath = path.join(dataDir, 'initial_units_annotated.csv');
     if (!fs.existsSync(unitsPath)) {
@@ -130,15 +139,13 @@ export class ImportService {
     }
 
     const unitsCsv = fs.readFileSync(unitsPath, 'utf-8');
-    const unitRows = parse(unitsCsv, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-    }) as Record<string, string>[];
+    const parsed = this.parseAnnotatedUnitsCsv(unitsCsv);
+    const unitRows = parsed.rows;
 
     const metadataMap = this.loadMetadataByName(dataDir);
 
     const warnings: string[] = [];
+    warnings.push(...parsed.warnings);
     const rows: AnnotatedProductRow[] = [];
     let skipped = 0;
 
@@ -191,29 +198,37 @@ export class ImportService {
       });
     }
 
-    return { rows, warnings, skipped };
+    return { rows, warnings, skipped, rowsRead: parsed.rowsRead };
   }
 
   async importInitialStock(baseDir?: string, actorId?: string): Promise<InitialStockSummary> {
     const summary: InitialStockSummary = {
       created: 0,
+      rowsRead: 0,
+      rowsProcessed: 0,
+      rowsSkippedZero: 0,
       skipped: 0,
+      idempotencyKeys: [],
       warnings: [],
       errors: [],
     };
 
-    const { rows, warnings, skipped } = this.loadAnnotatedRows(baseDir);
+    const { rows, warnings, skipped, rowsRead } = this.loadAnnotatedRows(baseDir);
     summary.warnings.push(...warnings);
     summary.skipped += skipped;
+    summary.rowsRead = rowsRead;
 
     const dataDir = this.resolveDataDir(baseDir);
     const sourceFile = path.basename(path.join(dataDir, 'initial_units_annotated.csv'));
+    const idempotencySampleLimit = 10;
 
     for (const row of rows) {
       if (!row.initialCheckoutQty || row.initialCheckoutQty <= 0) {
-        summary.skipped += 1;
+        summary.rowsSkippedZero += 1;
         continue;
       }
+
+      summary.rowsProcessed += 1;
 
       try {
         const product = await this.prisma.product.findUnique({ where: { name: row.name } });
@@ -230,6 +245,9 @@ export class ImportService {
         }
 
         const idempotencyKey = `initstock:${sourceFile}:${row.sourceIndex}:${product.id}:${row.initialCheckoutQty}`;
+        if (summary.idempotencyKeys.length < idempotencySampleLimit) {
+          summary.idempotencyKeys.push(idempotencyKey);
+        }
         const existing = await this.prisma.inventoryTransaction.findUnique({ where: { idempotencyKey } });
         if (existing) {
           summary.skipped += 1;
@@ -328,21 +346,26 @@ export class ImportService {
 
   private parseInteger(value?: string): number | null {
     if (value === undefined || value === null || value === '') return null;
-    const num = Number(value);
+    const normalized = value.replace(/,/g, '').trim();
+    if (!normalized) return null;
+    const num = Number(normalized);
     if (Number.isNaN(num)) return null;
     return Math.round(num);
   }
 
   private parseNumber(value?: string): number | null {
     if (value === undefined || value === null || value === '') return null;
-    const num = Number(value);
+    const normalized = value.replace(/,/g, '').trim();
+    if (!normalized) return null;
+    const num = Number(normalized);
     if (Number.isNaN(num)) return null;
     return num;
   }
 
   private pickField(row: Record<string, string>, keys: string[]): string {
     for (const key of keys) {
-      const match = Object.keys(row).find((k) => k.trim().toLowerCase() === key.trim().toLowerCase());
+      const desired = this.normalizeHeaderKey(key);
+      const match = Object.keys(row).find((k) => this.normalizeHeaderKey(k) === desired);
       if (match) {
         const value = row[match];
         if (value !== undefined && value !== null) {
@@ -442,5 +465,81 @@ export class ImportService {
       return ProductTrackingMode.EQUIPMENT;
     }
     return ProductTrackingMode.BULK;
+  }
+
+  private parseAnnotatedUnitsCsv(unitsCsv: string): { rows: Record<string, string>[]; rowsRead: number; warnings: string[] } {
+    const records = parse(unitsCsv, {
+      relax_column_count: true,
+      skip_empty_lines: true,
+    }) as string[][];
+
+    const warnings: string[] = [];
+    const headerIndex = this.detectHeaderRow(records);
+    const headerRowIndex = headerIndex === -1 ? 0 : headerIndex;
+    if (headerIndex === -1) {
+      warnings.push('Header row not detected; defaulted to first non-empty row');
+    }
+
+    const headers = (records[headerRowIndex] ?? []).map((cell) => this.normalizeHeaderKey(String(cell)));
+    const rows: Record<string, string>[] = [];
+
+    for (let idx = headerRowIndex + 1; idx < records.length; idx += 1) {
+      const record = records[idx];
+      if (this.isRowEmpty(record)) continue;
+      const row: Record<string, string> = {};
+      headers.forEach((header, colIndex) => {
+        if (!header) return;
+        const raw = record[colIndex];
+        const value = raw === undefined || raw === null ? '' : String(raw).trim();
+        if (row[header] === undefined || row[header] === '') {
+          row[header] = value;
+        }
+      });
+      rows.push(row);
+    }
+
+    return { rows, rowsRead: rows.length, warnings };
+  }
+
+  private detectHeaderRow(records: string[][]): number {
+    const expected = new Set([
+      'product',
+      'product name',
+      'product sku',
+      'base type',
+      'tracking to base',
+      'checkout to base',
+      'ordering to base',
+      'tracking unit label',
+      'checkout unit label',
+      'ordering unit label',
+      'initial',
+      'stock?',
+      'discontinued?',
+    ]);
+
+    for (let idx = 0; idx < records.length; idx += 1) {
+      const normalized = records[idx].map((cell) => this.normalizeHeaderKey(String(cell)));
+      const matchCount = normalized.filter((cell) => expected.has(cell)).length;
+      const hasProduct = normalized.includes('product') || normalized.includes('product name');
+      if (hasProduct && matchCount >= 3) {
+        return idx;
+      }
+    }
+
+    return -1;
+  }
+
+  private normalizeHeaderKey(value: string): string {
+    return value
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ');
+  }
+
+  private isRowEmpty(record: string[]): boolean {
+    return record.every((cell) => !String(cell ?? '').trim());
   }
 }
