@@ -57,7 +57,7 @@ export function ProductDetailsModal({
   const [parError, setParError] = useState<string | null>(null);
   const locationScope = 'WAREHOUSE';
   const canEditProduct = user?.role === 'ADMIN' || user?.role === 'MANAGER';
-  const canEditPar = user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'WAREHOUSE';
+  const canEditPar = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const showPar = user?.role !== 'TECH';
   const activeProduct = detail ?? product;
 
@@ -83,7 +83,7 @@ export function ProductDetailsModal({
     trackingUnitLabel: activeProduct?.trackingUnitLabel ?? null,
   });
   const statusLabel = stock.inStock ? 'In Stock' : 'Out of Stock';
-  const showParEditor = canEditPar && (editMode || !canEditProduct);
+  const showParEditor = canEditPar && editMode;
 
   const parTracking = useMemo(() => {
     if (parBase === null || !activeProduct?.trackingToBase) return null;
