@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { useAuth } from '../auth';
+import { useConfirm } from './ui/ConfirmDialog';
 
 type InventoryBalance = {
   productId: string;
@@ -14,38 +16,58 @@ type InventoryBalance = {
   isDiscontinued: boolean;
 };
 
-type AuditResponse = {
+type AuditLine = {
+  id: string;
+  auditSessionId: string;
   productId: string;
-  beforeBase: number;
-  countedBase: number;
+  productName: string;
+  countedQty: number;
+  countedQtyInput: string;
+  unitBasis: 'CHECKOUT' | 'TRACKING';
+  desiredBase: number;
   deltaBase: number;
-  afterBase: number;
-  transactionId: string;
-  negativeAfter?: boolean;
-  deltaLarge?: boolean;
+  currentOnHandBase: number;
+  locationScope: string;
+};
+
+type AuditSummary = {
+  linesTotal: number;
+  linesAdjusted: number;
+  linesZeroDeltaSkipped: number;
+  idempotencyKeys: string[];
 };
 
 const toDisplay = (value: number) => Math.round(value * 100) / 100;
 
 export function AuditCountView() {
+  const { user } = useAuth();
+  const { confirm } = useConfirm();
   const [balances, setBalances] = useState<InventoryBalance[]>([]);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [countedQty, setCountedQty] = useState('');
-  const [unit, setUnit] = useState<'tracking' | 'checkout'>('tracking');
-  const [reason, setReason] = useState('');
-  const [comment, setComment] = useState('');
-  const [device, setDevice] = useState('');
-  const [result, setResult] = useState<AuditResponse | null>(null);
+  const [unitBasis, setUnitBasis] = useState<'CHECKOUT' | 'TRACKING'>('TRACKING');
+  const [notes, setNotes] = useState('');
+  const [locationScope, setLocationScope] = useState('WAREHOUSE');
+  const [auditSessionId, setAuditSessionId] = useState<string | null>(null);
+  const [lines, setLines] = useState<AuditLine[]>([]);
+  const [summary, setSummary] = useState<AuditSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+
+  const canAudit = user?.role === 'ADMIN' || user?.role === 'WAREHOUSE';
 
   useEffect(() => {
     axios
-      .get('/api/v1/inventory/balances', { params: { stockedOnly: true } })
+      .get('/api/v1/inventory/balances', { params: { stockedOnly: true, scope: locationScope } })
       .then((res) => setBalances(res.data))
       .catch((err) => setError(err?.response?.data?.message || 'Unable to load inventory balances.'));
-  }, []);
+  }, [locationScope]);
+
+  const balanceMap = useMemo(() => {
+    return new Map(balances.map((balance) => [balance.productId, balance]));
+  }, [balances]);
 
   const filteredBalances = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -55,8 +77,30 @@ export function AuditCountView() {
 
   const selected = balances.find((b) => b.productId === selectedId);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleCreateSession() {
+    setError(null);
+    setSummary(null);
+    setLoading(true);
+    try {
+      const response = await axios.post('/api/v1/audits', {
+        locationScope,
+        notes: notes || undefined,
+      });
+      setAuditSessionId(response.data.id);
+      setLines([]);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Unable to start audit session.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAddLine(e: React.FormEvent) {
     e.preventDefault();
+    if (!auditSessionId) {
+      setError('Start an audit session first.');
+      return;
+    }
     if (!selected) {
       setError('Select a product to audit.');
       return;
@@ -64,45 +108,103 @@ export function AuditCountView() {
     setError(null);
     setLoading(true);
     try {
-      const response = await axios.post<AuditResponse>('/api/v1/inventory/audit', {
+      const response = await axios.post<AuditLine>(`/api/v1/audits/${auditSessionId}/lines`, {
         productId: selected.productId,
         countedQty: Number(countedQty),
-        unit,
-        reason,
-        comment: comment || undefined,
-        device: device || undefined,
+        unitBasis,
       });
       const payload = response.data;
-      setResult(payload);
-      setBalances((prev) =>
-        prev.map((item) =>
-          item.productId === selected.productId
-            ? {
-                ...item,
-                onHandBase: payload.afterBase,
-                onHandTracking: payload.afterBase / item.trackingToBase,
-              }
-            : item,
-        ),
-      );
+      setLines((prev) => {
+        const next = prev.filter((line) => line.productId !== payload.productId);
+        return [
+          ...next,
+          {
+            ...payload,
+            countedQtyInput: payload.countedQty.toString(),
+          },
+        ];
+      });
+      setSelectedId('');
+      setCountedQty('');
     } catch (err: any) {
-      setResult(null);
-      setError(err?.response?.data?.message || 'Audit failed. Please retry.');
+      setError(err?.response?.data?.message || 'Unable to add audit line.');
     } finally {
       setLoading(false);
     }
   }
 
-  const trackingLabel = selected?.trackingUnitLabel ?? 'tracking';
-  const checkoutLabel = selected?.checkoutUnitLabel ?? 'checkout';
-  const trackingFactor = selected?.trackingToBase ?? 1;
+  async function handleUpdateLine(line: AuditLine) {
+    if (!auditSessionId) return;
+    const qty = Number(line.countedQtyInput);
+    if (!Number.isFinite(qty)) {
+      setError('Enter a valid counted quantity.');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await axios.post<AuditLine>(`/api/v1/audits/${auditSessionId}/lines`, {
+        productId: line.productId,
+        countedQty: qty,
+        unitBasis: line.unitBasis,
+      });
+      const payload = response.data;
+      setLines((prev) =>
+        prev.map((item) =>
+          item.productId === payload.productId
+            ? {
+                ...payload,
+                countedQtyInput: payload.countedQty.toString(),
+              }
+            : item,
+        ),
+      );
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Unable to update audit line.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleFinalize() {
+    if (!auditSessionId) return;
+    const ok = await confirm({
+      title: 'Finalize audit',
+      body: 'This will post ledger adjustments for all non-zero deltas.',
+      confirmLabel: 'Finalize',
+    });
+    if (!ok) return;
+    setError(null);
+    setFinalizing(true);
+    try {
+      const response = await axios.post<AuditSummary>(`/api/v1/audits/${auditSessionId}/finalize`);
+      setSummary(response.data);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Unable to finalize audit.');
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
+  if (!canAudit) {
+    return (
+      <section>
+        <header className="section-header">
+          <div>
+            <h2>Audit</h2>
+            <p>Only ADMIN or WAREHOUSE users can access audits.</p>
+          </div>
+        </header>
+      </section>
+    );
+  }
 
   return (
     <section>
       <header className="section-header">
         <div>
-          <h2>Audit Count / True-Up</h2>
-          <p>Record a physical count and true-up ledger balances.</p>
+          <h2>Audit</h2>
+          <p>Capture physical counts and post ledger-only adjustments.</p>
         </div>
       </header>
 
@@ -113,7 +215,25 @@ export function AuditCountView() {
         </div>
       ) : null}
 
-      <form className="form card" onSubmit={handleSubmit}>
+      <form className="form card" onSubmit={handleAddLine}>
+        <label>
+          Location
+          <select value={locationScope} onChange={(e) => setLocationScope(e.target.value)} disabled={Boolean(auditSessionId)}>
+            <option value="WAREHOUSE">WAREHOUSE</option>
+          </select>
+        </label>
+
+        <label>
+          Notes (optional)
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Audit notes" />
+        </label>
+
+        <button type="button" disabled={loading || Boolean(auditSessionId)} onClick={handleCreateSession}>
+          {auditSessionId ? 'Session active' : loading ? 'Starting...' : 'Start audit session'}
+        </button>
+
+        <hr />
+
         <label>
           Search product
           <input
@@ -126,7 +246,7 @@ export function AuditCountView() {
 
         <label>
           Product
-          <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} required>
+          <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
             <option value="">Select product</option>
             {filteredBalances.map((b) => (
               <option key={b.productId} value={b.productId}>
@@ -156,67 +276,119 @@ export function AuditCountView() {
         </label>
 
         <label>
-          Unit
-          <select value={unit} onChange={(e) => setUnit(e.target.value as 'tracking' | 'checkout')}>
-            <option value="tracking">Tracking ({trackingLabel})</option>
-            <option value="checkout">Checkout ({checkoutLabel})</option>
+          Unit basis
+          <select value={unitBasis} onChange={(e) => setUnitBasis(e.target.value as 'CHECKOUT' | 'TRACKING')}>
+            <option value="TRACKING">Tracking ({selected?.trackingUnitLabel ?? 'tracking'})</option>
+            <option value="CHECKOUT">Checkout ({selected?.checkoutUnitLabel ?? 'checkout'})</option>
           </select>
         </label>
 
-        <label>
-          Reason
-          <input value={reason} onChange={(e) => setReason(e.target.value)} required placeholder="Why are we adjusting?" />
-        </label>
-
-        <label>
-          Comment (optional)
-          <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Notes for the record" />
-        </label>
-
-        <label>
-          Device (optional)
-          <input value={device} onChange={(e) => setDevice(e.target.value)} placeholder="Scanner or device id" />
-        </label>
-
-        <button type="submit" disabled={loading}>
-          {loading ? 'Posting...' : 'Submit audit'}
+        <button type="submit" disabled={loading || !auditSessionId}>
+          {loading ? 'Saving...' : 'Add line'}
         </button>
       </form>
 
-      {result && selected ? (
+      {lines.length ? (
+        <div className="card">
+          <h3>Audit lines</h3>
+          <div className="table-wrapper">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>On-hand</th>
+                  <th>Counted</th>
+                  <th>Unit</th>
+                  <th>Delta</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line) => {
+                  const balance = balanceMap.get(line.productId);
+                  const trackingLabel = balance?.trackingUnitLabel ?? 'tracking';
+                  const trackingFactor = balance?.trackingToBase ?? 1;
+                  const onHandTracking = balance ? balance.onHandBase / trackingFactor : 0;
+                  const deltaTracking = line.deltaBase / trackingFactor;
+
+                  return (
+                    <tr key={line.id} className="table-row">
+                      <td>{line.productName}</td>
+                      <td>
+                        {toDisplay(onHandTracking)} {trackingLabel}
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={line.countedQtyInput}
+                          onChange={(e) =>
+                            setLines((prev) =>
+                              prev.map((item) =>
+                                item.id === line.id ? { ...item, countedQtyInput: e.target.value } : item,
+                              ),
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <select
+                          value={line.unitBasis}
+                          onChange={(e) =>
+                            setLines((prev) =>
+                              prev.map((item) =>
+                                item.id === line.id
+                                  ? { ...item, unitBasis: e.target.value as 'CHECKOUT' | 'TRACKING' }
+                                  : item,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="TRACKING">Tracking</option>
+                          <option value="CHECKOUT">Checkout</option>
+                        </select>
+                      </td>
+                      <td>
+                        {toDisplay(deltaTracking)} {trackingLabel}
+                      </td>
+                      <td>
+                        <button type="button" onClick={() => handleUpdateLine(line)} disabled={loading}>
+                          Update
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" onClick={handleFinalize} disabled={finalizing}>
+            {finalizing ? 'Finalizing...' : 'Finalize audit'}
+          </button>
+        </div>
+      ) : null}
+
+      {summary ? (
         <div className="result-panel">
-          <h4>Audit posted</h4>
-          <p>Transaction ID: {result.transactionId}</p>
+          <h4>Audit finalized</h4>
           <div className="grid two-col">
             <div className="metric">
-              <div className="label">Before</div>
-              <div className="value">
-                {toDisplay(result.beforeBase / trackingFactor)} {trackingLabel} ({result.beforeBase} base)
-              </div>
+              <div className="label">Lines total</div>
+              <div className="value">{summary.linesTotal}</div>
             </div>
             <div className="metric">
-              <div className="label">Counted</div>
-              <div className="value">
-                {toDisplay(result.countedBase / trackingFactor)} {trackingLabel} ({result.countedBase} base)
-              </div>
+              <div className="label">Lines adjusted</div>
+              <div className="value">{summary.linesAdjusted}</div>
             </div>
             <div className="metric">
-              <div className="label">Delta</div>
-              <div className="value">
-                {toDisplay(result.deltaBase / trackingFactor)} {trackingLabel} ({result.deltaBase} base)
-              </div>
-            </div>
-            <div className="metric">
-              <div className="label">After</div>
-              <div className="value">
-                {toDisplay(result.afterBase / trackingFactor)} {trackingLabel} ({result.afterBase} base)
-              </div>
+              <div className="label">Zero delta skipped</div>
+              <div className="value">{summary.linesZeroDeltaSkipped}</div>
             </div>
           </div>
-          <div className="pill-row">
-            {result.negativeAfter ? <span className="badge warning">Negative balance</span> : null}
-            {result.deltaLarge ? <span className="badge info">Large delta flagged</span> : null}
-          </div>
+          {summary.idempotencyKeys.length ? (
+            <div className="muted">Idempotency keys: {summary.idempotencyKeys.join(', ')}</div>
+          ) : null}
         </div>
       ) : null}
     </section>

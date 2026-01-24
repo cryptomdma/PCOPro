@@ -12,7 +12,7 @@ const TITLE_MAP: Array<{ path: string; title: string }> = [
   { path: '/receiving', title: 'Incoming' },
   { path: '/orders', title: 'Orders' },
   { path: '/transfers', title: 'Orders' },
-  { path: '/audit', title: 'Audit Count' },
+  { path: '/audit', title: 'Audit' },
   { path: '/analytics', title: 'Analytics' },
   { path: '/login', title: 'Sign in' },
 ];
@@ -44,6 +44,7 @@ export function Header() {
     { label: 'Issue', path: '/checkout' },
     { label: 'Orders', path: '/orders' },
     { label: 'Products', path: '/products' },
+    ...(user?.role === 'ADMIN' ? [{ label: 'Audit', path: '/audit' }] : []),
     { label: 'Analytics', path: '/analytics' },
     { label: 'Settings', path: '' },
   ];

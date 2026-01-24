@@ -20,6 +20,7 @@ function navItemsFor(role?: string): NavItem[] {
       { path: '/checkout', label: 'Issue' },
       { path: '/orders', label: 'Orders' },
       { path: '/products', label: 'Products' },
+      ...(role === 'ADMIN' ? [{ path: '/audit', label: 'Audit' }] : []),
     ];
   }
   return [

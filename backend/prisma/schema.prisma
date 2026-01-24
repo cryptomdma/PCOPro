@@ -79,6 +79,16 @@ enum TransactionType {
   transfer
 }
 
+enum AuditStatus {
+  DRAFT
+  FINALIZED
+}
+
+enum AuditUnitBasis {
+  CHECKOUT
+  TRACKING
+}
+
 enum ReceiptStatus {
   draft
   posted
@@ -110,6 +120,7 @@ model User {
   createdTransferRequests TransferRequest[]      @relation("TransferRequestCreatedBy")
   finalizedTransfers      TransferRequest[]      @relation("TransferRequestFinalizedBy")
   acknowledgedTransfers   TransferRequest[]      @relation("TransferRequestAcknowledgedBy")
+  auditSessions           AuditSession[]         @relation("AuditSessionCreatedBy")
 }
 
 model Setting {
@@ -119,12 +130,12 @@ model Setting {
 }
 
 model Product {
-  id                String          @id @default(cuid())
-  name              String          @unique
+  id                String              @id @default(cuid())
+  name              String              @unique
   epaRegNo          String?
   description       String?
-  category          ProductCategory @default(CHEMICAL)
-  behavior          ProductBehavior @default(CONSUMABLE)
+  category          ProductCategory     @default(CHEMICAL)
+  behavior          ProductBehavior     @default(CONSUMABLE)
   trackingMode      ProductTrackingMode @default(BULK)
   productType       ProductType?
   baseType          UnitBaseType
@@ -137,10 +148,10 @@ model Product {
   reorderLevelBase  Int?
   quantityInReorder Int? // mirrors Excel quantity in reorder
   leadTimeDays      Int?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  isStocked         Boolean         @default(true)
-  isDiscontinued    Boolean         @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  isStocked         Boolean             @default(true)
+  isDiscontinued    Boolean             @default(false)
 
   packs                ProductPack[]
   codes                ProductCode[]
@@ -150,6 +161,7 @@ model Product {
   incomingLines        IncomingLine[]
   checkoutLines        CheckoutLine[]
   transferRequestLines TransferRequestLine[]
+  auditLines           AuditLine[]
 }
 
 model ProductPack {
@@ -217,6 +229,38 @@ model InventoryTransaction {
   @@index([type, createdAt])
   @@index([productId])
   @@index([scope])
+}
+
+model AuditSession {
+  id            String      @id @default(cuid())
+  locationScope String      @default("WAREHOUSE")
+  status        AuditStatus @default(DRAFT)
+  notes         String?
+  createdBy     User        @relation("AuditSessionCreatedBy", fields: [createdById], references: [id])
+  createdById   String
+  createdAt     DateTime    @default(now())
+  finalizedAt   DateTime?
+
+  lines AuditLine[]
+
+  @@index([status])
+  @@index([locationScope])
+}
+
+model AuditLine {
+  id             String         @id @default(cuid())
+  auditSession   AuditSession   @relation(fields: [auditSessionId], references: [id], onDelete: Cascade)
+  auditSessionId String
+  product        Product        @relation(fields: [productId], references: [id])
+  productId      String
+  countedQty     Decimal
+  unitBasis      AuditUnitBasis
+  desiredBase    Decimal
+  deltaBase      Decimal
+  createdAt      DateTime       @default(now())
+
+  @@unique([auditSessionId, productId])
+  @@index([productId])
 }
 
 model IncomingReceipt {

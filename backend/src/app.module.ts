@@ -11,12 +11,14 @@ import { AuthModule } from './auth/auth.module';
 import { TransferRequestsModule } from './transfer-requests/transfer-requests.module';
 import { HealthController } from './health.controller';
 import { ImportModule } from './import/import.module';
+import { AuditsModule } from './audits/audits.module';
 
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ImportModule,
+    AuditsModule,
     ProductsModule,
     IncomingModule,
     CheckoutModule,
