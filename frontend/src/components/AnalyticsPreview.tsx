@@ -3,6 +3,8 @@ import axios from 'axios';
 import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
 import { ModalShell } from './ui/ModalShell';
 import { RequestDetailsModal, RequestDetailsSource } from './RequestDetailsModal';
+import { useAuth } from '../auth';
+import { getStockDisplay } from '../utils/stockDisplay';
 
 type GroupBy = 'product' | 'technician' | 'product_technician';
 
@@ -11,6 +13,8 @@ type Product = {
   name: string;
   category: string;
   trackingUnitLabel: string;
+  trackingToBase: number;
+  balances?: { onHandBase: number } | null;
 };
 
 type Technician = { id: string; name: string };
@@ -75,6 +79,7 @@ const formatDateTime = (value?: string | null) => {
 };
 
 export function AnalyticsPreview() {
+  const { user } = useAuth();
   const now = useMemo(() => new Date(), []);
   const defaultStart = useMemo(() => new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000), [now]);
 
@@ -95,6 +100,19 @@ export function AnalyticsPreview() {
   const [selectedSource, setSelectedSource] = useState<RequestDetailsSource | null>(null);
 
   const categories = useMemo(() => Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(), [products]);
+  const productById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
+
+  const onHandLabelFor = (productId: string | null) => {
+    if (!productId) return '-';
+    const product = productById.get(productId);
+    if (!product) return '-';
+    return getStockDisplay({
+      role: user?.role,
+      onHandBase: product.balances?.onHandBase ?? 0,
+      trackingToBase: product.trackingToBase,
+      trackingUnitLabel: product.trackingUnitLabel,
+    }).label;
+  };
 
   useEffect(() => {
     fetchReference();
@@ -203,10 +221,10 @@ export function AnalyticsPreview() {
 
   const columns =
     groupBy === 'product'
-      ? ['Product', 'Category', 'Qty (tracking)', 'Transactions']
+      ? ['Product', 'Category', 'On-hand', 'Qty (tracking)', 'Transactions']
       : groupBy === 'technician'
         ? ['Technician', 'Qty (tracking)', 'Transactions']
-        : ['Technician', 'Product', 'Category', 'Qty (tracking)', 'Transactions'];
+        : ['Technician', 'Product', 'Category', 'On-hand', 'Qty (tracking)', 'Transactions'];
 
   const rows = usage?.rows ?? [];
 
@@ -330,6 +348,7 @@ export function AnalyticsPreview() {
                       <>
                         <td>{row.productName}</td>
                         <td>{row.category}</td>
+                        <td>{onHandLabelFor(row.productId)}</td>
                         <td>
                           {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
                         </td>
@@ -346,6 +365,7 @@ export function AnalyticsPreview() {
                         <td>{row.technicianName}</td>
                         <td>{row.productName}</td>
                         <td>{row.category}</td>
+                        <td>{onHandLabelFor(row.productId)}</td>
                         <td>
                           {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
                         </td>
@@ -361,6 +381,7 @@ export function AnalyticsPreview() {
                     <>
                       <td>Total</td>
                       <td />
+                      <td />
                       <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
                       <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
                     </>
@@ -373,6 +394,7 @@ export function AnalyticsPreview() {
                   ) : (
                     <>
                       <td>Total</td>
+                      <td />
                       <td />
                       <td />
                       <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
@@ -406,6 +428,12 @@ export function AnalyticsPreview() {
                 <div>
                   <strong>Category</strong>
                   <div className="muted">{selectedRow.category ?? 'Uncategorized'}</div>
+                </div>
+              ) : null}
+              {groupBy !== 'technician' ? (
+                <div>
+                  <strong>On-hand</strong>
+                  <div className="muted">{onHandLabelFor(selectedRow.productId)}</div>
                 </div>
               ) : null}
               <div>

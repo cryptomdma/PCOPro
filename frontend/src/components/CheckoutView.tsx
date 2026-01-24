@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../auth';
 import { useToast } from './ui/Toast';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { getStockDisplay } from '../utils/stockDisplay';
 
 type TransferDirection = 'ISSUE' | 'RETURN';
 type TransferRequestLine = { productId: string; quantityInput: string; unitLabel: string };
@@ -14,6 +15,8 @@ type Product = {
   baseType: string;
   trackingUnitLabel: string;
   checkoutUnitLabel: string;
+  balances?: { onHandBase: number } | null;
+  trackingToBase: number;
   trackingMode?: 'EQUIPMENT' | 'BULK';
 };
 
@@ -206,7 +209,12 @@ export function CheckoutView() {
                   options={filteredProducts.map((p) => ({
                     value: p.id,
                     label: p.name,
-                    subtitle: p.baseType,
+                    subtitle: `${p.baseType} | ${getStockDisplay({
+                      role: user?.role,
+                      onHandBase: p.balances?.onHandBase ?? 0,
+                      trackingToBase: p.trackingToBase,
+                      trackingUnitLabel: p.trackingUnitLabel,
+                    }).label}`,
                   }))}
                   required
                 />

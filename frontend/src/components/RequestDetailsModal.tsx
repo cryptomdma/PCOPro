@@ -3,6 +3,8 @@ import axios from 'axios';
 import { ModalShell } from './ui/ModalShell';
 import { StatusBadge } from './ui/StatusBadge';
 import { ProductDetailsModal } from './products/ProductDetailsModal';
+import { useAuth } from '../auth';
+import { getStockDisplay } from '../utils/stockDisplay';
 
 export type RequestDetailsSource = {
   type: 'checkout' | 'transfer';
@@ -56,6 +58,7 @@ export function RequestDetailsModal({
   source: RequestDetailsSource | null;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transferDetail, setTransferDetail] = useState<TransferRequestDetail | null>(null);
@@ -169,24 +172,33 @@ export function RequestDetailsModal({
               <strong>Lines</strong>
               {transferDetail.lines.map((line) => {
                 const product = productById[line.productId];
+                const stock = getStockDisplay({
+                  role: user?.role,
+                  onHandBase: product?.balances?.onHandBase ?? 0,
+                  trackingToBase: product?.trackingToBase ?? null,
+                  trackingUnitLabel: product?.trackingUnitLabel ?? null,
+                });
                 return (
-                  <div key={line.id} className="card-row">
-                    <button
-                      type="button"
-                      className="line-item-button"
-                      onClick={() => {
-                        setSelectedProductId(line.productId);
-                      }}
-                    >
+                  <div key={line.id} className="card-stack">
+                    <div className="card-row">
+                      <button
+                        type="button"
+                        className="line-item-button"
+                        onClick={() => {
+                          setSelectedProductId(line.productId);
+                        }}
+                      >
+                        <span>
+                          {product?.name ?? line.productId}
+                          {product?.category ? <span className="muted"> | {product.category}</span> : null}
+                        </span>
+                        <span className="muted">{'>'}</span>
+                      </button>
                       <span>
-                        {product?.name ?? line.productId}
-                        {product?.category ? <span className="muted"> | {product.category}</span> : null}
+                        {line.quantity} {line.unitLabel}
                       </span>
-                      <span className="muted">{'>'}</span>
-                    </button>
-                    <span>
-                      {line.quantity} {line.unitLabel}
-                    </span>
+                    </div>
+                    <div className="muted">On-hand: {stock.label}</div>
                   </div>
                 );
               })}
@@ -211,24 +223,33 @@ export function RequestDetailsModal({
               {checkoutDetail.lines.map((line) => {
                 const product = productById[line.productId];
                 const quantity = line.qtyIssued ?? line.qtyRequested;
+                const stock = getStockDisplay({
+                  role: user?.role,
+                  onHandBase: product?.balances?.onHandBase ?? 0,
+                  trackingToBase: product?.trackingToBase ?? null,
+                  trackingUnitLabel: product?.trackingUnitLabel ?? null,
+                });
                 return (
-                  <div key={line.id} className="card-row">
-                    <button
-                      type="button"
-                      className="line-item-button"
-                      onClick={() => {
-                        setSelectedProductId(line.productId);
-                      }}
-                    >
+                  <div key={line.id} className="card-stack">
+                    <div className="card-row">
+                      <button
+                        type="button"
+                        className="line-item-button"
+                        onClick={() => {
+                          setSelectedProductId(line.productId);
+                        }}
+                      >
+                        <span>
+                          {product?.name ?? line.productId}
+                          {product?.category ? <span className="muted"> | {product.category}</span> : null}
+                        </span>
+                        <span className="muted">{'>'}</span>
+                      </button>
                       <span>
-                        {product?.name ?? line.productId}
-                        {product?.category ? <span className="muted"> | {product.category}</span> : null}
+                        {quantity} {line.checkoutUnitLabel}
                       </span>
-                      <span className="muted">{'>'}</span>
-                    </button>
-                    <span>
-                      {quantity} {line.checkoutUnitLabel}
-                    </span>
+                    </div>
+                    <div className="muted">On-hand: {stock.label}</div>
                   </div>
                 );
               })}

@@ -19,7 +19,7 @@ const TITLE_MAP: Array<{ path: string; title: string }> = [
 
 function titleForPath(pathname: string, role?: string) {
   if (pathname === '/checkout') {
-    return role === 'TECH' ? 'Request' : 'Issue';
+    return role === 'TECH' ? 'Checkout/Return' : 'Issue';
   }
   const match = TITLE_MAP.find((entry) => entry.path === pathname);
   return match ? match.title : 'PCOPro';
@@ -31,6 +31,7 @@ export function Header() {
   const { user, logout } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const title = titleForPath(location.pathname, user?.role);
+  const isTech = user?.role === 'TECH';
   const canGoBack = location.pathname !== '/';
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -41,11 +42,11 @@ export function Header() {
   const menuItems = [
     { label: 'Dashboard', path: '/' },
     { label: 'Inventory', path: '/inventory' },
-    { label: 'Issue', path: '/checkout' },
+    { label: isTech ? 'Checkout/Return' : 'Issue', path: '/checkout' },
     { label: 'Orders', path: '/orders' },
     { label: 'Products', path: '/products' },
     ...(user?.role === 'ADMIN' ? [{ label: 'Audit', path: '/audit' }] : []),
-    { label: 'Analytics', path: '/analytics' },
+    ...(!isTech ? [{ label: 'Analytics', path: '/analytics' }] : []),
     { label: 'Settings', path: '' },
   ];
 

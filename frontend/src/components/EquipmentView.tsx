@@ -3,6 +3,8 @@ import axios from 'axios';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Link } from 'react-router-dom';
 import { ModalShell } from './ui/ModalShell';
+import { useAuth } from '../auth';
+import { getStockDisplay } from '../utils/stockDisplay';
 
 type Product = {
   id: string;
@@ -30,6 +32,7 @@ function equipmentType(product: Product): string {
 }
 
 export function EquipmentView() {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Product | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>('All');
@@ -73,14 +76,19 @@ export function EquipmentView() {
 
       <div className="grid">
         {equipment.map((product) => {
-          const onHandTracking = product.balances ? product.balances.onHandBase / product.trackingToBase : 0;
+          const stock = getStockDisplay({
+            role: user?.role,
+            onHandBase: product.balances?.onHandBase ?? 0,
+            trackingToBase: product.trackingToBase,
+            trackingUnitLabel: product.trackingUnitLabel,
+          });
           return (
             <article key={product.id} className="card clickable" onClick={() => setSelected(product)}>
               <div>
                 <div className="card-title">{product.name}</div>
                 <p className="muted">Type: {equipmentType(product)}</p>
                 <p>
-                  On-hand: <strong>{onHandTracking}</strong> {product.trackingUnitLabel}
+                  On-hand: <strong>{stock.label}</strong>
                 </p>
                 <p>{product.description || 'No description provided.'}</p>
               </div>

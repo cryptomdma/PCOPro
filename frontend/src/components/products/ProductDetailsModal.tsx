@@ -23,10 +23,13 @@ export function ProductDetailsModal({
   product: ProductDetails | null;
   onClose: () => void;
 }) {
-  const onHandTracking =
-    product?.balances && product.trackingToBase
-      ? Math.round((product.balances.onHandBase / product.trackingToBase) * 100) / 100
-      : null;
+  const { user } = useAuth();
+  const stock = getStockDisplay({
+    role: user?.role,
+    onHandBase: product?.balances?.onHandBase ?? 0,
+    trackingToBase: product?.trackingToBase ?? null,
+    trackingUnitLabel: product?.trackingUnitLabel ?? null,
+  });
 
   return (
     <ModalShell open={open} title={product?.name ?? 'Product'} onClose={onClose}>
@@ -38,11 +41,7 @@ export function ProductDetailsModal({
           </div>
           <div>
             <div className="muted">On-hand</div>
-            <div>
-              {onHandTracking !== null && product.trackingUnitLabel
-                ? `${onHandTracking} ${product.trackingUnitLabel}`
-                : '—'}
-            </div>
+            <div>{stock.label}</div>
           </div>
           <div>
             <div className="muted">Type</div>
