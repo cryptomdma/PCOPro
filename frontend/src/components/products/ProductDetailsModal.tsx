@@ -1,6 +1,8 @@
 import { QRCodeCanvas } from 'qrcode.react';
 import { ModalShell } from '../ui/ModalShell';
 import { formatProductType } from './productType';
+import { useAuth } from '../../auth';
+import { getStockDisplay } from '../../utils/stockDisplay';
 
 export type ProductDetails = {
   id: string;
