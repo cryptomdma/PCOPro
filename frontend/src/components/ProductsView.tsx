@@ -3,6 +3,8 @@ import axios from 'axios';
 import { Link, useLocation } from 'react-router-dom';
 import { ProductDetailsModal } from './products/ProductDetailsModal';
 import { formatProductType } from './products/productType';
+import { useAuth } from '../auth';
+import { getStockDisplay } from '../utils/stockDisplay';
 
 type Product = {
   id: string;
@@ -19,6 +21,7 @@ type Product = {
 };
 
 export function ProductsView() {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Product | null>(null);
   const location = useLocation();
@@ -63,7 +66,12 @@ export function ProductsView() {
       </header>
       <div className="grid">
         {visibleProducts.map((product) => {
-          const onHandTracking = product.balances ? product.balances.onHandBase / product.trackingToBase : 0;
+          const stock = getStockDisplay({
+            role: user?.role,
+            onHandBase: product.balances?.onHandBase ?? 0,
+            trackingToBase: product.trackingToBase,
+            trackingUnitLabel: product.trackingUnitLabel,
+          });
           const isLow = lowStockIds.has(product.id);
           return (
             <article key={product.id} className="card clickable" onClick={() => setSelected(product)}>
@@ -76,7 +84,7 @@ export function ProductsView() {
                   {product.category ?? 'Uncategorized'} • {formatProductType(product.productType)}
                 </p>
                 <p>
-                  On-hand: <strong>{onHandTracking}</strong> {product.trackingUnitLabel}
+                  On-hand: <strong>{stock.label}</strong>
                 </p>
                 <p>{product.description || 'No description provided.'}</p>
               </div>

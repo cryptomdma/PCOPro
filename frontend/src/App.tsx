@@ -10,6 +10,7 @@ import { Header } from './components/ui/Header';
 import { BottomNav } from './components/ui/BottomNav';
 import { ToastHost } from './components/ui/Toast';
 import { DashboardView } from './components/DashboardView';
+import { RequireNonTech } from './components/RequireRole';
 
 export default function App() {
   return (
@@ -26,7 +27,7 @@ export default function App() {
           <Route path="/orders" element={<OrdersView />} />
           <Route path="/transfers" element={<OrdersView />} />
           <Route path="/audit" element={<AuditCountView />} />
-          <Route path="/analytics" element={<AnalyticsPreview />} />
+          <Route path="/analytics" element={<RequireNonTech><AnalyticsPreview /></RequireNonTech>} />
         </Routes>
       </main>
       <BottomNav />

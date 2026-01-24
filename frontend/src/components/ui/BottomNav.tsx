@@ -10,7 +10,7 @@ function navItemsFor(role?: string): NavItem[] {
   if (role === 'TECH') {
     return [
       { path: '/', label: 'Home' },
-      { path: '/checkout', label: 'Request' },
+      { path: '/checkout', label: 'Checkout/Return' },
       { path: '/orders', label: 'Orders' },
     ];
   }

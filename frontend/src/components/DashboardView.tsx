@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../auth';
 
 type Product = {
   id: string;
@@ -11,14 +12,38 @@ type Product = {
 };
 
 type TransferRequest = { id: string };
+type RecentTransferRequest = {
+  id: string;
+  technicianId: string;
+  direction: string;
+  status: string;
+  createdAt: string;
+  finalizedAt?: string;
+};
 
 export function DashboardView() {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [requests, setRequests] = useState<TransferRequest[] | null>(null);
+  const [recent, setRecent] = useState<RecentTransferRequest[] | null>(null);
+  const isTech = user?.role === 'TECH';
 
   useEffect(() => {
+    if (isTech) return;
     axios.get<Product[]>('/api/v1/products').then((res) => setProducts(res.data));
-  }, []);
+  }, [isTech]);
+
+  useEffect(() => {
+    if (!isTech) return;
+    axios
+      .get<RecentTransferRequest[]>('/api/v1/transfer-requests', { params: { includeClosed: true, limit: 20 } })
+      .then((res) => {
+        const filtered = res.data.filter((req) => req.technicianId === user?.technicianId);
+        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setRecent(filtered.slice(0, 10));
+      })
+      .catch(() => setRecent([]));
+  }, [isTech, user?.technicianId]);
 
   useEffect(() => {
     axios
@@ -36,6 +61,39 @@ export function DashboardView() {
       return onHandTracking <= reorderLevelTracking;
     }).length;
   }, [products]);
+
+  if (isTech) {
+    return (
+      <section>
+        <header className="section-header">
+          <div>
+            <h2>Dashboard</h2>
+            <p>Recent transactions for your truck.</p>
+          </div>
+        </header>
+        <div className="card-stack">
+          <h4>Recent activity</h4>
+          <ul className="activity">
+            {recent?.map((req) => (
+              <li key={req.id}>
+                <div className="card-stack">
+                  <strong>{req.direction}</strong>
+                  <div className="muted">Status: {req.status}</div>
+                  <div className="muted">
+                    {req.finalizedAt
+                      ? `Finalized ${new Date(req.finalizedAt).toLocaleString()}`
+                      : `Created ${new Date(req.createdAt).toLocaleString()}`}
+                  </div>
+                </div>
+              </li>
+            ))}
+            {recent && recent.length === 0 ? <li>No recent transactions</li> : null}
+            {!recent ? <li>Loading...</li> : null}
+          </ul>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section>
