@@ -61,3 +61,72 @@ export class CreateProductDto {
   @IsEnum(ProductBehavior)
   behavior?: ProductBehavior;
 }
+
+export class UpdateProductDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  epaRegNo?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(ProductCategory)
+  category?: ProductCategory;
+
+  @IsOptional()
+  @IsEnum(ProductTrackingMode)
+  trackingMode?: ProductTrackingMode;
+
+  @IsOptional()
+  @IsEnum(ProductType)
+  productType?: ProductType;
+
+  @IsOptional()
+  @IsEnum(UnitBaseType)
+  baseType?: UnitBaseType;
+
+  @IsOptional()
+  @IsString()
+  trackingUnitLabel?: string;
+
+  @IsOptional()
+  @IsString()
+  checkoutUnitLabel?: string;
+
+  @IsOptional()
+  @IsString()
+  orderingUnitLabel?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  trackingToBase?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  checkoutToBase?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  orderingToBase?: number;
+
+  @IsOptional()
+  @IsInt()
+  reorderLevelBase?: number;
+
+  @IsOptional()
+  @IsInt()
+  leadTimeDays?: number;
+
+  @IsOptional()
+  @IsEnum(ProductBehavior)
+  behavior?: ProductBehavior;
+}

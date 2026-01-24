@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { CreateProductDto } from './dto';
+import { CreateProductDto, UpdateProductDto } from './dto';
 import { Prisma } from '@prisma/client';
 import * as QRCode from 'qrcode';
 
@@ -35,6 +35,30 @@ export class ProductsService {
 
   create(dto: CreateProductDto) {
     return this.prisma.product.create({ data: dto });
+  }
+
+  update(id: string, dto: UpdateProductDto) {
+    return this.prisma.product.update({
+      where: { id },
+      data: {
+        name: dto.name,
+        epaRegNo: dto.epaRegNo,
+        description: dto.description,
+        category: dto.category,
+        trackingMode: dto.trackingMode,
+        productType: dto.productType,
+        baseType: dto.baseType,
+        trackingUnitLabel: dto.trackingUnitLabel,
+        checkoutUnitLabel: dto.checkoutUnitLabel,
+        orderingUnitLabel: dto.orderingUnitLabel,
+        trackingToBase: dto.trackingToBase,
+        checkoutToBase: dto.checkoutToBase,
+        orderingToBase: dto.orderingToBase,
+        reorderLevelBase: dto.reorderLevelBase,
+        leadTimeDays: dto.leadTimeDays,
+        behavior: dto.behavior,
+      },
+    });
   }
 
   async detail(id: string) {
