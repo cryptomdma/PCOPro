@@ -6,12 +6,14 @@ export function ModalShell({
   onClose,
   children,
   actions,
+  headerContent,
 }: {
   open: boolean;
   title?: string;
   onClose: () => void;
   children: React.ReactNode;
   actions?: React.ReactNode;
+  headerContent?: React.ReactNode;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -29,10 +31,16 @@ export function ModalShell({
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">{title}</div>
-          <button type="button" onClick={onClose} className="ghost-button" aria-label="Close">
-            X
-          </button>
+          {headerContent ? (
+            headerContent
+          ) : (
+            <>
+              <div className="modal-title">{title}</div>
+              <button type="button" onClick={onClose} className="ghost-button" aria-label="Close">
+                X
+              </button>
+            </>
+          )}
         </div>
         <div className="modal-body">{children}</div>
         {actions ? <div className="modal-actions">{actions}</div> : null}

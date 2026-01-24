@@ -50,6 +50,7 @@ export function ProductDetailsModal({
   const [detail, setDetail] = useState<ProductDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [parBase, setParBase] = useState<number | null>(null);
   const [parInput, setParInput] = useState('');
@@ -82,8 +83,12 @@ export function ProductDetailsModal({
     trackingToBase: activeProduct?.trackingToBase ?? null,
     trackingUnitLabel: activeProduct?.trackingUnitLabel ?? null,
   });
-  const statusLabel = stock.inStock ? 'In Stock' : 'Out of Stock';
   const showParEditor = canEditPar && editMode;
+  const onHandBase = activeProduct?.balances?.onHandBase ?? 0;
+  const hasPar = parBase !== null;
+  const isLow = hasPar && onHandBase < (parBase ?? 0);
+  const statusLabel = isLow ? 'Low Stock' : stock.inStock ? 'In Stock' : 'Out of Stock';
+  const statusTone = isLow ? 'warning' : stock.inStock ? 'good' : 'neutral';
 
   const parTracking = useMemo(() => {
     if (parBase === null || !activeProduct?.trackingToBase) return null;
@@ -103,8 +108,15 @@ export function ProductDetailsModal({
   useEffect(() => {
     if (open) return;
     setEditMode(false);
+    setExpanded(false);
     setSaveError(null);
   }, [open]);
+
+  useEffect(() => {
+    if (editMode) {
+      setExpanded(true);
+    }
+  }, [editMode]);
 
   useEffect(() => {
     if (!open || !activeProduct) return;
@@ -224,237 +236,276 @@ export function ProductDetailsModal({
     setSaveError(null);
   }
 
+  const showDetails = expanded || editMode;
+  const headerContent = (
+    <div className="product-modal-header">
+      <div className="product-modal-title-group">
+        <div className="product-modal-title">{activeProduct?.name ?? 'Product'}</div>
+        <div className="product-modal-subtitle">
+          {(activeProduct?.category ?? 'Uncategorized')} â€¢ {formatProductType(activeProduct?.productType)}
+        </div>
+      </div>
+      <div className="product-modal-header-actions">
+        {canEditProduct && !editMode ? (
+          <button type="button" onClick={() => setEditMode(true)}>
+            Edit
+          </button>
+        ) : null}
+        <button type="button" onClick={onClose} className="ghost-button" aria-label="Close">
+          X
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <ModalShell open={open} title={activeProduct?.name ?? 'Product'} onClose={onClose}>
+    <ModalShell open={open} title="" onClose={onClose} headerContent={headerContent}>
       {activeProduct ? (
-        <div className="card-stack">
+        <div className="product-modal">
           {loading ? <div className="muted">Loading...</div> : null}
           {saveError ? <div className="error-panel">{saveError}</div> : null}
 
-          <div className="card-row">
-            <div className="muted">Product ID</div>
-            <div>{activeProduct.id}</div>
-            {canEditProduct && !editMode ? (
-              <button type="button" onClick={() => setEditMode(true)}>
-                Edit
-              </button>
-            ) : null}
-          </div>
-
-          <div className="card-stack">
-            <h4>Product Info</h4>
-            {editMode ? (
-              <>
-                <label>
-                  Name
-                  <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
-                </label>
-                <label>
-                  Category
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                  >
-                    <option value="">Unspecified</option>
-                    {CATEGORY_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Type
-                  <select
-                    value={form.productType}
-                    onChange={(e) => setForm((prev) => ({ ...prev, productType: e.target.value }))}
-                  >
-                    <option value="">Unspecified</option>
-                    {PRODUCT_TYPES.map((option) => (
-                      <option key={option} value={option}>
-                        {formatProductType(option)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Base Type
-                  <select
-                    value={form.baseType}
-                    onChange={(e) => setForm((prev) => ({ ...prev, baseType: e.target.value }))}
-                  >
-                    <option value="">Select base type</option>
-                    {BASE_TYPES.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  EPA
-                  <input value={form.epaRegNo} onChange={(e) => setForm((prev) => ({ ...prev, epaRegNo: e.target.value }))} />
-                </label>
-                <label>
-                  Description
-                  <input
-                    value={form.description}
-                    onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  />
-                </label>
-              </>
-            ) : (
-              <>
-                <div>
-                  <div className="muted">Name</div>
-                  <div>{activeProduct.name}</div>
-                </div>
-                <div>
-                  <div className="muted">Category</div>
-                  <div>{activeProduct.category || 'N/A'}</div>
-                </div>
-                <div>
-                  <div className="muted">Type</div>
-                  <div>{formatProductType(activeProduct.productType)}</div>
-                </div>
-                <div>
-                  <div className="muted">Base Type</div>
-                  <div>{activeProduct.baseType || 'N/A'}</div>
-                </div>
-                <div>
-                  <div className="muted">EPA</div>
-                  <div>{activeProduct.epaRegNo ?? 'N/A'}</div>
-                </div>
-                <div>
-                  <div className="muted">Description</div>
-                  <div>{activeProduct.description || 'No description provided.'}</div>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="card-stack">
-            <h4>Units / Conversions</h4>
-            {editMode ? (
-              <>
-                <label>
-                  Tracking unit
-                  <input
-                    value={form.trackingUnitLabel}
-                    onChange={(e) => setForm((prev) => ({ ...prev, trackingUnitLabel: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Checkout unit
-                  <input
-                    value={form.checkoutUnitLabel}
-                    onChange={(e) => setForm((prev) => ({ ...prev, checkoutUnitLabel: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Ordering unit
-                  <input
-                    value={form.orderingUnitLabel}
-                    onChange={(e) => setForm((prev) => ({ ...prev, orderingUnitLabel: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Tracking to base
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={form.trackingToBase}
-                    onChange={(e) => setForm((prev) => ({ ...prev, trackingToBase: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Checkout to base
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={form.checkoutToBase}
-                    onChange={(e) => setForm((prev) => ({ ...prev, checkoutToBase: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Ordering to base
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={form.orderingToBase}
-                    onChange={(e) => setForm((prev) => ({ ...prev, orderingToBase: e.target.value }))}
-                  />
-                </label>
-              </>
-            ) : (
-              <>
-                <div>
-                  <div className="muted">Tracking unit</div>
-                  <div>
-                    {activeProduct.trackingUnitLabel} ({activeProduct.trackingToBase ?? '-'} base)
-                  </div>
-                </div>
-                <div>
-                  <div className="muted">Checkout unit</div>
-                  <div>
-                    {activeProduct.checkoutUnitLabel} ({activeProduct.checkoutToBase ?? '-'} base)
-                  </div>
-                </div>
-                <div>
-                  <div className="muted">Ordering unit</div>
-                  <div>
-                    {activeProduct.orderingUnitLabel} ({activeProduct.orderingToBase ?? '-'} base)
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="card-stack">
-            <h4>Inventory</h4>
-            <div className="card-row">
-              <div>
-                <div className="muted">On-hand</div>
-                <div>{stock.label}</div>
-              </div>
-              <div>
-                <div className="muted">Status</div>
-                <div>{statusLabel}</div>
+          <div className="inventory-summary">
+            <div className="summary-item">
+              <div className="summary-label">On-hand</div>
+              <div className="summary-value">{stock.label}</div>
+            </div>
+            <div className="summary-item">
+              <div className="summary-label">Par</div>
+              <div className="summary-value">
+                {parTracking !== null && activeProduct.trackingUnitLabel
+                  ? `${parTracking} ${activeProduct.trackingUnitLabel}`
+                  : '-'}
               </div>
             </div>
-            {showPar ? (
-              <div>
-                <div className="muted">Par (WAREHOUSE)</div>
-                <div>
-                  {parTracking !== null && activeProduct.trackingUnitLabel
-                    ? `${parTracking} ${activeProduct.trackingUnitLabel}`
-                    : '-'}
-                </div>
-                {showParEditor ? (
-                  <div className="card-row">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={parInput}
-                      onChange={(e) => setParInput(e.target.value)}
-                      placeholder="Set par"
-                    />
-                    <button type="button" onClick={savePar} disabled={parSaving}>
-                      {parSaving ? 'Saving...' : 'Save'}
-                    </button>
-                  </div>
-                ) : null}
-                {parError ? <div className="muted">{parError}</div> : null}
-              </div>
-            ) : null}
+            <div className={`summary-item summary-status ${statusTone}`}>
+              <div className="summary-label">Status</div>
+              <div className="summary-value">{statusLabel}</div>
+            </div>
           </div>
 
+          <div className="product-mini">
+            <div>
+              <div className="muted">Product ID</div>
+              <div>{activeProduct.id}</div>
+            </div>
+            <div>
+              <div className="muted">Base Type</div>
+              <div>{activeProduct.baseType || 'N/A'}</div>
+            </div>
+          </div>
+
+          {!editMode ? (
+            <button type="button" className="details-toggle" onClick={() => setExpanded((prev) => !prev)}>
+              {expanded ? 'Hide details' : 'See more'}
+            </button>
+          ) : null}
+
+          {showDetails ? (
+            <div className="product-section">
+              <h4>Product Info</h4>
+              {editMode ? (
+                <div className="product-grid">
+                  <label>
+                    Name
+                    <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
+                  </label>
+                  <label>
+                    Category
+                    <select
+                      value={form.category}
+                      onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                    >
+                      <option value="">Unspecified</option>
+                      {CATEGORY_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Type
+                    <select
+                      value={form.productType}
+                      onChange={(e) => setForm((prev) => ({ ...prev, productType: e.target.value }))}
+                    >
+                      <option value="">Unspecified</option>
+                      {PRODUCT_TYPES.map((option) => (
+                        <option key={option} value={option}>
+                          {formatProductType(option)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Base Type
+                    <select
+                      value={form.baseType}
+                      onChange={(e) => setForm((prev) => ({ ...prev, baseType: e.target.value }))}
+                    >
+                      <option value="">Select base type</option>
+                      {BASE_TYPES.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    EPA
+                    <input
+                      value={form.epaRegNo}
+                      onChange={(e) => setForm((prev) => ({ ...prev, epaRegNo: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Description
+                    <input
+                      value={form.description}
+                      onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div className="product-grid">
+                  <div>
+                    <div className="muted">SKU</div>
+                    <div>{activeProduct.id}</div>
+                  </div>
+                  <div>
+                    <div className="muted">EPA</div>
+                    <div>{activeProduct.epaRegNo ?? 'N/A'}</div>
+                  </div>
+                  <div className="product-span">
+                    <div className="muted">Description</div>
+                    <div>{activeProduct.description || 'No description provided.'}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {showDetails ? (
+            <div className="product-section">
+              <h4>Units & Conversions</h4>
+              {editMode ? (
+                <div className="units-grid">
+                  <label className="units-row">
+                    <span className="muted">Tracking</span>
+                    <input
+                      value={form.trackingUnitLabel}
+                      onChange={(e) => setForm((prev) => ({ ...prev, trackingUnitLabel: e.target.value }))}
+                      placeholder="Unit label"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={form.trackingToBase}
+                      onChange={(e) => setForm((prev) => ({ ...prev, trackingToBase: e.target.value }))}
+                      placeholder="Base"
+                    />
+                  </label>
+                  <label className="units-row">
+                    <span className="muted">Checkout</span>
+                    <input
+                      value={form.checkoutUnitLabel}
+                      onChange={(e) => setForm((prev) => ({ ...prev, checkoutUnitLabel: e.target.value }))}
+                      placeholder="Unit label"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={form.checkoutToBase}
+                      onChange={(e) => setForm((prev) => ({ ...prev, checkoutToBase: e.target.value }))}
+                      placeholder="Base"
+                    />
+                  </label>
+                  <label className="units-row">
+                    <span className="muted">Ordering</span>
+                    <input
+                      value={form.orderingUnitLabel}
+                      onChange={(e) => setForm((prev) => ({ ...prev, orderingUnitLabel: e.target.value }))}
+                      placeholder="Unit label"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={form.orderingToBase}
+                      onChange={(e) => setForm((prev) => ({ ...prev, orderingToBase: e.target.value }))}
+                      placeholder="Base"
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div className="units-grid">
+                  <div className="units-row">
+                    <span className="muted">Tracking</span>
+                    <span>{activeProduct.trackingUnitLabel}</span>
+                    <span>{activeProduct.trackingToBase ?? '-'}</span>
+                  </div>
+                  <div className="units-row">
+                    <span className="muted">Checkout</span>
+                    <span>{activeProduct.checkoutUnitLabel}</span>
+                    <span>{activeProduct.checkoutToBase ?? '-'}</span>
+                  </div>
+                  <div className="units-row">
+                    <span className="muted">Ordering</span>
+                    <span>{activeProduct.orderingUnitLabel}</span>
+                    <span>{activeProduct.orderingToBase ?? '-'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {showDetails ? (
+            <div className="product-section">
+              <h4>Inventory</h4>
+              <div className="card-row">
+                <div>
+                  <div className="muted">On-hand</div>
+                  <div>{stock.label}</div>
+                </div>
+                <div>
+                  <div className="muted">Status</div>
+                  <div>{statusLabel}</div>
+                </div>
+              </div>
+              {showPar ? (
+                <div>
+                  <div className="muted">Par (WAREHOUSE)</div>
+                  <div>
+                    {parTracking !== null && activeProduct.trackingUnitLabel
+                      ? `${parTracking} ${activeProduct.trackingUnitLabel}`
+                      : '-'}
+                  </div>
+                  {showParEditor ? (
+                    <div className="card-row">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={parInput}
+                        onChange={(e) => setParInput(e.target.value)}
+                        placeholder="Set par"
+                      />
+                      <button type="button" onClick={savePar} disabled={parSaving}>
+                        {parSaving ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  ) : null}
+                  {parError ? <div className="muted">{parError}</div> : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {editMode ? (
-            <div className="card-row">
+            <div className="edit-actions">
               <button type="button" onClick={saveProduct} disabled={loading}>
                 {loading ? 'Saving...' : 'Save changes'}
               </button>
@@ -464,12 +515,14 @@ export function ProductDetailsModal({
             </div>
           ) : null}
 
-          <div>
-            <div className="muted">QR Code</div>
-            <div className="qr-preview">
-              <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={160} />
+          {showDetails ? (
+            <div className="product-section">
+              <div className="muted">QR Code</div>
+              <div className="qr-preview">
+                <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={160} />
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       ) : (
         <div className="muted">Product not found.</div>
