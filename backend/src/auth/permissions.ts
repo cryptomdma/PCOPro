@@ -16,7 +16,7 @@ const ROLE_PERMISSIONS: Record<Role, Set<string>> = {
     'transfer.view',
     'transfer.acknowledge',
   ]),
-  WAREHOUSE: new Set(['transfer.create', 'transfer.reverse', 'transfer.finalize', 'transfer.view']),
+  WAREHOUSE: new Set(['transfer.create', 'transfer.reverse', 'transfer.finalize', 'transfer.view', 'audit.manage']),
   TECH: new Set(['transfer.create', 'transfer.reverse', 'transfer.acknowledge', 'transfer.view']),
 };
 
