@@ -23,28 +23,37 @@ type Product = {
 export function ProductsView() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [parLevels, setParLevels] = useState<Array<{ productId: string; locationScope: string; parBase: number }>>([]);
   const [selected, setSelected] = useState<Product | null>(null);
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const lowStockOnly = searchParams.get('filter') === 'low';
+  const locationScope = 'WAREHOUSE';
 
   useEffect(() => {
     axios.get('/api/v1/products').then((res) => setProducts(res.data));
   }, []);
 
+  useEffect(() => {
+    axios
+      .get('/api/v1/par-levels', { params: { locationScope } })
+      .then((res) => setParLevels(res.data))
+      .catch(() => setParLevels([]));
+  }, []);
+
   const lowStockIds = useMemo(() => {
+    const parByProduct = new Map(parLevels.map((par) => [par.productId, par.parBase]));
     const ids = new Set<string>();
     for (const product of products) {
-      if (!product.reorderLevelBase || product.reorderLevelBase <= 0) continue;
+      const parBase = parByProduct.get(product.id);
+      if (parBase === undefined) continue;
       const onHandBase = product.balances?.onHandBase ?? 0;
-      const onHandTracking = onHandBase / product.trackingToBase;
-      const reorderTracking = product.reorderLevelBase / product.trackingToBase;
-      if (onHandTracking <= reorderTracking) {
+      if (onHandBase < parBase) {
         ids.add(product.id);
       }
     }
     return ids;
-  }, [products]);
+  }, [products, parLevels]);
 
   const visibleProducts = useMemo(() => {
     if (!lowStockOnly) return products;
