@@ -372,6 +372,10 @@ button:disabled {
   background: #2c1818;
 }
 
+.error-panel {
+  color: #fecaca;
+}
+
 .result-panel {
   border-color: #1d4ed8;
   background: #0f172a;

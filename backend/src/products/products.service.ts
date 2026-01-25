@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
 import { Prisma } from '@prisma/client';
@@ -37,27 +37,60 @@ export class ProductsService {
     return this.prisma.product.create({ data: dto });
   }
 
-  update(id: string, dto: UpdateProductDto) {
-    return this.prisma.product.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        epaRegNo: dto.epaRegNo,
-        description: dto.description,
-        category: dto.category,
-        trackingMode: dto.trackingMode,
-        productType: dto.productType,
-        baseType: dto.baseType,
-        trackingUnitLabel: dto.trackingUnitLabel,
-        checkoutUnitLabel: dto.checkoutUnitLabel,
-        orderingUnitLabel: dto.orderingUnitLabel,
-        trackingToBase: dto.trackingToBase,
-        checkoutToBase: dto.checkoutToBase,
-        orderingToBase: dto.orderingToBase,
-        reorderLevelBase: dto.reorderLevelBase,
-        leadTimeDays: dto.leadTimeDays,
-        behavior: dto.behavior,
-      },
+  async update(id: string, dto: UpdateProductDto) {
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.sku !== undefined) {
+        const normalized = dto.sku.trim();
+        const skuValue = normalized === '' ? null : normalized;
+
+        if (skuValue) {
+          const existing = await tx.productCode.findUnique({ where: { payload: skuValue } });
+          if (existing && existing.productId !== id) {
+            throw new ConflictException('SKU already assigned to another product');
+          }
+
+          const existingSku = await tx.productCode.findFirst({
+            where: { productId: id, codeType: 'sku' },
+          });
+
+          if (existingSku) {
+            if (existingSku.payload !== skuValue) {
+              await tx.productCode.update({
+                where: { id: existingSku.id },
+                data: { payload: skuValue },
+              });
+            }
+          } else if (!existing) {
+            await tx.productCode.create({
+              data: { productId: id, payload: skuValue, codeType: 'sku' },
+            });
+          }
+        } else {
+          await tx.productCode.deleteMany({ where: { productId: id, codeType: 'sku' } });
+        }
+      }
+
+      return tx.product.update({
+        where: { id },
+        data: {
+          name: dto.name,
+          epaRegNo: dto.epaRegNo,
+          description: dto.description,
+          category: dto.category,
+          trackingMode: dto.trackingMode,
+          productType: dto.productType,
+          baseType: dto.baseType,
+          trackingUnitLabel: dto.trackingUnitLabel,
+          checkoutUnitLabel: dto.checkoutUnitLabel,
+          orderingUnitLabel: dto.orderingUnitLabel,
+          trackingToBase: dto.trackingToBase,
+          checkoutToBase: dto.checkoutToBase,
+          orderingToBase: dto.orderingToBase,
+          reorderLevelBase: dto.reorderLevelBase,
+          leadTimeDays: dto.leadTimeDays,
+          behavior: dto.behavior,
+        },
+      });
     });
   }
 
