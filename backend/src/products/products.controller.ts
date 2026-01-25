@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard, RequirePerm } from '../auth/permissions';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('products')
 @UseGuards(JwtAuthGuard)
@@ -27,6 +28,14 @@ export class ProductsController {
   @RequirePerm('products.manage')
   update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
     return this.products.update(id, dto);
+  }
+
+  @Post('epa-import')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePerm('products.manage')
+  @UseInterceptors(FileInterceptor('file'))
+  importEpa(@UploadedFile() file?: { buffer: Buffer }) {
+    return this.products.importEpaCsv(file?.buffer ?? Buffer.from(''));
   }
 
   @Get(':id')

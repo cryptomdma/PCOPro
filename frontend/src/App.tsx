@@ -11,6 +11,7 @@ import { BottomNav } from './components/ui/BottomNav';
 import { ToastHost } from './components/ui/Toast';
 import { DashboardView } from './components/DashboardView';
 import { RequireNonTech } from './components/RequireRole';
+import { SettingsView } from './components/SettingsView';
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/transfers" element={<OrdersView />} />
           <Route path="/audit" element={<AuditCountView />} />
           <Route path="/analytics" element={<RequireNonTech><AnalyticsPreview /></RequireNonTech>} />
+          <Route path="/settings" element={<SettingsView />} />
         </Routes>
       </main>
       <BottomNav />

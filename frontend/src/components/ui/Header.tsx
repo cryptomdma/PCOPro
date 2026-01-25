@@ -14,6 +14,7 @@ const TITLE_MAP: Array<{ path: string; title: string }> = [
   { path: '/transfers', title: 'Orders' },
   { path: '/audit', title: 'Audit' },
   { path: '/analytics', title: 'Analytics' },
+  { path: '/settings', title: 'Settings' },
   { path: '/login', title: 'Sign in' },
 ];
 
@@ -32,6 +33,7 @@ export function Header() {
   const { darkMode, toggleDarkMode } = useTheme();
   const title = titleForPath(location.pathname, user?.role);
   const isTech = user?.role === 'TECH';
+  const canAccessSettings = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const canGoBack = location.pathname !== '/';
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -47,7 +49,7 @@ export function Header() {
     { label: 'Products', path: '/products' },
     ...(user?.role === 'ADMIN' ? [{ label: 'Audit', path: '/audit' }] : []),
     ...(!isTech ? [{ label: 'Analytics', path: '/analytics' }] : []),
-    { label: 'Settings', path: '' },
+    ...(canAccessSettings ? [{ label: 'Settings', path: '/settings' }] : []),
   ];
 
   return (
