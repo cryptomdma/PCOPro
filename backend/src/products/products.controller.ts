@@ -34,7 +34,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequirePerm('products.manage')
   @UseInterceptors(FileInterceptor('file'))
-  importEpa(@UploadedFile() file?: Express.Multer.File) {
+  importEpa(@UploadedFile() file?: { buffer: Buffer }) {
     return this.products.importEpaCsv(file?.buffer ?? Buffer.from(''));
   }
 
