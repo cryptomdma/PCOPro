@@ -12,6 +12,7 @@ import { TransferRequestsModule } from './transfer-requests/transfer-requests.mo
 import { HealthController } from './health.controller';
 import { ImportModule } from './import/import.module';
 import { AuditsModule } from './audits/audits.module';
+import { ParLevelsModule } from './par-levels/par-levels.module';
 
 
 @Module({
@@ -19,6 +20,7 @@ import { AuditsModule } from './audits/audits.module';
     ConfigModule.forRoot({ isGlobal: true }),
     ImportModule,
     AuditsModule,
+    ParLevelsModule,
     ProductsModule,
     IncomingModule,
     CheckoutModule,

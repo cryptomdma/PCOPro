@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
+import { getStockDisplay } from '../utils/stockDisplay';
+import { ProductDetailsModal } from './products/ProductDetailsModal';
 
 type Product = {
   id: string;
@@ -20,17 +22,29 @@ type RecentTransferRequest = {
   createdAt: string;
   finalizedAt?: string;
 };
+type ParLevel = { productId: string; locationScope: string; parBase: number };
 
 export function DashboardView() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [requests, setRequests] = useState<TransferRequest[] | null>(null);
+  const [parLevels, setParLevels] = useState<ParLevel[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [recent, setRecent] = useState<RecentTransferRequest[] | null>(null);
   const isTech = user?.role === 'TECH';
+  const locationScope = 'WAREHOUSE';
 
   useEffect(() => {
     if (isTech) return;
     axios.get<Product[]>('/api/v1/products').then((res) => setProducts(res.data));
+  }, [isTech]);
+
+  useEffect(() => {
+    if (isTech) return;
+    axios
+      .get<ParLevel[]>('/api/v1/par-levels', { params: { locationScope } })
+      .then((res) => setParLevels(res.data))
+      .catch(() => setParLevels([]));
   }, [isTech]);
 
   useEffect(() => {
@@ -52,15 +66,22 @@ export function DashboardView() {
       .catch(() => setRequests(null));
   }, []);
 
-  const lowStockCount = useMemo(() => {
+  const parByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const par of parLevels) {
+      map.set(par.productId, par.parBase);
+    }
+    return map;
+  }, [parLevels]);
+
+  const lowStockProducts = useMemo(() => {
     return products.filter((product) => {
-      if (!product.reorderLevelBase || product.reorderLevelBase <= 0) return false;
+      const parBase = parByProduct.get(product.id);
+      if (parBase === undefined) return false;
       const onHandBase = product.balances?.onHandBase ?? 0;
-      const onHandTracking = onHandBase / product.trackingToBase;
-      const reorderLevelTracking = product.reorderLevelBase / product.trackingToBase;
-      return onHandTracking <= reorderLevelTracking;
-    }).length;
-  }, [products]);
+      return onHandBase < parBase;
+    });
+  }, [products, parByProduct]);
 
   if (isTech) {
     return (
@@ -107,7 +128,7 @@ export function DashboardView() {
       <div className="dashboard-grid">
         <Link to="/inventory?filter=low" className="dashboard-card">
           <div className="card-title">Low Stock</div>
-          <div className="dashboard-value">{lowStockCount}</div>
+          <div className="dashboard-value">{lowStockProducts.length}</div>
           <div className="muted">Needs attention</div>
         </Link>
         <Link to="/inventory" className="dashboard-card">
@@ -144,6 +165,38 @@ export function DashboardView() {
           <div className="muted">Usage insights</div>
         </Link>
       </div>
+
+      <div className="card-stack">
+        <h4>Low Stock (Par)</h4>
+        {lowStockProducts.length ? (
+          <ul className="activity">
+            {lowStockProducts.map((product) => {
+              const parBase = parByProduct.get(product.id) ?? 0;
+              const parTracking = product.trackingToBase ? Math.round((parBase / product.trackingToBase) * 100) / 100 : 0;
+              const stock = getStockDisplay({
+                role: user?.role,
+                onHandBase: product.balances?.onHandBase ?? 0,
+                trackingToBase: product.trackingToBase,
+                trackingUnitLabel: product.trackingUnitLabel,
+              });
+              return (
+                <li key={product.id} className="clickable" onClick={() => setSelectedProduct(product)}>
+                  <div className="card-stack">
+                    <strong>{product.name}</strong>
+                    <div className="muted">
+                      On-hand: {stock.label} | Par: {parTracking} {product.trackingUnitLabel}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="muted">No low stock items at current par levels.</div>
+        )}
+      </div>
+
+      <ProductDetailsModal open={Boolean(selectedProduct)} product={selectedProduct} onClose={() => setSelectedProduct(null)} />
     </section>
   );
 }

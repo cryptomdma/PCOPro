@@ -162,6 +162,7 @@ model Product {
   checkoutLines        CheckoutLine[]
   transferRequestLines TransferRequestLine[]
   auditLines           AuditLine[]
+  parLevels            ParLevel[]
 }
 
 model ProductPack {
@@ -229,6 +230,19 @@ model InventoryTransaction {
   @@index([type, createdAt])
   @@index([productId])
   @@index([scope])
+}
+
+model ParLevel {
+  id            String   @id @default(cuid())
+  product       Product  @relation(fields: [productId], references: [id])
+  productId     String
+  locationScope String   @default("WAREHOUSE")
+  parBase       Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([productId, locationScope])
+  @@index([locationScope])
 }
 
 model AuditSession {

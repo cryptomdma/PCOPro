@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { CreateProductDto } from './dto';
+import { CreateProductDto, UpdateProductDto } from './dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionGuard, RequirePerm } from '../auth/permissions';
 
 @Controller('products')
 @UseGuards(JwtAuthGuard)
@@ -19,6 +20,13 @@ export class ProductsController {
   @Post()
   create(@Body() dto: CreateProductDto) {
     return this.products.create(dto);
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePerm('products.manage')
+  update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
+    return this.products.update(id, dto);
   }
 
   @Get(':id')
