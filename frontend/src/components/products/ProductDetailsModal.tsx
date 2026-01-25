@@ -54,7 +54,6 @@ export function ProductDetailsModal({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [parBase, setParBase] = useState<number | null>(null);
   const [parInput, setParInput] = useState('');
-  const [parSaving, setParSaving] = useState(false);
   const [parError, setParError] = useState<string | null>(null);
   const locationScope = 'WAREHOUSE';
   const canEditProduct = user?.role === 'ADMIN' || user?.role === 'MANAGER';
@@ -161,33 +160,6 @@ export function ProductDetailsModal({
       });
   }, [open, activeProduct, showPar]);
 
-  async function savePar() {
-    if (!activeProduct || !activeProduct.trackingToBase) return;
-    const parsed = Number(parInput);
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      setParError('Par must be a number greater than or equal to 0.');
-      return;
-    }
-    setParError(null);
-    setParSaving(true);
-    try {
-      const response = await axios.put<{ productId: string; locationScope: string; parBase: number }[]>(
-        '/api/v1/par-levels',
-        {
-          locationScope,
-          items: [{ productId: activeProduct.id, parQty: parsed, unitBasis: 'TRACKING' }],
-        },
-      );
-      const updated = response.data.find((row) => row.productId === activeProduct.id);
-      const nextBase = updated?.parBase ?? Math.round(parsed * activeProduct.trackingToBase);
-      setParBase(nextBase);
-    } catch (err: any) {
-      setParError(err?.response?.data?.message || 'Unable to save par level.');
-    } finally {
-      setParSaving(false);
-    }
-  }
-
   async function saveProduct() {
     if (!activeProduct) return;
     const payload = {
@@ -219,10 +191,29 @@ export function ProductDetailsModal({
     }
 
     setSaveError(null);
+    setParError(null);
     setLoading(true);
     try {
       const response = await axios.put<ProductDetails>(`/api/v1/products/${activeProduct.id}`, payload);
       setDetail(response.data);
+      if (showParEditor && parInput.trim() !== '') {
+        const parsedPar = Number(parInput);
+        if (!Number.isFinite(parsedPar) || parsedPar < 0) {
+          setParError('Par must be a number greater than or equal to 0.');
+          return;
+        }
+        const parResponse = await axios.put<{ productId: string; locationScope: string; parBase: number }[]>(
+          '/api/v1/par-levels',
+          {
+            locationScope,
+            items: [{ productId: activeProduct.id, parQty: parsedPar, unitBasis: 'TRACKING' }],
+          },
+        );
+        const updated = parResponse.data.find((row) => row.productId === activeProduct.id);
+        const nextBase =
+          updated?.parBase ?? Math.round(parsedPar * (activeProduct.trackingToBase ?? 1));
+        setParBase(nextBase);
+      }
       setEditMode(false);
     } catch (err: any) {
       setSaveError(err?.response?.data?.message || 'Unable to save product.');
@@ -237,13 +228,16 @@ export function ProductDetailsModal({
   }
 
   const showDetails = expanded || editMode;
+  const subtitleParts = [
+    activeProduct?.category ?? 'Uncategorized',
+    formatProductType(activeProduct?.productType),
+  ].filter(Boolean);
   const headerContent = (
     <div className="product-modal-header">
       <div className="product-modal-title-group">
         <div className="product-modal-title">{activeProduct?.name ?? 'Product'}</div>
-        <div className="product-modal-subtitle">
-          {(activeProduct?.category ?? 'Uncategorized')} â€¢ {formatProductType(activeProduct?.productType)}
-        </div>
+        <div className="product-modal-subtitle">{subtitleParts.join(' - ')}</div>
+        <span className={`status-pill ${statusTone}`}>{statusLabel}</span>
       </div>
       <div className="product-modal-header-actions">
         {canEditProduct && !editMode ? (
@@ -259,7 +253,7 @@ export function ProductDetailsModal({
   );
 
   return (
-    <ModalShell open={open} title="" onClose={onClose} headerContent={headerContent}>
+    <ModalShell open={open} title="" onClose={onClose} headerContent={headerContent} sheetClassName="product-details-modal">
       {activeProduct ? (
         <div className="product-modal">
           {loading ? <div className="muted">Loading...</div> : null}
@@ -278,7 +272,7 @@ export function ProductDetailsModal({
                   : '-'}
               </div>
             </div>
-            <div className={`summary-item summary-status ${statusTone}`}>
+            <div className="summary-item">
               <div className="summary-label">Status</div>
               <div className="summary-value">{statusLabel}</div>
             </div>
@@ -286,14 +280,21 @@ export function ProductDetailsModal({
 
           <div className="product-mini">
             <div>
-              <div className="muted">Product ID</div>
-              <div>{activeProduct.id}</div>
+              <div className="muted">EPA</div>
+              <div>{activeProduct.epaRegNo ?? 'N/A'}</div>
             </div>
             <div>
               <div className="muted">Base Type</div>
               <div>{activeProduct.baseType || 'N/A'}</div>
             </div>
           </div>
+
+          {!showDetails ? (
+            <button type="button" className="compact-qr" onClick={() => setExpanded(true)}>
+              <span className="muted">QR</span>
+              <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={64} />
+            </button>
+          ) : null}
 
           {!editMode ? (
             <button type="button" className="details-toggle" onClick={() => setExpanded((prev) => !prev)}>
@@ -353,6 +354,11 @@ export function ProductDetailsModal({
                     </select>
                   </label>
                   <label>
+                    SKU
+                    {/* TODO: Wire real SKU edit once backend exposes SKU field updates. */}
+                    <input value={activeProduct.id} disabled />
+                  </label>
+                  <label>
                     EPA
                     <input
                       value={form.epaRegNo}
@@ -370,7 +376,7 @@ export function ProductDetailsModal({
               ) : (
                 <div className="product-grid">
                   <div>
-                    <div className="muted">SKU</div>
+                    <div className="muted">Product ID</div>
                     <div>{activeProduct.id}</div>
                   </div>
                   <div>
@@ -493,9 +499,6 @@ export function ProductDetailsModal({
                         onChange={(e) => setParInput(e.target.value)}
                         placeholder="Set par"
                       />
-                      <button type="button" onClick={savePar} disabled={parSaving}>
-                        {parSaving ? 'Saving...' : 'Save'}
-                      </button>
                     </div>
                   ) : null}
                   {parError ? <div className="muted">{parError}</div> : null}
