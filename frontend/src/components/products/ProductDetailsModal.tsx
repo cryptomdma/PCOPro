@@ -35,6 +35,7 @@ export type ProductDetails = {
   checkoutToBase?: number;
   orderingToBase?: number;
   balances?: { onHandBase: number } | null;
+  codes?: Array<{ payload: string; codeType: string }>;
 };
 
 export function ProductDetailsModal({
@@ -62,6 +63,7 @@ export function ProductDetailsModal({
   const activeProduct = detail ?? product;
 
   const [form, setForm] = useState({
+    sku: '',
     name: '',
     baseType: '',
     category: '',
@@ -120,7 +122,9 @@ export function ProductDetailsModal({
   useEffect(() => {
     if (!open || !activeProduct) return;
     if (editMode) return;
+    const sku = activeProduct.codes?.find((code) => code.codeType === 'sku')?.payload ?? '';
     setForm({
+      sku,
       name: activeProduct.name ?? '',
       baseType: activeProduct.baseType ?? '',
       category: activeProduct.category ?? '',
@@ -163,6 +167,7 @@ export function ProductDetailsModal({
   async function saveProduct() {
     if (!activeProduct) return;
     const payload = {
+      sku: form.sku.trim(),
       name: form.name.trim(),
       baseType: form.baseType || undefined,
       category: form.category || undefined,
@@ -355,8 +360,11 @@ export function ProductDetailsModal({
                   </label>
                   <label>
                     SKU
-                    {/* TODO: Wire real SKU edit once backend exposes SKU field updates. */}
-                    <input value={activeProduct.id} disabled />
+                    <input
+                      value={form.sku}
+                      onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))}
+                      placeholder="SKU"
+                    />
                   </label>
                   <label>
                     EPA
@@ -378,6 +386,10 @@ export function ProductDetailsModal({
                   <div>
                     <div className="muted">Product ID</div>
                     <div>{activeProduct.id}</div>
+                  </div>
+                  <div>
+                    <div className="muted">SKU</div>
+                    <div>{form.sku || 'N/A'}</div>
                   </div>
                   <div>
                     <div className="muted">EPA</div>
