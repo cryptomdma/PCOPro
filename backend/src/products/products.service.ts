@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import * as QRCode from 'qrcode';
 import { parse } from 'csv-parse/sync';
 
@@ -9,7 +9,7 @@ import { parse } from 'csv-parse/sync';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  list(params: { search?: string; reorderOnly?: boolean; limit?: number }) {
+  list(params: { search?: string; reorderOnly?: boolean; limit?: number; role?: Role }) {
     const where: Prisma.ProductWhereInput = {};
     if (params.search) {
       where.OR = [
@@ -26,12 +26,16 @@ export class ProductsService {
         orderBy: { name: 'asc' },
         take: limit,
       })
-      .then((products) =>
-        products.map((p) => ({
-          ...p,
-          balances: p.balances[0] ?? null,
-        })),
-      );
+      .then((products) => {
+        const allowCost = params.role === 'ADMIN' || params.role === 'MANAGER';
+        return products.map((p) => {
+          const payload: any = { ...p, balances: p.balances[0] ?? null };
+          if (!allowCost) {
+            delete payload.defaultCostPerBase;
+          }
+          return payload;
+        });
+      });
   }
 
   create(dto: CreateProductDto) {
@@ -71,9 +75,12 @@ export class ProductsService {
         }
       }
 
+      const costValue = dto.defaultCostPerBase === undefined ? undefined : dto.defaultCostPerBase;
+
       return tx.product.update({
         where: { id },
         data: {
+          defaultCostPerBase: costValue,
           name: dto.name,
           epaRegNo: dto.epaRegNo,
           description: dto.description,
@@ -95,7 +102,7 @@ export class ProductsService {
     });
   }
 
-  async detail(id: string) {
+  async detail(id: string, role?: Role) {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
@@ -108,7 +115,12 @@ export class ProductsService {
     if (!product) return null;
     const qrPayload = `MGPC:prod:${product.id}`;
     const qrSvg = await QRCode.toString(qrPayload, { type: 'svg' });
-    return { ...product, balances: product.balances[0] ?? null, qrPayload, qrSvg };
+    const allowCost = role === 'ADMIN' || role === 'MANAGER';
+    const payload: any = { ...product, balances: product.balances[0] ?? null, qrPayload, qrSvg };
+    if (!allowCost) {
+      delete payload.defaultCostPerBase;
+    }
+    return payload;
   }
 
   async importEpaCsv(buffer: Buffer) {

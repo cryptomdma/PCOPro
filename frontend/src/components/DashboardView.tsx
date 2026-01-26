@@ -11,6 +11,7 @@ type Product = {
   trackingToBase: number;
   balances?: { onHandBase: number } | null;
   reorderLevelBase?: number | null;
+  defaultCostPerBase?: number | string | null;
 };
 
 type TransferRequest = { id: string };
@@ -32,6 +33,7 @@ export function DashboardView() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [recent, setRecent] = useState<RecentTransferRequest[] | null>(null);
   const isTech = user?.role === 'TECH';
+  const canSeeCost = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const locationScope = 'WAREHOUSE';
 
   useEffect(() => {
@@ -82,6 +84,32 @@ export function DashboardView() {
       return onHandBase < parBase;
     });
   }, [products, parByProduct]);
+
+  const costStats = useMemo(() => {
+    if (!canSeeCost) {
+      return { totalValue: 0, lowStockValue: 0, missingCount: 0 };
+    }
+    let totalValue = 0;
+    let lowStockValue = 0;
+    let missingCount = 0;
+    for (const product of products) {
+      const costBase = product.defaultCostPerBase;
+      const numericCost = costBase === null || costBase === undefined ? null : Number(costBase);
+      if (numericCost === null || !Number.isFinite(numericCost)) {
+        missingCount += 1;
+        continue;
+      }
+      const onHandBase = product.balances?.onHandBase ?? 0;
+      totalValue += onHandBase * numericCost;
+      const parBase = parByProduct.get(product.id);
+      if (parBase !== undefined && onHandBase < parBase) {
+        lowStockValue += onHandBase * numericCost;
+      }
+    }
+    return { totalValue, lowStockValue, missingCount };
+  }, [products, parByProduct, canSeeCost]);
+
+  const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
 
   if (isTech) {
     return (
@@ -165,6 +193,21 @@ export function DashboardView() {
           <div className="muted">Usage insights</div>
         </Link>
       </div>
+
+      {canSeeCost ? (
+        <div className="dashboard-grid">
+          <div className="dashboard-card">
+            <div className="card-title">Total Inventory Value</div>
+            <div className="dashboard-value">{formatCurrency(costStats.totalValue)}</div>
+            <div className="muted">{costStats.missingCount} products missing cost</div>
+          </div>
+          <div className="dashboard-card">
+            <div className="card-title">Low Stock Value</div>
+            <div className="dashboard-value">{formatCurrency(costStats.lowStockValue)}</div>
+            <div className="muted">{costStats.missingCount} products missing cost</div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="card-stack">
         <h4>Low Stock (Par)</h4>
