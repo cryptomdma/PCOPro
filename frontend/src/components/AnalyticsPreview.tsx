@@ -110,6 +110,7 @@ export function AnalyticsPreview() {
   const [productIds, setProductIds] = useState<string[]>([]);
   const [category, setCategory] = useState('');
   const [locationId, setLocationId] = useState('');
+  const [activeTab, setActiveTab] = useState<'transfers' | 'audit'>('transfers');
 
   const [products, setProducts] = useState<Product[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -317,6 +318,23 @@ export function AnalyticsPreview() {
         </button>
       </header>
 
+      <div className="analytics-tabs">
+        <button
+          type="button"
+          className={['analytics-tab', activeTab === 'transfers' ? 'active' : ''].filter(Boolean).join(' ')}
+          onClick={() => setActiveTab('transfers')}
+        >
+          Transfers
+        </button>
+        <button
+          type="button"
+          className={['analytics-tab', activeTab === 'audit' ? 'active' : ''].filter(Boolean).join(' ')}
+          onClick={() => setActiveTab('audit')}
+        >
+          Audit Discrepancy
+        </button>
+      </div>
+
       <div className="card analytics-filter-panel">
         <div className="analytics-filter-content">
           <div className="grid two-col">
@@ -393,158 +411,163 @@ export function AnalyticsPreview() {
         </div>
       </div>
 
-      <div className="card card-stack">
-        <div className="card-row">
-          <div>
-            <div className="card-title">Results</div>
-            <p className="muted">
-              {usage ? `${formatNumber(rows.length)} rows` : 'Apply filters to see analytics.'}
-            </p>
-          </div>
-          {usage ? (
-            <div className="muted">
-              {formatNumber(usage.totals.quantityTracking)} tracking units | {formatNumber(usage.totals.transactions)} transactions
+      {activeTab === 'transfers' ? (
+        <div className="card card-stack">
+          <div className="card-row">
+            <div>
+              <div className="card-title">Results</div>
+              <p className="muted">
+                {usage ? `${formatNumber(rows.length)} rows` : 'Apply filters to see analytics.'}
+              </p>
             </div>
-          ) : null}
-        </div>
+            {usage ? (
+              <div className="muted">
+                {formatNumber(usage.totals.quantityTracking)} tracking units |{' '}
+                {formatNumber(usage.totals.transactions)} transactions
+              </div>
+            ) : null}
+          </div>
 
-        {loading ? (
-          <div className="muted">Loading analytics...</div>
-        ) : rows.length === 0 ? (
-          <div className="muted">No data for selected filters.</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  {columns.map((col) => (
-                    <th key={col}>{col}</th>
+          {loading ? (
+            <div className="muted">Loading analytics...</div>
+          ) : rows.length === 0 ? (
+            <div className="muted">No data for selected filters.</div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="table">
+                <thead>
+                  <tr>
+                    {columns.map((col) => (
+                      <th key={col}>{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, idx) => (
+                    <tr
+                      key={`${row.productId ?? 'product'}-${row.technicianId ?? 'tech'}-${idx}`}
+                      className="table-row"
+                      onClick={() => setSelectedRow(row)}
+                    >
+                      {groupBy === 'product' ? (
+                        <>
+                          <td>{row.productName}</td>
+                          <td>{row.category}</td>
+                          <td>{onHandLabelFor(row.productId)}</td>
+                          <td>
+                            {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
+                          </td>
+                          <td>{formatNumber(row.transactions)}</td>
+                        </>
+                      ) : groupBy === 'technician' ? (
+                        <>
+                          <td>{row.technicianName}</td>
+                          <td>{formatNumber(row.quantityTracking)}</td>
+                          <td>{formatNumber(row.transactions)}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td>{row.technicianName}</td>
+                          <td>{row.productName}</td>
+                          <td>{row.category}</td>
+                          <td>{onHandLabelFor(row.productId)}</td>
+                          <td>
+                            {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
+                          </td>
+                          <td>{formatNumber(row.transactions)}</td>
+                        </>
+                      )}
+                    </tr>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, idx) => (
-                  <tr
-                    key={`${row.productId ?? 'product'}-${row.technicianId ?? 'tech'}-${idx}`}
-                    className="table-row"
-                    onClick={() => setSelectedRow(row)}
-                  >
+                </tbody>
+                <tfoot>
+                  <tr className="totals-row">
                     {groupBy === 'product' ? (
                       <>
-                        <td>{row.productName}</td>
-                        <td>{row.category}</td>
-                        <td>{onHandLabelFor(row.productId)}</td>
-                        <td>
-                          {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
-                        </td>
-                        <td>{formatNumber(row.transactions)}</td>
+                        <td>Total</td>
+                        <td />
+                        <td />
+                        <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
+                        <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
                       </>
                     ) : groupBy === 'technician' ? (
                       <>
-                        <td>{row.technicianName}</td>
-                        <td>{formatNumber(row.quantityTracking)}</td>
-                        <td>{formatNumber(row.transactions)}</td>
+                        <td>Total</td>
+                        <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
+                        <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
                       </>
                     ) : (
                       <>
-                        <td>{row.technicianName}</td>
-                        <td>{row.productName}</td>
-                        <td>{row.category}</td>
-                        <td>{onHandLabelFor(row.productId)}</td>
-                        <td>
-                          {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
-                        </td>
-                        <td>{formatNumber(row.transactions)}</td>
+                        <td>Total</td>
+                        <td />
+                        <td />
+                        <td />
+                        <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
+                        <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
                       </>
                     )}
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="totals-row">
-                  {groupBy === 'product' ? (
-                    <>
-                      <td>Total</td>
-                      <td />
-                      <td />
-                      <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
-                      <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
-                    </>
-                  ) : groupBy === 'technician' ? (
-                    <>
-                      <td>Total</td>
-                      <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
-                      <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
-                    </>
-                  ) : (
-                    <>
-                      <td>Total</td>
-                      <td />
-                      <td />
-                      <td />
-                      <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
-                      <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
-                    </>
-                  )}
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div className="card card-stack">
-        <div className="card-row">
-          <div>
-            <div className="card-title">Audit Discrepancy</div>
-            <p className="muted">
-              {auditRows.length ? `${formatNumber(auditRows.length)} products` : 'Apply filters to see audit deltas.'}
-            </p>
-          </div>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </div>
-        {auditError ? <div className="error-panel">{auditError}</div> : null}
-        {auditLoading ? (
-          <div className="muted">Loading audit discrepancy...</div>
-        ) : auditRows.length === 0 ? (
-          <div className="muted">No audit deltas for selected filters.</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th># Audits</th>
-                  <th>Net Delta</th>
-                  <th>Abs Delta</th>
-                </tr>
-              </thead>
-              <tbody>
-                {auditSorted.map((row) => {
-                  const product = productById.get(row.productId);
-                  const net = convertBaseToTracking(row.productId, row.netDeltaBase);
-                  const abs = convertBaseToTracking(row.productId, row.absDeltaBase);
-                  return (
-                    <tr
-                      key={row.productId}
-                      className="table-row"
-                      onClick={() => setSelectedAuditProductId(row.productId)}
-                    >
-                      <td>{product?.name ?? row.productId}</td>
-                      <td>{row.auditLineCount}</td>
-                      <td>
-                        {formatNumber(net.value)} {net.label}
-                      </td>
-                      <td>
-                        {formatNumber(abs.value)} {abs.label}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      ) : null}
+
+      {activeTab === 'audit' ? (
+        <div className="card card-stack">
+          <div className="card-row">
+            <div>
+              <div className="card-title">Audit Discrepancy</div>
+              <p className="muted">
+                {auditRows.length ? `${formatNumber(auditRows.length)} products` : 'Apply filters to see audit deltas.'}
+              </p>
+            </div>
           </div>
-        )}
-      </div>
+          {auditError ? <div className="error-panel">{auditError}</div> : null}
+          {auditLoading ? (
+            <div className="muted">Loading audit discrepancy...</div>
+          ) : auditRows.length === 0 ? (
+            <div className="muted">No audit deltas for selected filters.</div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th># Audits</th>
+                    <th>Net Delta</th>
+                    <th>Abs Delta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditSorted.map((row) => {
+                    const product = productById.get(row.productId);
+                    const net = convertBaseToTracking(row.productId, row.netDeltaBase);
+                    const abs = convertBaseToTracking(row.productId, row.absDeltaBase);
+                    return (
+                      <tr
+                        key={row.productId}
+                        className="table-row"
+                        onClick={() => setSelectedAuditProductId(row.productId)}
+                      >
+                        <td>{product?.name ?? row.productId}</td>
+                        <td>{row.auditLineCount}</td>
+                        <td>
+                          {formatNumber(net.value)} {net.label}
+                        </td>
+                        <td>
+                          {formatNumber(abs.value)} {abs.label}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <ModalShell open={Boolean(selectedRow)} title="Details" onClose={() => setSelectedRow(null)}>
         {selectedRow ? (
