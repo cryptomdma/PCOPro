@@ -55,15 +55,42 @@ export function AuditCountView() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [totalProducts, setTotalProducts] = useState<number | null>(null);
 
   const canAudit = user?.role === 'ADMIN' || user?.role === 'WAREHOUSE';
 
   useEffect(() => {
     axios
-      .get('/api/v1/inventory/balances', { params: { stockedOnly: true, scope: locationScope } })
+      .get('/api/v1/inventory/balances', {
+        params: { stockedOnly: false, includeDiscontinued: true, scope: locationScope },
+      })
       .then((res) => setBalances(res.data))
       .catch((err) => setError(err?.response?.data?.message || 'Unable to load inventory balances.'));
   }, [locationScope]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    axios
+      .get('/api/v1/products', { params: { limit: 500 } })
+      .then((res) => {
+        const count = Array.isArray(res.data) ? res.data.length : 0;
+        if (count > 0 && count < 500) {
+          setTotalProducts(count);
+        } else {
+          setTotalProducts(null);
+        }
+      })
+      .catch(() => setTotalProducts(null));
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (totalProducts !== null && balances.length < totalProducts) {
+      console.warn(
+        `[AuditCountView] Inventory balances returned ${balances.length} products, expected ${totalProducts}.`,
+      );
+    }
+  }, [balances.length, totalProducts]);
 
   const balanceMap = useMemo(() => {
     return new Map(balances.map((balance) => [balance.productId, balance]));
