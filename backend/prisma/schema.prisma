@@ -148,6 +148,7 @@ model Product {
   reorderLevelBase  Int?
   quantityInReorder Int? // mirrors Excel quantity in reorder
   leadTimeDays      Int?
+  defaultCostPerBase Decimal? @db.Decimal(12, 4)
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   isStocked         Boolean             @default(true)
