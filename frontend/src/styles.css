@@ -8,8 +8,17 @@
   --text: #e5e7eb;
   --textMuted: #9ca3af;
   --textSecondary: #cbd5f5;
+  --modalBackdrop: rgba(15, 23, 42, 0.65);
+  --resultPanelBg: #0f172a;
+  --resultPanelBorder: #1d4ed8;
   background: var(--bg);
   color: var(--text);
+}
+
+:root[data-theme='light'] {
+  --modalBackdrop: rgba(15, 23, 42, 0.25);
+  --resultPanelBg: #e8edf8;
+  --resultPanelBorder: #2563eb;
 }
 
 * {
@@ -158,6 +167,29 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.analytics-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.analytics-tab {
+  border: 1px solid var(--border);
+  background: var(--bgInput);
+  color: var(--text);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  width: auto;
+}
+
+.analytics-tab.active {
+  background: var(--bgCard);
+  border-color: var(--textSecondary);
 }
 
 .analytics-filter-content {
@@ -378,7 +410,9 @@ button:disabled {
 
 .result-panel {
   border-color: #1d4ed8;
-  background: #0f172a;
+  background: var(--resultPanelBg);
+  border-color: var(--resultPanelBorder);
+  color: var(--text);
 }
 
 .grid.two-col {
@@ -437,6 +471,10 @@ button:disabled {
   align-items: center;
   justify-content: center;
   z-index: 30;
+}
+
+.confirm-backdrop {
+  background: var(--modalBackdrop);
 }
 
 .modal-sheet {

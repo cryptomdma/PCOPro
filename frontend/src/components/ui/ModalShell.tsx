@@ -8,6 +8,7 @@ export function ModalShell({
   actions,
   headerContent,
   sheetClassName,
+  backdropClassName,
 }: {
   open: boolean;
   title?: string;
@@ -16,6 +17,7 @@ export function ModalShell({
   actions?: React.ReactNode;
   headerContent?: React.ReactNode;
   sheetClassName?: string;
+  backdropClassName?: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -30,8 +32,9 @@ export function ModalShell({
 
   if (!open) return null;
   const sheetClass = ['modal-sheet', sheetClassName].filter(Boolean).join(' ');
+  const backdropClass = ['modal-backdrop', backdropClassName].filter(Boolean).join(' ');
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
+    <div className={backdropClass} role="dialog" aria-modal="true" onClick={onClose}>
       <div className={sheetClass} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           {headerContent ? (

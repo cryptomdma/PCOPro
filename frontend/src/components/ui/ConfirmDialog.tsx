@@ -44,6 +44,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         open={Boolean(state)}
         title={state?.options.title || 'Confirm'}
         onClose={() => close(false)}
+        backdropClassName="confirm-backdrop"
         actions={
           <div className="confirm-actions">
             <button type="button" className="ghost-button" onClick={() => close(false)}>

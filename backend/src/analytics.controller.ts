@@ -1,14 +1,18 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Controller, ForbiddenException, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { InventoryTransaction, ProductCategory, TransferDirection } from '@prisma/client';
 import { UsageAnalyticsQueryDto } from './analytics.dto';
 import { PrismaService } from './prisma.service';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { CurrentUser } from './auth/current-user.decorator';
 
+@UseGuards(JwtAuthGuard)
 @Controller('analytics')
 export class AnalyticsController {
   constructor(private prisma: PrismaService) {}
 
   @Get('usage')
-  async usage(@Query() query: UsageAnalyticsQueryDto) {
+  async usage(@Query() query: UsageAnalyticsQueryDto, @CurrentUser() user: { role?: string }) {
+    this.assertAnalyticsRole(user?.role);
     const now = new Date();
     const end = query.end ?? now;
     const start = query.start ?? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -267,6 +271,120 @@ export class AnalyticsController {
     };
   }
 
+  @Get('audit-discrepancy')
+  async auditDiscrepancy(
+    @Query('from') fromRaw?: string,
+    @Query('to') toRaw?: string,
+    @Query('locationScope') locationScope?: string,
+    @CurrentUser() user?: { role?: string },
+  ) {
+    this.assertAnalyticsRole(user?.role);
+    const now = new Date();
+    const start = fromRaw ? new Date(fromRaw) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const end = toRaw ? new Date(toRaw) : now;
+    if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) {
+      throw new BadRequestException('Invalid from or to date');
+    }
+    if (start >= end) {
+      throw new BadRequestException('From must be before to');
+    }
+
+    const where: any = {
+      createdAt: { gte: start, lt: end },
+    };
+    if (locationScope) {
+      where.auditSession = { locationScope };
+    }
+
+    const lines = await this.prisma.auditLine.findMany({
+      where,
+      select: {
+        productId: true,
+        deltaBase: true,
+        createdAt: true,
+      },
+    });
+
+    const byProduct = new Map<
+      string,
+      { productId: string; auditLineCount: number; netDeltaBase: number; absDeltaBase: number; firstSeen: Date; lastSeen: Date }
+    >();
+
+    for (const line of lines) {
+      const delta = Number(line.deltaBase);
+      const entry = byProduct.get(line.productId);
+      if (!entry) {
+        byProduct.set(line.productId, {
+          productId: line.productId,
+          auditLineCount: 1,
+          netDeltaBase: delta,
+          absDeltaBase: Math.abs(delta),
+          firstSeen: line.createdAt,
+          lastSeen: line.createdAt,
+        });
+      } else {
+        entry.auditLineCount += 1;
+        entry.netDeltaBase += delta;
+        entry.absDeltaBase += Math.abs(delta);
+        if (line.createdAt < entry.firstSeen) entry.firstSeen = line.createdAt;
+        if (line.createdAt > entry.lastSeen) entry.lastSeen = line.createdAt;
+      }
+    }
+
+    return Array.from(byProduct.values()).map((entry) => ({
+      productId: entry.productId,
+      auditLineCount: entry.auditLineCount,
+      netDeltaBase: entry.netDeltaBase,
+      absDeltaBase: entry.absDeltaBase,
+      firstSeen: entry.firstSeen.toISOString(),
+      lastSeen: entry.lastSeen.toISOString(),
+    }));
+  }
+
+  @Get('audit-discrepancy/:productId')
+  async auditDiscrepancyDetail(
+    @Param('productId') productId: string,
+    @Query('from') fromRaw?: string,
+    @Query('to') toRaw?: string,
+    @Query('locationScope') locationScope?: string,
+    @CurrentUser() user?: { role?: string },
+  ) {
+    this.assertAnalyticsRole(user?.role);
+    const now = new Date();
+    const start = fromRaw ? new Date(fromRaw) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const end = toRaw ? new Date(toRaw) : now;
+    if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) {
+      throw new BadRequestException('Invalid from or to date');
+    }
+    if (start >= end) {
+      throw new BadRequestException('From must be before to');
+    }
+
+    const where: any = {
+      productId,
+      createdAt: { gte: start, lt: end },
+    };
+    if (locationScope) {
+      where.auditSession = { locationScope };
+    }
+
+    const lines = await this.prisma.auditLine.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: { auditSession: { select: { id: true, notes: true } } },
+    });
+
+    return lines.map((line) => ({
+      createdAt: line.createdAt.toISOString(),
+      auditSessionId: line.auditSessionId,
+      notes: line.auditSession?.notes ?? null,
+      countedQty: Number(line.countedQty),
+      unitBasis: line.unitBasis,
+      desiredBase: Number(line.desiredBase),
+      deltaBase: Number(line.deltaBase),
+    }));
+  }
+
   private extractTechnicianIdFromScope(scope?: string | null) {
     if (!scope) return null;
     if (!scope.startsWith('TRUCK:')) return null;
@@ -296,5 +414,11 @@ export class AnalyticsController {
         transactions: 0,
       },
     };
+  }
+
+  private assertAnalyticsRole(role?: string) {
+    if (!role || role === 'TECH') {
+      throw new ForbiddenException('Not authorized to view analytics');
+    }
   }
 }

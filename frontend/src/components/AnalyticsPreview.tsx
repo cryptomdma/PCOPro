@@ -5,6 +5,7 @@ import { ModalShell } from './ui/ModalShell';
 import { RequestDetailsModal, RequestDetailsSource } from './RequestDetailsModal';
 import { useAuth } from '../auth';
 import { getStockDisplay } from '../utils/stockDisplay';
+import { ProductDetailsModal } from './products/ProductDetailsModal';
 
 type GroupBy = 'product' | 'technician' | 'product_technician';
 
@@ -52,6 +53,25 @@ type UsageResponse = {
   totals: { quantityTracking: number; transactions: number };
 };
 
+type AuditDiscrepancyRow = {
+  productId: string;
+  auditLineCount: number;
+  netDeltaBase: number;
+  absDeltaBase: number;
+  firstSeen: string;
+  lastSeen: string;
+};
+
+type AuditDiscrepancyDetail = {
+  createdAt: string;
+  auditSessionId: string;
+  notes?: string | null;
+  countedQty: number;
+  unitBasis: string;
+  desiredBase: number;
+  deltaBase: number;
+};
+
 const toLocalInput = (date: Date) => {
   const pad = (value: number) => value.toString().padStart(2, '0');
   const yyyy = date.getFullYear();
@@ -90,14 +110,22 @@ export function AnalyticsPreview() {
   const [productIds, setProductIds] = useState<string[]>([]);
   const [category, setCategory] = useState('');
   const [locationId, setLocationId] = useState('');
+  const [activeTab, setActiveTab] = useState<'transfers' | 'audit'>('transfers');
 
   const [products, setProducts] = useState<Product[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [usage, setUsage] = useState<UsageResponse | null>(null);
+  const [auditRows, setAuditRows] = useState<AuditDiscrepancyRow[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [selectedAuditProductId, setSelectedAuditProductId] = useState<string | null>(null);
+  const [auditDetails, setAuditDetails] = useState<AuditDiscrepancyDetail[]>([]);
+  const [auditDetailsLoading, setAuditDetailsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<UsageRow | null>(null);
   const [selectedSource, setSelectedSource] = useState<RequestDetailsSource | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const categories = useMemo(() => Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(), [products]);
   const productById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
@@ -120,6 +148,10 @@ export function AnalyticsPreview() {
 
   useEffect(() => {
     fetchUsage();
+  }, []);
+
+  useEffect(() => {
+    fetchAuditDiscrepancy();
   }, []);
 
   async function fetchReference() {
@@ -155,6 +187,24 @@ export function AnalyticsPreview() {
       setUsage(null);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchAuditDiscrepancy() {
+    setAuditLoading(true);
+    setAuditError(null);
+    try {
+      const params = new URLSearchParams();
+      if (startInput) params.set('from', new Date(startInput).toISOString());
+      if (endInput) params.set('to', new Date(endInput).toISOString());
+      if (locationId) params.set('locationScope', locationId);
+      const response = await axios.get<AuditDiscrepancyRow[]>(`/api/v1/analytics/audit-discrepancy?${params.toString()}`);
+      setAuditRows(response.data ?? []);
+    } catch (err: any) {
+      setAuditError(err?.response?.data?.message || 'Failed to load audit discrepancy');
+      setAuditRows([]);
+    } finally {
+      setAuditLoading(false);
     }
   }
 
@@ -227,6 +277,34 @@ export function AnalyticsPreview() {
         : ['Technician', 'Product', 'Category', 'On-hand', 'Qty (tracking)', 'Transactions'];
 
   const rows = usage?.rows ?? [];
+  const auditSorted = useMemo(() => {
+    return [...auditRows].sort((a, b) => b.absDeltaBase - a.absDeltaBase);
+  }, [auditRows]);
+
+  const convertBaseToTracking = (productId: string, baseValue: number) => {
+    const product = productById.get(productId);
+    if (!product || !product.trackingToBase) return { value: 0, label: '' };
+    const value = Math.round((baseValue / product.trackingToBase) * 100) / 100;
+    return { value, label: product.trackingUnitLabel ?? '' };
+  };
+
+  useEffect(() => {
+    if (!selectedAuditProductId) return;
+    const params = new URLSearchParams();
+    if (startInput) params.set('from', new Date(startInput).toISOString());
+    if (endInput) params.set('to', new Date(endInput).toISOString());
+    if (locationId) params.set('locationScope', locationId);
+    setAuditDetailsLoading(true);
+    axios
+      .get<AuditDiscrepancyDetail[]>(
+        `/api/v1/analytics/audit-discrepancy/${selectedAuditProductId}?${params.toString()}`,
+      )
+      .then((res) => setAuditDetails(res.data))
+      .catch((err: any) =>
+        setAuditError(err?.response?.data?.message || 'Failed to load audit discrepancy details'),
+      )
+      .finally(() => setAuditDetailsLoading(false));
+  }, [selectedAuditProductId, startInput, endInput, locationId]);
 
   return (
     <section>
@@ -239,6 +317,23 @@ export function AnalyticsPreview() {
           Export CSV
         </button>
       </header>
+
+      <div className="analytics-tabs">
+        <button
+          type="button"
+          className={['analytics-tab', activeTab === 'transfers' ? 'active' : ''].filter(Boolean).join(' ')}
+          onClick={() => setActiveTab('transfers')}
+        >
+          Transfers
+        </button>
+        <button
+          type="button"
+          className={['analytics-tab', activeTab === 'audit' ? 'active' : ''].filter(Boolean).join(' ')}
+          onClick={() => setActiveTab('audit')}
+        >
+          Audit Discrepancy
+        </button>
+      </div>
 
       <div className="card analytics-filter-panel">
         <div className="analytics-filter-content">
@@ -302,111 +397,177 @@ export function AnalyticsPreview() {
           <button type="button" className="ghost-button" onClick={resetFilters}>
             Clear
           </button>
-          <button type="button" className="apply-button" onClick={fetchUsage} disabled={loading}>
+          <button
+            type="button"
+            className="apply-button"
+            onClick={() => {
+              fetchUsage();
+              fetchAuditDiscrepancy();
+            }}
+            disabled={loading || auditLoading}
+          >
             {loading ? 'Loading...' : 'Apply'}
           </button>
         </div>
       </div>
 
-      <div className="card card-stack">
-        <div className="card-row">
-          <div>
-            <div className="card-title">Results</div>
-            <p className="muted">
-              {usage ? `${formatNumber(rows.length)} rows` : 'Apply filters to see analytics.'}
-            </p>
-          </div>
-          {usage ? (
-            <div className="muted">
-              {formatNumber(usage.totals.quantityTracking)} tracking units | {formatNumber(usage.totals.transactions)} transactions
+      {activeTab === 'transfers' ? (
+        <div className="card card-stack">
+          <div className="card-row">
+            <div>
+              <div className="card-title">Results</div>
+              <p className="muted">
+                {usage ? `${formatNumber(rows.length)} rows` : 'Apply filters to see analytics.'}
+              </p>
             </div>
-          ) : null}
-        </div>
+            {usage ? (
+              <div className="muted">
+                {formatNumber(usage.totals.quantityTracking)} tracking units |{' '}
+                {formatNumber(usage.totals.transactions)} transactions
+              </div>
+            ) : null}
+          </div>
 
-        {loading ? (
-          <div className="muted">Loading analytics...</div>
-        ) : rows.length === 0 ? (
-          <div className="muted">No data for selected filters.</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  {columns.map((col) => (
-                    <th key={col}>{col}</th>
+          {loading ? (
+            <div className="muted">Loading analytics...</div>
+          ) : rows.length === 0 ? (
+            <div className="muted">No data for selected filters.</div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="table">
+                <thead>
+                  <tr>
+                    {columns.map((col) => (
+                      <th key={col}>{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, idx) => (
+                    <tr
+                      key={`${row.productId ?? 'product'}-${row.technicianId ?? 'tech'}-${idx}`}
+                      className="table-row"
+                      onClick={() => setSelectedRow(row)}
+                    >
+                      {groupBy === 'product' ? (
+                        <>
+                          <td>{row.productName}</td>
+                          <td>{row.category}</td>
+                          <td>{onHandLabelFor(row.productId)}</td>
+                          <td>
+                            {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
+                          </td>
+                          <td>{formatNumber(row.transactions)}</td>
+                        </>
+                      ) : groupBy === 'technician' ? (
+                        <>
+                          <td>{row.technicianName}</td>
+                          <td>{formatNumber(row.quantityTracking)}</td>
+                          <td>{formatNumber(row.transactions)}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td>{row.technicianName}</td>
+                          <td>{row.productName}</td>
+                          <td>{row.category}</td>
+                          <td>{onHandLabelFor(row.productId)}</td>
+                          <td>
+                            {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
+                          </td>
+                          <td>{formatNumber(row.transactions)}</td>
+                        </>
+                      )}
+                    </tr>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, idx) => (
-                  <tr
-                    key={`${row.productId ?? 'product'}-${row.technicianId ?? 'tech'}-${idx}`}
-                    className="table-row"
-                    onClick={() => setSelectedRow(row)}
-                  >
+                </tbody>
+                <tfoot>
+                  <tr className="totals-row">
                     {groupBy === 'product' ? (
                       <>
-                        <td>{row.productName}</td>
-                        <td>{row.category}</td>
-                        <td>{onHandLabelFor(row.productId)}</td>
-                        <td>
-                          {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
-                        </td>
-                        <td>{formatNumber(row.transactions)}</td>
+                        <td>Total</td>
+                        <td />
+                        <td />
+                        <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
+                        <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
                       </>
                     ) : groupBy === 'technician' ? (
                       <>
-                        <td>{row.technicianName}</td>
-                        <td>{formatNumber(row.quantityTracking)}</td>
-                        <td>{formatNumber(row.transactions)}</td>
+                        <td>Total</td>
+                        <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
+                        <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
                       </>
                     ) : (
                       <>
-                        <td>{row.technicianName}</td>
-                        <td>{row.productName}</td>
-                        <td>{row.category}</td>
-                        <td>{onHandLabelFor(row.productId)}</td>
-                        <td>
-                          {formatNumber(row.quantityTracking)} {row.trackingUnitLabel ?? ''}
-                        </td>
-                        <td>{formatNumber(row.transactions)}</td>
+                        <td>Total</td>
+                        <td />
+                        <td />
+                        <td />
+                        <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
+                        <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
                       </>
                     )}
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="totals-row">
-                  {groupBy === 'product' ? (
-                    <>
-                      <td>Total</td>
-                      <td />
-                      <td />
-                      <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
-                      <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
-                    </>
-                  ) : groupBy === 'technician' ? (
-                    <>
-                      <td>Total</td>
-                      <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
-                      <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
-                    </>
-                  ) : (
-                    <>
-                      <td>Total</td>
-                      <td />
-                      <td />
-                      <td />
-                      <td>{formatNumber(usage?.totals.quantityTracking ?? 0)}</td>
-                      <td>{formatNumber(usage?.totals.transactions ?? 0)}</td>
-                    </>
-                  )}
-                </tr>
-              </tfoot>
-            </table>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {activeTab === 'audit' ? (
+        <div className="card card-stack">
+          <div className="card-row">
+            <div>
+              <div className="card-title">Audit Discrepancy</div>
+              <p className="muted">
+                {auditRows.length ? `${formatNumber(auditRows.length)} products` : 'Apply filters to see audit deltas.'}
+              </p>
+            </div>
           </div>
-        )}
-      </div>
+          {auditError ? <div className="error-panel">{auditError}</div> : null}
+          {auditLoading ? (
+            <div className="muted">Loading audit discrepancy...</div>
+          ) : auditRows.length === 0 ? (
+            <div className="muted">No audit deltas for selected filters.</div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th># Audits</th>
+                    <th>Net Delta</th>
+                    <th>Abs Delta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditSorted.map((row) => {
+                    const product = productById.get(row.productId);
+                    const net = convertBaseToTracking(row.productId, row.netDeltaBase);
+                    const abs = convertBaseToTracking(row.productId, row.absDeltaBase);
+                    return (
+                      <tr
+                        key={row.productId}
+                        className="table-row"
+                        onClick={() => setSelectedAuditProductId(row.productId)}
+                      >
+                        <td>{product?.name ?? row.productId}</td>
+                        <td>{row.auditLineCount}</td>
+                        <td>
+                          {formatNumber(net.value)} {net.label}
+                        </td>
+                        <td>
+                          {formatNumber(abs.value)} {abs.label}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <ModalShell open={Boolean(selectedRow)} title="Details" onClose={() => setSelectedRow(null)}>
         {selectedRow ? (
@@ -495,6 +656,48 @@ export function AnalyticsPreview() {
       </ModalShell>
 
       <RequestDetailsModal open={Boolean(selectedSource)} source={selectedSource} onClose={() => setSelectedSource(null)} />
+
+      <ModalShell
+        open={Boolean(selectedAuditProductId)}
+        title="Audit Discrepancy Details"
+        onClose={() => setSelectedAuditProductId(null)}
+      >
+        {auditDetailsLoading ? <div className="muted">Loading audit lines...</div> : null}
+        {!auditDetailsLoading && auditDetails.length === 0 ? <div className="muted">No audit lines found.</div> : null}
+        {auditDetails.length ? (
+          <div className="card-stack">
+            {auditDetails.map((line) => {
+              const product = productById.get(selectedAuditProductId ?? '');
+              const delta = convertBaseToTracking(selectedAuditProductId ?? '', line.deltaBase);
+              const desired = convertBaseToTracking(selectedAuditProductId ?? '', line.desiredBase);
+              return (
+                <div key={`${line.auditSessionId}-${line.createdAt}`} className="card">
+                  <div className="card-row">
+                    <strong>{new Date(line.createdAt).toLocaleString()}</strong>
+                    <button type="button" className="ghost-button" onClick={() => setSelectedProductId(product?.id ?? null)}>
+                      View product
+                    </button>
+                  </div>
+                  <div className="muted">Session: {line.auditSessionId}</div>
+                  {line.notes ? <div className="muted">Notes: {line.notes}</div> : null}
+                  <div className="muted">
+                    Counted: {line.countedQty} {line.unitBasis}
+                  </div>
+                  <div className="muted">
+                    Desired: {formatNumber(desired.value)} {desired.label} | Delta: {formatNumber(delta.value)} {delta.label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </ModalShell>
+
+      <ProductDetailsModal
+        open={Boolean(selectedProductId)}
+        product={selectedProductId ? productById.get(selectedProductId) ?? null : null}
+        onClose={() => setSelectedProductId(null)}
+      />
     </section>
   );
 }
