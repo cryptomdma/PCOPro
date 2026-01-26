@@ -4,6 +4,7 @@ import { CreateProductDto, UpdateProductDto } from './dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard, RequirePerm } from '../auth/permissions';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 @Controller('products')
 @UseGuards(JwtAuthGuard)
@@ -11,11 +12,15 @@ export class ProductsController {
   constructor(private products: ProductsService) {}
 
   @Get()
-  list(@Query('search') search?: string, @Query('limit') limitRaw?: string) {
+  list(
+    @Query('search') search?: string,
+    @Query('limit') limitRaw?: string,
+    @CurrentUser() user?: { role?: string },
+  ) {
     const parsedLimit = Number(limitRaw);
     const limit = Number.isFinite(parsedLimit) ? parsedLimit : 200;
     const clamped = Math.min(Math.max(1, limit), 500);
-    return this.products.list({ search, limit: clamped });
+    return this.products.list({ search, limit: clamped, role: user?.role as any });
   }
 
   @Post()
@@ -39,7 +44,7 @@ export class ProductsController {
   }
 
   @Get(':id')
-  detail(@Param('id') id: string) {
-    return this.products.detail(id);
+  detail(@Param('id') id: string, @CurrentUser() user?: { role?: string }) {
+    return this.products.detail(id, user?.role as any);
   }
 }

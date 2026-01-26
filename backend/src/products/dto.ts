@@ -1,4 +1,5 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ProductBehavior, ProductCategory, ProductTrackingMode, ProductType, UnitBaseType } from '@prisma/client';
 
 export class CreateProductDto {
@@ -66,6 +67,12 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   sku?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Transform(({ value }) => (value === '' || value === null ? null : Number(value)))
+  @Min(0)
+  defaultCostPerBase?: number | null;
 
   @IsOptional()
   @IsString()

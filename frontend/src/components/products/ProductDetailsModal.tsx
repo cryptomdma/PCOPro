@@ -36,6 +36,7 @@ export type ProductDetails = {
   orderingToBase?: number;
   balances?: { onHandBase: number } | null;
   codes?: Array<{ payload: string; codeType: string }>;
+  defaultCostPerBase?: number | string | null;
 };
 
 export function ProductDetailsModal({
@@ -60,6 +61,7 @@ export function ProductDetailsModal({
   const canEditProduct = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const canEditPar = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const showPar = user?.role !== 'TECH';
+  const showCost = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const activeProduct = detail ?? product;
 
   const [form, setForm] = useState({
@@ -76,6 +78,8 @@ export function ProductDetailsModal({
     orderingToBase: '',
     epaRegNo: '',
     description: '',
+    costQty: '',
+    costPrice: '',
   });
 
   const stock = getStockDisplay({
@@ -95,6 +99,36 @@ export function ProductDetailsModal({
     if (parBase === null || !activeProduct?.trackingToBase) return null;
     return Math.round((parBase / activeProduct.trackingToBase) * 100) / 100;
   }, [parBase, activeProduct?.trackingToBase]);
+
+  const costBase = useMemo(() => {
+    const value = activeProduct?.defaultCostPerBase;
+    if (value === null || value === undefined) return null;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  }, [activeProduct?.defaultCostPerBase]);
+
+  const derivedCostBase = useMemo(() => {
+    if (!editMode) return costBase;
+    const qty = Number(form.costQty);
+    const price = Number(form.costPrice);
+    const trackingToBase = activeProduct?.trackingToBase ?? 0;
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price < 0 || !trackingToBase) {
+      return null;
+    }
+    const baseQty = qty * trackingToBase;
+    return baseQty ? price / baseQty : null;
+  }, [editMode, form.costQty, form.costPrice, activeProduct?.trackingToBase, costBase]);
+
+  const costPerTracking = useMemo(() => {
+    if (derivedCostBase === null || !activeProduct?.trackingToBase) return null;
+    return derivedCostBase * activeProduct.trackingToBase;
+  }, [derivedCostBase, activeProduct?.trackingToBase]);
+
+  const formatCurrency = (value: number | null) => {
+    if (value === null) return '-';
+    return `$${value.toFixed(2)}`;
+  };
+  const displayCostBase = editMode ? derivedCostBase : costBase;
 
   useEffect(() => {
     if (!open || !product) return;
@@ -123,6 +157,8 @@ export function ProductDetailsModal({
     if (!open || !activeProduct) return;
     if (editMode) return;
     const sku = activeProduct.codes?.find((code) => code.codeType === 'sku')?.payload ?? '';
+    const hasCost = costPerTracking !== null;
+    const initialCostPrice = hasCost ? costPerTracking.toFixed(2) : '';
     setForm({
       sku,
       name: activeProduct.name ?? '',
@@ -137,8 +173,10 @@ export function ProductDetailsModal({
       orderingToBase: activeProduct.orderingToBase?.toString() ?? '',
       epaRegNo: activeProduct.epaRegNo ?? '',
       description: activeProduct.description ?? '',
+      costQty: hasCost ? '1' : '',
+      costPrice: initialCostPrice,
     });
-  }, [open, activeProduct, editMode]);
+  }, [open, activeProduct, editMode, costPerTracking]);
 
   useEffect(() => {
     if (!open || !activeProduct || !showPar) return;
@@ -166,7 +204,7 @@ export function ProductDetailsModal({
 
   async function saveProduct() {
     if (!activeProduct) return;
-    const payload = {
+    const payload: any = {
       sku: form.sku.trim(),
       name: form.name.trim(),
       baseType: form.baseType || undefined,
@@ -193,6 +231,28 @@ export function ProductDetailsModal({
     ) {
       setSaveError('Conversion values must be numbers greater than 0.');
       return;
+    }
+
+    if (showCost) {
+      const qtyRaw = form.costQty.trim();
+      const priceRaw = form.costPrice.trim();
+      if (!qtyRaw && !priceRaw) {
+        payload.defaultCostPerBase = null;
+      } else {
+        const qty = Number(qtyRaw);
+        const price = Number(priceRaw);
+        if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price < 0) {
+          setSaveError('Cost inputs must be valid numbers.');
+          return;
+        }
+        const trackingToBase = activeProduct.trackingToBase ?? 0;
+        if (!trackingToBase) {
+          setSaveError('Tracking conversion is required to save cost.');
+          return;
+        }
+        const baseQty = qty * trackingToBase;
+        payload.defaultCostPerBase = baseQty ? price / baseQty : null;
+      }
     }
 
     setSaveError(null);
@@ -516,6 +576,55 @@ export function ProductDetailsModal({
                   {parError ? <div className="muted">{parError}</div> : null}
                 </div>
               ) : null}
+            </div>
+          ) : null}
+
+          {showDetails && showCost ? (
+            <div className="product-section">
+              <h4>Cost</h4>
+              {editMode ? (
+                <div className="product-grid">
+                  <label>
+                    Purchase quantity (tracking)
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.costQty}
+                      onChange={(e) => setForm((prev) => ({ ...prev, costQty: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Purchase price ($)
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.costPrice}
+                      onChange={(e) => setForm((prev) => ({ ...prev, costPrice: e.target.value }))}
+                    />
+                  </label>
+                  <div>
+                    <div className="muted">Cost / tracking</div>
+                    <div>{formatCurrency(costPerTracking)}</div>
+                  </div>
+                  <div>
+                    <div className="muted">Cost / base</div>
+                    <div>{formatCurrency(displayCostBase)}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="product-grid">
+                  <div>
+                    <div className="muted">Cost / tracking</div>
+                    <div>{formatCurrency(costPerTracking)}</div>
+                  </div>
+                  <div>
+                    <div className="muted">Cost / base</div>
+                    <div>{formatCurrency(displayCostBase)}</div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
 
