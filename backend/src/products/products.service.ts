@@ -228,13 +228,29 @@ export class ProductsService {
       trim: true,
     }) as Record<string, string>[];
 
-    const failures: Array<{ rowIndex: number; identifier: string; reason: string }> = [];
+    const failures: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }> =
+      [];
     const updatedIds: string[] = [];
     let updatedCount = 0;
     let skippedCount = 0;
     let conflictCount = 0;
 
-    const normalizeKey = (value: string) => value.trim().toLowerCase();
+    const normalizeKey = (value: string) => value.replace(/^\uFEFF/, '').trim().toLowerCase();
+    const normalizeAlias = (value: string) => {
+      const normalized = value
+        .replace(/^\uFEFF/, '')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return normalized
+        .replace(/(ant|roach|rodent|termite|mosquito)bait/g, '$1 bait')
+        .replace(/livetrap/g, 'live trap')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
 
     const getField = (row: Record<string, string>, keys: string[]) => {
       const rowKeys = Object.keys(row);
@@ -263,10 +279,49 @@ export class ProductsService {
       return parsed;
     };
 
-    const mapEnum = <T extends Record<string, string>>(value: string, enumObj: T) => {
-      const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, '_');
-      return enumObj[normalized as keyof T] ?? null;
+    const categoryAliases: Record<string, ProductCategory> = {
+      chemical: ProductCategory.CHEMICAL,
+      trap: ProductCategory.EQUIPMENT,
+      equipment: ProductCategory.EQUIPMENT,
+      ppe: ProductCategory.PPE,
+      sanitation: ProductCategory.CHEMICAL,
+      other: ProductCategory.OTHER,
+      bait: ProductCategory.CHEMICAL,
+      'ant bait': ProductCategory.CHEMICAL,
+      'roach bait': ProductCategory.CHEMICAL,
+      'rodent bait': ProductCategory.CHEMICAL,
+      'termite bait': ProductCategory.CHEMICAL,
+      'mosquito bait': ProductCategory.CHEMICAL,
     };
+
+    const productTypeAliases: Record<string, ProductType> = {
+      insecticide: ProductType.CONCENTRATE,
+      termiticide: ProductType.CONCENTRATE,
+      larvicide: ProductType.CONCENTRATE,
+      igr: ProductType.CONCENTRATE,
+      repellent: ProductType.CONCENTRATE,
+      adjuvant: ProductType.CONCENTRATE,
+      sanitizer: ProductType.SANITATION,
+      sanitation: ProductType.SANITATION,
+      'ant bait': ProductType.ANT_BAIT,
+      'roach bait': ProductType.ROACH_BAIT,
+      'rodent bait': ProductType.RODENT_BAIT,
+      'termite bait': ProductType.OTHER,
+      'mosquito bait': ProductType.OTHER,
+      trap: ProductType.OTHER,
+      equipment: ProductType.OTHER,
+      ppe: ProductType.OTHER,
+      'live trap': ProductType.OTHER,
+      monitor: ProductType.OTHER,
+      dust: ProductType.DUST,
+      granule: ProductType.GRANULE,
+      aerosol: ProductType.AEROSOL,
+      concentrate: ProductType.CONCENTRATE,
+      other: ProductType.OTHER,
+    };
+
+    const mapCategoryAlias = (value: string) => categoryAliases[normalizeAlias(value)] ?? null;
+    const mapProductTypeAlias = (value: string) => productTypeAliases[normalizeAlias(value)] ?? null;
 
     const seenSkus = new Map<string, string>();
 
@@ -283,6 +338,7 @@ export class ProductsService {
       let product: { id: string } | null = null;
       let identifier = '';
 
+      let skuRawValue: string | undefined;
       try {
         if (productId) {
           product = await this.prisma.product.findUnique({ where: { id: productId } });
@@ -304,7 +360,11 @@ export class ProductsService {
           if (matches.length === 1) {
             product = matches[0];
           } else if (matches.length > 1) {
-            failures.push({ rowIndex, identifier: `name:${nameIdentifier}`, reason: 'Multiple products matched' });
+            failures.push({
+              rowIndex,
+              identifier: `name:${nameIdentifier}`,
+              reason: 'Multiple products matched',
+            });
             continue;
           }
           identifier = `name:${nameIdentifier}`;
@@ -331,7 +391,13 @@ export class ProductsService {
         if (costField.present) {
           const parsed = parseDecimal(costField.value);
           if (parsed === undefined) {
-            failures.push({ rowIndex, identifier, reason: 'Invalid defaultCostPerBase' });
+            failures.push({
+              rowIndex,
+              identifier,
+              field: 'defaultCostPerBase',
+              rawValue: costField.value,
+              reason: 'Invalid defaultCostPerBase',
+            });
             continue;
           }
           updateData.defaultCostPerBase = parsed === null ? null : new Prisma.Decimal(parsed);
@@ -349,9 +415,15 @@ export class ProductsService {
         if (categoryField.present) {
           const normalized = (categoryField.value ?? '').trim();
           if (normalized) {
-            const mapped = mapEnum(normalized, ProductCategory);
+            const mapped = mapCategoryAlias(normalized);
             if (!mapped) {
-              failures.push({ rowIndex, identifier, reason: 'Invalid category' });
+              failures.push({
+                rowIndex,
+                identifier,
+                field: 'category',
+                rawValue: categoryField.value,
+                reason: `Unmapped category value: ${categoryField.value}`,
+              });
               continue;
             }
             updateData.category = mapped;
@@ -364,9 +436,15 @@ export class ProductsService {
           if (!normalized) {
             updateData.productType = null;
           } else {
-            const mapped = mapEnum(normalized, ProductType);
+            const mapped = mapProductTypeAlias(normalized);
             if (!mapped) {
-              failures.push({ rowIndex, identifier, reason: 'Invalid productType' });
+              failures.push({
+                rowIndex,
+                identifier,
+                field: 'productType',
+                rawValue: typeField.value,
+                reason: `Unmapped productType value: ${typeField.value}`,
+              });
               continue;
             }
             updateData.productType = mapped;
@@ -376,6 +454,7 @@ export class ProductsService {
         const skuUpdateField = getField(row, ['sku']);
         const hasSkuUpdate = skuUpdateField.present;
         const skuValue = hasSkuUpdate ? normalizeNullable(skuUpdateField.value, true) : null;
+        skuRawValue = hasSkuUpdate ? skuUpdateField.value : undefined;
 
         if (!Object.keys(updateData).length && !hasSkuUpdate) {
           skippedCount += 1;
@@ -385,7 +464,13 @@ export class ProductsService {
         if (hasSkuUpdate && skuValue) {
           const seenProductId = seenSkus.get(skuValue);
           if (seenProductId && seenProductId !== productIdResolved) {
-            failures.push({ rowIndex, identifier, reason: 'SKU already assigned to another product' });
+            failures.push({
+              rowIndex,
+              identifier,
+              field: 'sku',
+              rawValue: skuUpdateField.value,
+              reason: 'SKU already assigned to another product',
+            });
             conflictCount += 1;
             continue;
           }
@@ -434,6 +519,14 @@ export class ProductsService {
         const reason = err?.message || 'Update failed';
         if (reason.includes('SKU already assigned')) {
           conflictCount += 1;
+          failures.push({
+            rowIndex,
+            identifier: identifier || 'unknown',
+            field: 'sku',
+            rawValue: skuRawValue,
+            reason,
+          });
+          continue;
         }
         failures.push({ rowIndex, identifier: identifier || 'unknown', reason });
       }
@@ -442,7 +535,17 @@ export class ProductsService {
     const failedCount = failures.length;
     const rowsRead = rows.length;
     skippedCount = rowsRead - updatedCount - failedCount;
-    const summary = { rowsRead, updatedCount, skippedCount, failedCount, failures, updated: updatedIds };
+    const summary = {
+      rowsRead,
+      updated: updatedCount,
+      skipped: skippedCount,
+      failed: failedCount,
+      updatedCount,
+      skippedCount,
+      failedCount,
+      updatedSample: updatedIds,
+      failures,
+    };
 
     if (conflictCount > 0) {
       throw new ConflictException(summary);

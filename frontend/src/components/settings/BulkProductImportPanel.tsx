@@ -6,8 +6,11 @@ type BulkImportResult = {
   updatedCount: number;
   skippedCount: number;
   failedCount: number;
-  failures?: Array<{ rowIndex: number; identifier: string; reason: string }>;
-  updated?: string[];
+  updated?: number;
+  skipped?: number;
+  failed?: number;
+  failures?: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }>;
+  updatedSample?: string[];
   message?: string;
 };
 
@@ -46,6 +49,10 @@ export function BulkProductImportPanel() {
     <div className="card">
       <h4>Bulk Product Update</h4>
       <p className="muted">Upload a CSV to update existing products (EPA, SKU, cost, category, type).</p>
+      <p className="muted">
+        Headers: productId | sku | name | epa | defaultCostPerBase | category | productType. Examples: category =
+        Chemical, Ant Bait, PPE, Equipment; productType = Ant Bait, Roach Bait, Repellent, Aerosol, Dust, Granule.
+      </p>
       <div className="card-row">
         <input type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         <button type="button" onClick={uploadCsv} disabled={uploading}>
@@ -55,17 +62,24 @@ export function BulkProductImportPanel() {
       {error ? <div className="error-panel">{error}</div> : null}
       {result ? (
         <div className="card-stack">
+          {result.message ? <div className="muted">{result.message}</div> : null}
           <div className="muted">
-            Rows: {result.rowsRead} | Updated: {result.updatedCount} | Skipped: {result.skippedCount} | Failed:{' '}
-            {result.failedCount}
+            Rows: {result.rowsRead} | Updated: {result.updated ?? result.updatedCount} | Skipped:{' '}
+            {result.skipped ?? result.skippedCount} | Failed: {result.failed ?? result.failedCount}
           </div>
-          {result.updated?.length ? <div className="muted">Updated sample: {result.updated.join(', ')}</div> : null}
+          {result.updatedSample?.length ? (
+            <div className="muted">Updated sample: {result.updatedSample.join(', ')}</div>
+          ) : null}
           {result.failures?.length ? (
             <textarea
               readOnly
               rows={Math.min(10, result.failures.length + 1)}
               value={result.failures
-                .map((failure) => `Row ${failure.rowIndex} (${failure.identifier}): ${failure.reason}`)
+                .map((failure) => {
+                  const fieldInfo = failure.field ? ` | ${failure.field}` : '';
+                  const rawInfo = failure.rawValue ? ` = "${failure.rawValue}"` : '';
+                  return `Row ${failure.rowIndex} (${failure.identifier}${fieldInfo}${rawInfo}): ${failure.reason}`;
+                })
                 .join('\n')}
             />
           ) : null}
