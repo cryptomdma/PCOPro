@@ -215,4 +215,167 @@ export class ProductsService {
 
     return { rowsRead, updatedCount, skippedCount, failedCount, failures };
   }
+
+  async bulkImportCsv(buffer: Buffer) {
+    if (!buffer?.length) {
+      throw new BadRequestException('CSV file is required');
+    }
+
+    const raw = buffer.toString('utf-8');
+    const rows = parse(raw, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    }) as Record<string, string>[];
+
+    const failures: Array<{ rowIndex: number; identifier: string; reason: string }> = [];
+    let updated = 0;
+    let skipped = 0;
+
+    const normalizeKey = (value: string) => value.replace(/^\uFEFF/, '').trim().toLowerCase();
+
+    const getField = (row: Record<string, string>, keys: string[]) => {
+      const rowKeys = Object.keys(row);
+      for (const key of keys) {
+        const match = rowKeys.find((k) => normalizeKey(k) === normalizeKey(key));
+        if (match) return { value: row[match], present: true };
+      }
+      return { value: '', present: false };
+    };
+
+    const normalizeNullable = (value?: string) => {
+      const normalized = (value ?? '').trim();
+      if (!normalized || normalized.toUpperCase() === 'N/A') return null;
+      return normalized;
+    };
+
+    const parseDecimal = (value?: string) => {
+      const normalized = (value ?? '').trim();
+      if (!normalized || normalized.toUpperCase() === 'N/A') return null;
+      const cleaned = normalized.replace(/,/g, '');
+      const parsed = Number(cleaned);
+      if (!Number.isFinite(parsed)) return undefined;
+      return parsed;
+    };
+
+    for (const [index, row] of rows.entries()) {
+      const rowIndex = index + 1;
+      const productIdField = getField(row, ['productId', 'product_id', 'id']);
+      const skuField = getField(row, ['sku']);
+      const nameField = getField(row, ['name', 'product', 'product_name', 'product name']);
+
+      const productId = productIdField.present ? normalizeNullable(productIdField.value) : null;
+      const skuIdentifier = skuField.present ? normalizeNullable(skuField.value) : null;
+      const nameIdentifier = nameField.present ? normalizeNullable(nameField.value) : null;
+
+      let product: { id: string; trackingToBase: number } | null = null;
+      let identifier = '';
+
+      try {
+        if (productId) {
+          product = await this.prisma.product.findUnique({
+            where: { id: productId },
+            select: { id: true, trackingToBase: true },
+          });
+          identifier = `productId:${productId}`;
+        } else if (skuIdentifier) {
+          const code = await this.prisma.productCode.findFirst({
+            where: { payload: skuIdentifier, codeType: 'sku' },
+            select: { productId: true },
+          });
+          if (code) {
+            product = await this.prisma.product.findUnique({
+              where: { id: code.productId },
+              select: { id: true, trackingToBase: true },
+            });
+          }
+          identifier = `sku:${skuIdentifier}`;
+        } else if (nameIdentifier) {
+          const matches = await this.prisma.product.findMany({
+            where: { name: { equals: nameIdentifier.trim(), mode: 'insensitive' } },
+            select: { id: true, trackingToBase: true },
+          });
+          if (matches.length === 1) {
+            product = matches[0];
+          } else if (matches.length > 1) {
+            failures.push({ rowIndex, identifier: `name:${nameIdentifier}`, reason: 'Multiple products matched' });
+            continue;
+          }
+          identifier = `name:${nameIdentifier}`;
+        } else {
+          failures.push({ rowIndex, identifier: 'unknown', reason: 'Missing identifier' });
+          continue;
+        }
+
+        if (!product) {
+          failures.push({ rowIndex, identifier, reason: 'Product not found' });
+          continue;
+        }
+
+        const costPerTrackingField = getField(row, [
+          'costPerTrackingUnit',
+          'purchaseCost',
+          'unitCost',
+          'cost_per_tracking',
+        ]);
+        const defaultCostField = getField(row, ['defaultCostPerBase', 'default_cost_per_base', 'cost_per_base']);
+
+        const costPerTrackingRaw = costPerTrackingField.present ? costPerTrackingField.value : '';
+        const hasCostPerTracking = costPerTrackingField.present && normalizeNullable(costPerTrackingRaw) !== null;
+        const parsedCostPerTracking = hasCostPerTracking ? parseDecimal(costPerTrackingRaw) : null;
+        if (hasCostPerTracking && parsedCostPerTracking === undefined) {
+          failures.push({ rowIndex, identifier, reason: 'Invalid costPerTrackingUnit' });
+          continue;
+        }
+        const costPerTrackingValue = parsedCostPerTracking ?? null;
+
+        const hasDefaultCost = defaultCostField.present;
+        const parsedDefaultCost = hasDefaultCost ? parseDecimal(defaultCostField.value) : null;
+        if (hasDefaultCost && parsedDefaultCost === undefined) {
+          failures.push({ rowIndex, identifier, reason: 'Invalid defaultCostPerBase' });
+          continue;
+        }
+        const defaultCostValue = parsedDefaultCost ?? null;
+
+        let nextCost: Prisma.Decimal | null | undefined = undefined;
+        if (hasCostPerTracking && costPerTrackingValue !== null) {
+          const trackingToBase = product.trackingToBase ?? 0;
+          if (!trackingToBase || trackingToBase <= 0) {
+            failures.push({
+              rowIndex,
+              identifier,
+              reason: 'Missing trackingToBase for cost per tracking unit',
+            });
+            continue;
+          }
+          nextCost = new Prisma.Decimal(costPerTrackingValue / trackingToBase);
+        } else if (hasDefaultCost) {
+          nextCost = defaultCostValue === null ? null : new Prisma.Decimal(defaultCostValue);
+        }
+
+        if (nextCost === undefined) {
+          skipped += 1;
+          continue;
+        }
+
+        await this.prisma.product.update({
+          where: { id: product.id },
+          data: { defaultCostPerBase: nextCost },
+        });
+        updated += 1;
+      } catch (err) {
+        failures.push({
+          rowIndex,
+          identifier: identifier || 'unknown',
+          reason: (err as Error).message || 'Update failed',
+        });
+      }
+    }
+
+    const failed = failures.length;
+    const rowsRead = rows.length;
+    skipped = rowsRead - updated - failed;
+
+    return { rowsRead, updated, skipped, failed, failures };
+  }
 }

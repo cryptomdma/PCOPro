@@ -585,7 +585,7 @@ export function ProductDetailsModal({
               {editMode ? (
                 <div className="product-grid">
                   <label>
-                    Purchase quantity (tracking)
+                    Purchase quantity (tracking units)
                     <input
                       type="number"
                       min="0"
@@ -595,7 +595,7 @@ export function ProductDetailsModal({
                     />
                   </label>
                   <label>
-                    Purchase price ($)
+                    Purchase cost (per tracking unit)
                     <input
                       type="number"
                       min="0"
@@ -609,7 +609,7 @@ export function ProductDetailsModal({
                     <div>{formatCurrency(costPerTracking)}</div>
                   </div>
                   <div>
-                    <div className="muted">Cost / base</div>
+                    <div className="muted">Cost / base (derived)</div>
                     <div>{formatCurrency(displayCostBase)}</div>
                   </div>
                 </div>
