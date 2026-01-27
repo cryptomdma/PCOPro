@@ -3,12 +3,12 @@ import axios from 'axios';
 
 type BulkImportResult = {
   rowsRead: number;
+  updatedCount: number;
+  skippedCount: number;
+  failedCount: number;
   updated?: number;
   skipped?: number;
   failed?: number;
-  updatedCount?: number;
-  skippedCount?: number;
-  failedCount?: number;
   failures?: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }>;
   updatedSample?: string[];
   message?: string;
@@ -50,8 +50,8 @@ export function BulkProductImportPanel() {
       <h4>Bulk Product Update</h4>
       <p className="muted">Upload a CSV to update existing products (EPA, SKU, cost, category, type).</p>
       <p className="muted">
-        Headers: productId | sku | name | epa | defaultCostPerBase | costPerTrackingUnit | purchaseCost | unitCost |
-        cost_per_tracking | category | productType.
+        Headers: productId | sku | name | epa | defaultCostPerBase | category | productType. Examples: category =
+        Chemical, Ant Bait, PPE, Equipment; productType = Ant Bait, Roach Bait, Repellent, Aerosol, Dust, Granule.
       </p>
       <div className="card-row">
         <input type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />

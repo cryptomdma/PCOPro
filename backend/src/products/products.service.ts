@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma, ProductCategory, ProductType, Role } from '@prisma/client';
 import * as QRCode from 'qrcode';
 import { parse } from 'csv-parse/sync';
 
@@ -228,24 +228,45 @@ export class ProductsService {
       trim: true,
     }) as Record<string, string>[];
 
-    const failures: Array<{ rowIndex: number; identifier: string; reason: string }> = [];
-    let updated = 0;
-    let skipped = 0;
+    const failures: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }> =
+      [];
+    const updatedIds: string[] = [];
+    let updatedCount = 0;
+    let skippedCount = 0;
+    let conflictCount = 0;
 
     const normalizeKey = (value: string) => value.replace(/^\uFEFF/, '').trim().toLowerCase();
+    const normalizeAlias = (value: string) => {
+      const normalized = value
+        .replace(/^\uFEFF/, '')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return normalized
+        .replace(/(ant|roach|rodent|termite|mosquito)bait/g, '$1 bait')
+        .replace(/livetrap/g, 'live trap')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
 
     const getField = (row: Record<string, string>, keys: string[]) => {
       const rowKeys = Object.keys(row);
       for (const key of keys) {
         const match = rowKeys.find((k) => normalizeKey(k) === normalizeKey(key));
-        if (match) return { value: row[match], present: true };
+        if (match) {
+          return { value: row[match], present: true };
+        }
       }
       return { value: '', present: false };
     };
 
-    const normalizeNullable = (value?: string) => {
+    const normalizeNullable = (value?: string, allowNA = false) => {
       const normalized = (value ?? '').trim();
-      if (!normalized || normalized.toUpperCase() === 'N/A') return null;
+      if (!normalized) return null;
+      if (allowNA && normalized.toUpperCase() === 'N/A') return null;
       return normalized;
     };
 
@@ -258,6 +279,52 @@ export class ProductsService {
       return parsed;
     };
 
+    const categoryAliases: Record<string, ProductCategory> = {
+      chemical: ProductCategory.CHEMICAL,
+      trap: ProductCategory.EQUIPMENT,
+      equipment: ProductCategory.EQUIPMENT,
+      ppe: ProductCategory.PPE,
+      sanitation: ProductCategory.CHEMICAL,
+      other: ProductCategory.OTHER,
+      bait: ProductCategory.CHEMICAL,
+      'ant bait': ProductCategory.CHEMICAL,
+      'roach bait': ProductCategory.CHEMICAL,
+      'rodent bait': ProductCategory.CHEMICAL,
+      'termite bait': ProductCategory.CHEMICAL,
+      'mosquito bait': ProductCategory.CHEMICAL,
+    };
+
+    const productTypeAliases: Record<string, ProductType> = {
+      insecticide: ProductType.CONCENTRATE,
+      termiticide: ProductType.CONCENTRATE,
+      larvicide: ProductType.CONCENTRATE,
+      igr: ProductType.CONCENTRATE,
+      repellent: ProductType.CONCENTRATE,
+      adjuvant: ProductType.CONCENTRATE,
+      sanitizer: ProductType.SANITATION,
+      sanitation: ProductType.SANITATION,
+      'ant bait': ProductType.ANT_BAIT,
+      'roach bait': ProductType.ROACH_BAIT,
+      'rodent bait': ProductType.RODENT_BAIT,
+      'termite bait': ProductType.OTHER,
+      'mosquito bait': ProductType.OTHER,
+      trap: ProductType.OTHER,
+      equipment: ProductType.OTHER,
+      ppe: ProductType.OTHER,
+      'live trap': ProductType.OTHER,
+      monitor: ProductType.OTHER,
+      dust: ProductType.DUST,
+      granule: ProductType.GRANULE,
+      aerosol: ProductType.AEROSOL,
+      concentrate: ProductType.CONCENTRATE,
+      other: ProductType.OTHER,
+    };
+
+    const mapCategoryAlias = (value: string) => categoryAliases[normalizeAlias(value)] ?? null;
+    const mapProductTypeAlias = (value: string) => productTypeAliases[normalizeAlias(value)] ?? null;
+
+    const seenSkus = new Map<string, string>();
+
     for (const [index, row] of rows.entries()) {
       const rowIndex = index + 1;
       const productIdField = getField(row, ['productId', 'product_id', 'id']);
@@ -268,15 +335,13 @@ export class ProductsService {
       const skuIdentifier = skuField.present ? normalizeNullable(skuField.value) : null;
       const nameIdentifier = nameField.present ? normalizeNullable(nameField.value) : null;
 
-      let product: { id: string; trackingToBase: number } | null = null;
+      let product: { id: string } | null = null;
       let identifier = '';
 
+      let skuRawValue: string | undefined;
       try {
         if (productId) {
-          product = await this.prisma.product.findUnique({
-            where: { id: productId },
-            select: { id: true, trackingToBase: true },
-          });
+          product = await this.prisma.product.findUnique({ where: { id: productId } });
           identifier = `productId:${productId}`;
         } else if (skuIdentifier) {
           const code = await this.prisma.productCode.findFirst({
@@ -284,21 +349,22 @@ export class ProductsService {
             select: { productId: true },
           });
           if (code) {
-            product = await this.prisma.product.findUnique({
-              where: { id: code.productId },
-              select: { id: true, trackingToBase: true },
-            });
+            product = { id: code.productId };
           }
           identifier = `sku:${skuIdentifier}`;
         } else if (nameIdentifier) {
           const matches = await this.prisma.product.findMany({
             where: { name: { equals: nameIdentifier.trim(), mode: 'insensitive' } },
-            select: { id: true, trackingToBase: true },
+            select: { id: true },
           });
           if (matches.length === 1) {
             product = matches[0];
           } else if (matches.length > 1) {
-            failures.push({ rowIndex, identifier: `name:${nameIdentifier}`, reason: 'Multiple products matched' });
+            failures.push({
+              rowIndex,
+              identifier: `name:${nameIdentifier}`,
+              reason: 'Multiple products matched',
+            });
             continue;
           }
           identifier = `name:${nameIdentifier}`;
@@ -312,70 +378,179 @@ export class ProductsService {
           continue;
         }
 
-        const costPerTrackingField = getField(row, [
-          'costPerTrackingUnit',
-          'purchaseCost',
-          'unitCost',
-          'cost_per_tracking',
-        ]);
-        const defaultCostField = getField(row, ['defaultCostPerBase', 'default_cost_per_base', 'cost_per_base']);
+        const productIdResolved = product.id;
 
-        const costPerTrackingRaw = costPerTrackingField.present ? costPerTrackingField.value : '';
-        const hasCostPerTracking = costPerTrackingField.present && normalizeNullable(costPerTrackingRaw) !== null;
-        const parsedCostPerTracking = hasCostPerTracking ? parseDecimal(costPerTrackingRaw) : null;
-        if (hasCostPerTracking && parsedCostPerTracking === undefined) {
-          failures.push({ rowIndex, identifier, reason: 'Invalid costPerTrackingUnit' });
-          continue;
+        const updateData: Prisma.ProductUpdateInput = {};
+
+        const epaField = getField(row, ['epa', 'epa_reg_no', 'epa reg no', 'epa_reg']);
+        if (epaField.present) {
+          updateData.epaRegNo = normalizeNullable(epaField.value, true);
         }
-        const costPerTrackingValue = parsedCostPerTracking ?? null;
 
-        const hasDefaultCost = defaultCostField.present;
-        const parsedDefaultCost = hasDefaultCost ? parseDecimal(defaultCostField.value) : null;
-        if (hasDefaultCost && parsedDefaultCost === undefined) {
-          failures.push({ rowIndex, identifier, reason: 'Invalid defaultCostPerBase' });
-          continue;
-        }
-        const defaultCostValue = parsedDefaultCost ?? null;
-
-        let nextCost: Prisma.Decimal | null | undefined = undefined;
-        if (hasCostPerTracking && costPerTrackingValue !== null) {
-          const trackingToBase = product.trackingToBase ?? 0;
-          if (!trackingToBase || trackingToBase <= 0) {
+        const costField = getField(row, ['defaultCostPerBase', 'default_cost_per_base', 'default_cost', 'cost_per_base']);
+        if (costField.present) {
+          const parsed = parseDecimal(costField.value);
+          if (parsed === undefined) {
             failures.push({
               rowIndex,
               identifier,
-              reason: 'Missing trackingToBase for cost per tracking unit',
+              field: 'defaultCostPerBase',
+              rawValue: costField.value,
+              reason: 'Invalid defaultCostPerBase',
             });
             continue;
           }
-          nextCost = new Prisma.Decimal(costPerTrackingValue / trackingToBase);
-        } else if (hasDefaultCost) {
-          nextCost = defaultCostValue === null ? null : new Prisma.Decimal(defaultCostValue);
+          updateData.defaultCostPerBase = parsed === null ? null : new Prisma.Decimal(parsed);
         }
 
-        if (nextCost === undefined) {
-          skipped += 1;
+        const nameUpdate = getField(row, ['name', 'product_name', 'product name']);
+        if (nameUpdate.present) {
+          const normalizedName = (nameUpdate.value ?? '').trim();
+          if (normalizedName) {
+            updateData.name = normalizedName;
+          }
+        }
+
+        const categoryField = getField(row, ['category', 'productCategory', 'product_category']);
+        if (categoryField.present) {
+          const normalized = (categoryField.value ?? '').trim();
+          if (normalized) {
+            const mapped = mapCategoryAlias(normalized);
+            if (!mapped) {
+              failures.push({
+                rowIndex,
+                identifier,
+                field: 'category',
+                rawValue: categoryField.value,
+                reason: `Unmapped category value: ${categoryField.value}`,
+              });
+              continue;
+            }
+            updateData.category = mapped;
+          }
+        }
+
+        const typeField = getField(row, ['productType', 'product_type', 'type']);
+        if (typeField.present) {
+          const normalized = (typeField.value ?? '').trim();
+          if (!normalized) {
+            updateData.productType = null;
+          } else {
+            const mapped = mapProductTypeAlias(normalized);
+            if (!mapped) {
+              failures.push({
+                rowIndex,
+                identifier,
+                field: 'productType',
+                rawValue: typeField.value,
+                reason: `Unmapped productType value: ${typeField.value}`,
+              });
+              continue;
+            }
+            updateData.productType = mapped;
+          }
+        }
+
+        const skuUpdateField = getField(row, ['sku']);
+        const hasSkuUpdate = skuUpdateField.present;
+        const skuValue = hasSkuUpdate ? normalizeNullable(skuUpdateField.value, true) : null;
+        skuRawValue = hasSkuUpdate ? skuUpdateField.value : undefined;
+
+        if (!Object.keys(updateData).length && !hasSkuUpdate) {
+          skippedCount += 1;
           continue;
         }
 
-        await this.prisma.product.update({
-          where: { id: product.id },
-          data: { defaultCostPerBase: nextCost },
+        if (hasSkuUpdate && skuValue) {
+          const seenProductId = seenSkus.get(skuValue);
+          if (seenProductId && seenProductId !== productIdResolved) {
+            failures.push({
+              rowIndex,
+              identifier,
+              field: 'sku',
+              rawValue: skuUpdateField.value,
+              reason: 'SKU already assigned to another product',
+            });
+            conflictCount += 1;
+            continue;
+          }
+        }
+
+        await this.prisma.$transaction(async (tx) => {
+          if (hasSkuUpdate) {
+            if (!skuValue) {
+              await tx.productCode.deleteMany({ where: { productId: productIdResolved, codeType: 'sku' } });
+            } else {
+              const existing = await tx.productCode.findFirst({
+                where: { payload: skuValue, codeType: 'sku' },
+                select: { productId: true, id: true, payload: true },
+              });
+              if (existing && existing.productId !== productIdResolved) {
+                throw new ConflictException('SKU already assigned to another product');
+              }
+              const currentSku = await tx.productCode.findFirst({
+                where: { productId: productIdResolved, codeType: 'sku' },
+                select: { id: true, payload: true },
+              });
+              if (currentSku) {
+                if (currentSku.payload !== skuValue) {
+                  await tx.productCode.update({ where: { id: currentSku.id }, data: { payload: skuValue } });
+                }
+              } else {
+                await tx.productCode.create({ data: { productId: productIdResolved, payload: skuValue, codeType: 'sku' } });
+              }
+            }
+          }
+
+          if (Object.keys(updateData).length) {
+            await tx.product.update({ where: { id: productIdResolved }, data: updateData });
+          }
         });
-        updated += 1;
-      } catch (err) {
-        failures.push({
-          rowIndex,
-          identifier: identifier || 'unknown',
-          reason: (err as Error).message || 'Update failed',
-        });
+
+        if (hasSkuUpdate && skuValue) {
+          seenSkus.set(skuValue, productIdResolved);
+        }
+
+        updatedCount += 1;
+        if (updatedIds.length < 5) {
+          updatedIds.push(productIdResolved);
+        }
+      } catch (err: any) {
+        const reason = err?.message || 'Update failed';
+        if (reason.includes('SKU already assigned')) {
+          conflictCount += 1;
+          failures.push({
+            rowIndex,
+            identifier: identifier || 'unknown',
+            field: 'sku',
+            rawValue: skuRawValue,
+            reason,
+          });
+          continue;
+        }
+        failures.push({ rowIndex, identifier: identifier || 'unknown', reason });
       }
     }
 
-    const failed = failures.length;
+    const failedCount = failures.length;
     const rowsRead = rows.length;
-    skipped = rowsRead - updated - failed;
+    skippedCount = rowsRead - updatedCount - failedCount;
+    const summary = {
+      rowsRead,
+      updated: updatedCount,
+      skipped: skippedCount,
+      failed: failedCount,
+      updatedCount,
+      skippedCount,
+      failedCount,
+      updatedSample: updatedIds,
+      failures,
+    };
 
-    return { rowsRead, updated, skipped, failed, failures };
+    if (conflictCount > 0) {
+      throw new ConflictException(summary);
+    }
+
+    return summary;
   }
 }
