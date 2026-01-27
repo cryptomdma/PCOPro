@@ -43,6 +43,14 @@ export class ProductsController {
     return this.products.importEpaCsv(file?.buffer ?? Buffer.from(''));
   }
 
+  @Post('bulk-import')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePerm('products.manage')
+  @UseInterceptors(FileInterceptor('file'))
+  bulkImport(@UploadedFile() file?: { buffer: Buffer }) {
+    return this.products.bulkImportCsv(file?.buffer ?? Buffer.from(''));
+  }
+
   @Get(':id')
   detail(@Param('id') id: string, @CurrentUser() user?: { role?: string }) {
     return this.products.detail(id, user?.role as any);
