@@ -426,6 +426,11 @@ YYYY-MM-DD
 - Clarified Phase C scope (Receiving & Ordering)
 - Established this file as authoritative over chat memory
 
+2026-01-27
+- Receiving MVP: receiving screen + API with role gating and deterministic idempotency keys
+- Receiving posts incoming ledger entries (no direct balance edits beyond cache updates)
+- Follow-ups: receiving unit limited to ordering unit; consider allowing tracking units in a future pass
+
 ============================================================
 CHANGE LOG RULE
 ============================================================
@@ -449,5 +454,4 @@ CONTRIBUTING RULES (AGENTS & HUMANS)
 - One feature per branch
 - One PR per logical unit of work
 - Update CHANGE LOG after every merged PR
-
 
