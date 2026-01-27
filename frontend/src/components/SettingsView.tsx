@@ -1,4 +1,5 @@
 import { useAuth } from '../auth';
+import { BulkProductImportPanel } from './settings/BulkProductImportPanel';
 import { EpaImportPanel } from './settings/EpaImportPanel';
 
 export function SettingsView() {
@@ -27,6 +28,7 @@ export function SettingsView() {
         </div>
       </header>
       <div className="card-stack">
+        <BulkProductImportPanel />
         <EpaImportPanel />
       </div>
     </section>
