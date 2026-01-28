@@ -1,9 +1,4 @@
-PestLedger (PCOPro) - Integrated Roadmap & Continuity Log
-Last updated: 2026-01-28 (America/Chicago)
-
-============================================================
 PURPOSE / HOW TO USE THIS FILE
-============================================================
 This file is the single source of truth for PestLedger (aka PCOPro).
 
 It exists to:
@@ -17,9 +12,7 @@ When making changes to the system:
 - Record what changed, why, and any new bugs or follow-ups
 - Treat this file as authoritative over chat memory
 
-============================================================
 PROJECT SUMMARY
-============================================================
 PestLedger (aka PCOPro) is a production-grade, ledger-based inventory + request management system for pest control operators.
 
 Primary goals:
@@ -28,9 +21,7 @@ Primary goals:
 - Strong role gating and permissions
 - Scalable foundation for ordering, analytics, and compliance
 
-============================================================
 NON-NEGOTIABLE CORE PRINCIPLES
-============================================================
 1) Ledger-only inventory
    - Inventory balances are derived from immutable ledger transactions
    - Balances are NEVER directly mutated
@@ -54,9 +45,7 @@ NON-NEGOTIABLE CORE PRINCIPLES
      - Sees "In Stock" only, not numeric balances
    - Other roles see progressively more detail
 
-============================================================
 PRISMA / DATABASE RULES (CRITICAL)
-============================================================
 - Use ONLY: prisma migrate deploy (against existing DB)
 - NEVER run: prisma migrate dev against an existing DB
 - NEVER edit an applied migration
@@ -69,9 +58,7 @@ LOCKED MIGRATION:
     - The database is the source of truth
     - Use prisma migrate resolve only if absolutely necessary
 
-============================================================
 GIT / BRANCH POLICY (MANDATORY)
-============================================================
 - main = stable, protected branch
 - ALL work happens on feature/* branches
 - One feature per branch
@@ -86,9 +73,7 @@ Cleanup:
   - Pull latest main
   - Delete feature branch locally and remotely
 
-============================================================
 CURRENT STATUS (HIGH LEVEL)
-============================================================
 BACKEND / DATA
 - Initial stock import endpoint exists and works
   - CSV parsing hardened
@@ -132,9 +117,7 @@ ANALYTICS
 - Audit discrepancy analytics exists
 - UX may need "Run Report" style instead of heavy always-on filters
 
-============================================================
 GLOBAL UX & NAVIGATION FOUNDATIONS
-============================================================
 These are blocking hygiene items that affect all screens.
 
 - Fix dropdown menus globally
@@ -149,18 +132,14 @@ These are blocking hygiene items that affect all screens.
 - Fix vertical scrolling issues
 - Fix date picker horizontal scrolling
 
-============================================================
 BOTTOM NAVIGATION (ROLE-AWARE)
-============================================================
 - Add Analytics tab (non-TECH roles)
 - Add Receiving tab (to the right of Issue)
 - Rename Issue tab dynamically:
   - TECH: "Checkout / Return"
   - Warehouse / Manager / Admin: "Transfer"
 
-============================================================
 ROLE-BASED DASHBOARDS (MVP)
-============================================================
 TECH DASHBOARD
 - Checkout / Return widget (clickable)
 - Orders (own only)
@@ -184,9 +163,7 @@ ADMIN DASHBOARD
 - Everything
 - All configuration screens
 
-============================================================
 PRODUCTS SYSTEM (EXPANDED MVP)
-============================================================
 PRODUCTS LIST
 - Sorting:
   - Alphabet index (A-Z quick scroll)
@@ -202,9 +179,7 @@ PRODUCT STATUS FLAGS
 - Stock / Do-Not-Stock
 - Discontinued
 
-============================================================
 PRODUCT TAGS (FOUNDATIONAL)
-============================================================
 Tags are functional, not cosmetic.
 
 TECH TAGS
@@ -225,9 +200,7 @@ PRODUCT TAGS
 - Interior / Exterior
 - Insect categories
 
-============================================================
 PRODUCT DETAIL MODAL
-============================================================
 - Show recent transactions (last 10)
   - Click -> RequestDetailsModal
 - History button
@@ -235,9 +208,7 @@ PRODUCT DETAIL MODAL
 - Admin-only:
   - On-hand value ($)
 
-============================================================
 REQUEST & ORDER WORKFLOW (AUTHORITATIVE)
-============================================================
 Workflow:
 Request (Tech)
 -> Finalize (Warehouse / Manager / Admin)
@@ -267,9 +238,7 @@ DISPUTES (MVP)
 - Dual acknowledgment (Tech + Manager)
 - Photo upload allowed
 
-============================================================
 RECEIVING & ORDERING (PHASE C)
-============================================================
 RECEIVING - PHASE 1 (MVP)
 - New Receiving screen + tab
 - Reverse of Issue flow
@@ -292,9 +261,7 @@ ORDERING SYSTEM
 - Stored pending orders
 - Future vendor API integration
 
-============================================================
 AUDIT WORKFLOW (EXPANDED)
-============================================================
 - Scanning support
 - Delta count analytics
 - Visual reporting:
@@ -303,9 +270,7 @@ AUDIT WORKFLOW (EXPANDED)
   - Annual
 - Remove time from audit date selection
 
-============================================================
 ANALYTICS (EXPANSION)
-============================================================
 - Global search usable everywhere (including audits)
 - Clickable drilldowns:
   - Tech -> tech history
@@ -322,9 +287,7 @@ DASHBOARD COST WIDGETS
 - On-hand value
 - Replace low-inventory cost widget with estimated reorder costs
 
-============================================================
 ADMIN SETTINGS (ALL MVP-CRITICAL)
-============================================================
 USERS
 - Add / edit
 - Role assignment
@@ -354,9 +317,7 @@ PHOTO SETTINGS
 - Require photo for checkout?
 - Remote checkout rules
 
-============================================================
 PHASE C - RECEIVING & ORDERING (EXECUTION CHECKLIST)
-============================================================
 This checklist is mandatory guidance for implementing Phase C.
 Do not skip steps or reorder without updating this file.
 
@@ -398,9 +359,7 @@ GUARDRAILS
 - No direct onHand edits (ledger/audit only)
 - Update this file when Phase C milestones are completed
 
-============================================================
 IMMEDIATE NEXT WORK
-============================================================
 1) Follow roadmap phases strictly
 2) Next major pushes:
    - Bulk import expansion (existing fields only)
@@ -409,9 +368,7 @@ IMMEDIATE NEXT WORK
    - Product intelligence (tags, recent transactions)
    - Dropdown UI consistency
 
-============================================================
 CHANGE LOG
-============================================================
 Format:
 YYYY-MM-DD
 - What changed
@@ -431,9 +388,7 @@ YYYY-MM-DD
 - Clarified Phase C scope (Receiving & Ordering)
 - Established this file as authoritative over chat memory
 
-============================================================
 CHANGE LOG RULE
-============================================================
 When making changes:
 - Update this file
 - Record:
@@ -443,9 +398,7 @@ When making changes:
 
 This file overrides chat memory when conflicts arise.
 
-============================================================
 CONTRIBUTING RULES (AGENTS & HUMANS)
-============================================================
 - Open this file before writing code
 - Do not implement features that contradict this roadmap
 - If a decision must change:
@@ -454,3 +407,222 @@ CONTRIBUTING RULES (AGENTS & HUMANS)
 - One feature per branch
 - One PR per logical unit of work
 - Update CHANGE LOG after every merged PR
+PestLedger (PCOPro) Roadmap & Continuity Log
+Last updated: 2026-01-27 (America/Chicago)
+
+Purpose
+- Single source of truth for: requirements, decisions, rules of engagement, completed work, known issues, roadmap, and backlog.
+- Protects against drift between chats/agents while staying open to new ideas.
+
+Product Summary
+PestLedger (aka PCOPro) is a production-grade, ledger-based inventory + request management system for pest control operators.
+
+Core Principles (Non‑negotiable)
+- Ledger-only inventory: balances are derived from immutable transactions. Never directly mutate balances.
+- Idempotent transactions everywhere: deterministic idempotency keys for all “posting” actions.
+- Multi-location support: location scopes like WAREHOUSE, TRUCK:{techId}, etc.
+- Auditability over convenience: full traceability beats shortcuts.
+- Mobile-first UI, desktop-friendly.
+- Role-gated workflows with ADMIN-configurable permissions (eventual).
+
+Tech Stack
+- Backend: NestJS + Prisma + PostgreSQL (Docker)
+- Frontend: React (Vite) PWA
+- DB schema is authoritative via Prisma migrations (but DB state is source of truth when Prisma gets confused)
+
+Prisma & Migration Rules (Critical)
+- Use ONLY: prisma migrate deploy (against existing DB)
+- NEVER run: prisma migrate dev against an existing DB
+- NEVER edit an applied migration
+- NEVER delete migration_lock.toml again
+- Migration “20260120105720_add_analytics_indexes” is LOCKED + APPLIED
+  - If Prisma CLI complains it “cannot find” it: treat DB as truth; use prisma migrate resolve only if necessary.
+  - Prefer manual SQL + resolve over resets.
+- We will not reset the DB again.
+
+Branch & Merge Policy (Mandatory)
+- main = protected, stable
+- ALL work on feature/* branches, one feature per branch
+- Commit early/often. Do not leave uncommitted Prisma files overnight.
+- Merge flow:
+  1) git switch feature/xyz
+  2) git pull origin main
+  3) git push origin feature/xyz
+  4) Open PR → review file list (especially prisma/)
+  5) Merge via GitHub (fast-forward only)
+
+Git Cleanup (Safe Delete Rules)
+- After a PR is merged AND you have updated local main:
+  - git switch main
+  - git pull origin main
+  - git branch -d feature/xyz
+  - git push origin --delete feature/xyz
+- If branch won’t delete locally: use -D (only if you’re 100% sure it’s merged).
+- If it says “branch not found”, you’re either not on the right repo/worktree or the branch name differs.
+
+Current State (High Level)
+✅ Working / Implemented
+
+Backend
+- Running and serving routes
+- Stable role gating patterns; TECH blocked from Analytics at API + UI where applicable
+- ProductType enum exists (prior transient TS issue resolved)
+- Par level storage + APIs (per location scope)
+- Bulk product import/update endpoint in Settings (ADMIN/MANAGER), with matching priority:
+  - productId → sku → exact name (case-insensitive unique)
+- Bulk import supports:
+  - EPA updates (via bulk import flow)
+  - Cost-per-tracking import aliases that compute defaultCostPerBase using trackingToBase
+  - Clearing cost by blank defaultCostPerBase (sets null)
+  - Category/productType alias mapping (human-friendly values map to enums)
+- Audit feature (ledger-only):
+  - AuditSession + AuditLine tables
+  - Endpoints to create session, upsert lines, finalize
+  - Finalize posts ledger adjustments with deterministic idempotency keys
+- Initial stock import endpoint (ADMIN) posts receiving ledger entries from initial_units_annotated.csv
+  - Robust CSV header detection and numeric parsing improvements
+
+Frontend
+- Mobile-first UI with desktop support
+- Analytics screen:
+  - Filters, drilldowns, modals
+  - RequestDetailsModal shows product name, tech, date/time, drilldown to Product modal
+  - Product modal exists and works
+  - TECH restrictions: TECH does not access analytics (UI + route guard)
+- On-hand display:
+  - Non‑TECH roles see numeric on-hand
+  - TECH sees “In Stock / Out of Stock” where relevant
+- Product modal redesign:
+  - Compact header, progressive disclosure (“See more”), cleaner spacing
+  - QR preview visible in condensed view
+  - Par editing consolidated into main Save (no duplicate save button)
+  - Error handling visibility fixed (light/dark)
+- Low stock logic:
+  - Low stock = onHandBase < parBase (per location scope)
+  - Dashboard low-stock widget shows on-hand vs par with drill-in
+- Products page:
+  - Client-side search + sorting (role-aware)
+- Bulk import UI is in Settings (not Products page)
+
+Data/Workflow
+- Initial balance import executed successfully once token/auth was available
+- Discrepancies due to unit conversions resolved via product unit correction and/or Audit adjustments
+
+✅ Completed Feature Branches (Merged)
+- feature/bulk-audit-mvp
+- feature/on-hand-everywhere
+- feature/par-levels-mvp
+- feature/sku-edit-mvp (minor fixes)
+- feature/bulk-product-import-update
+- feature/cost-per-base-import-fix
+- Product modal redesign iterations merged
+
+Known Issues / Bugs (Active)
+UI/UX
+- Dropdown style inconsistency across pages (Audit vs others). Goal: global dropdown component with built-in search.
+- iOS zoom-on-select behavior for dropdowns (not urgent; likely input font-size / viewport handling).
+- Audit discrepancy report UX: placement and filter UI feels heavy; consider report-run UX.
+
+Operational/Taxonomy
+- Category vs ProductType vs Formulation:
+  - Category = business bucket for analytics/rules
+  - ProductType = functional intent (bait/IGR/termiticide/etc.)
+  - Formulation (granule/dust/aerosol/gel) is future field; do not overload category/type.
+
+Costing (Important)
+- defaultCostPerBase must be per base unit.
+- Bulk import supports costPerTrackingUnit → defaultCostPerBase = costPerTrackingUnit / trackingToBase.
+- For MVP: cost per bottle for Demand; no averaging across case/master-shipper yet.
+
+Roadmap (Phased)
+
+Phase A — Inventory Integrity (MVP Core) [DONE/Mostly DONE]
+- Initial stock import endpoint (ADMIN) ✅
+- Bulk audit / cycle count tooling (sessions, lines, finalize) ✅
+- On-hand everywhere (role-aware) ✅
+- TECH analytics restricted; TECH sees In Stock only ✅
+- Par levels per location scope + dashboard low stock ✅
+- Product modal redesign for mobile usability ✅
+- Products search + sorting ✅
+
+Phase B — Bulk Data Ops (MVP Must-Haves) [IN PROGRESS / NEXT]
+- Bulk product import/update (Settings) ✅
+  - Expand supported columns ONLY for existing fields (no migrations):
+    - onHandQty (careful: should post ledger/audit, not direct set)
+    - parLevel (existing)
+    - reorderQty (later; optional)
+    - unit labels + conversions (existing fields only)
+    - discontinued/active flag (if field exists)
+- Add downloadable CSV templates in Settings (optional)
+
+Phase C — Receiving & Ordering (Next Major)
+- Receiving tab (opposite of Issue/Transfer)
+- Incoming ledger entries
+- Supplier model
+- Email-based ordering
+- Pending → received workflow
+- Order templates (auto-populate low stock items from par levels)
+
+Phase D — Product Intelligence (Planned)
+- Product Tags
+- Recent transactions on Product modal (last 10), click-through:
+  - RequestDetailsModal or pre-populated analytics query
+- Admin configs for Category & Type lists (and rules/mappings)
+- Cost tables (non‑MVP):
+  - multiple purchase sizes (bottle/case/master shipper)
+  - rebates/promos
+  - average effective cost
+
+Phase E — Role-Gated UX (Planned)
+- Bottom nav by role (continue refining)
+- TECH: Home, Checkout/Return, Orders; dashboard = recent transactions only
+- MANAGER/ADMIN: Warehouse + analytics + settings
+- Admin configurable permissions (premium/advanced)
+
+Phase F — Analytics Expansion (Planned)
+- Multi-select tech + product
+- Visual charts
+- Monthly/quarterly rollups
+- Audit discrepancy analytics:
+  - Track discrepancy magnitude per product over time
+  - Drill-down to audit sessions/lines and related requests
+  - Prefer “Run Report” UX over always-on heavy filtering
+
+Queued UX Improvements (Do Not Drop)
+- Menu button remains labeled “Menu”
+- Receiving tab in bottom nav (future)
+- Rename Issue tab:
+  - TECH → Checkout / Return
+  - Others → Transfer
+- Desktop login box scaling
+- Clickable tech → tech history
+- Clickable date → date-filtered history
+- Global dropdown/search component (consistent styling everywhere)
+
+Security/Permissions (Current Standard)
+- ADMIN/MANAGER: manage products (add/edit), can see/edit cost
+- WAREHOUSE: limited edits (par only historically; verify current)
+- TECH: view-only for products; no analytics; sees In Stock only
+- All permissions should become admin-configurable later.
+
+Testing Checklist (Quick Smoke)
+- Backend: docker compose up; API reachable
+- Prisma: npx prisma generate; npx prisma migrate deploy (no pending)
+- Initial stock import posts receiving entries; idempotent rerun safe
+- Audit:
+  - create session
+  - add lines
+  - finalize posts ledger adjustments; rerun finalize idempotent
+- Bulk import:
+  - category/productType alias mapping works
+  - EPA update works
+  - costPerTrackingUnit import derives defaultCostPerBase correctly
+  - blank defaultCostPerBase clears cost
+- UI:
+  - Product modal condensed/expanded/edit flows
+  - Low stock widget updates when par set and on-hand changes
+  - TECH role sees In Stock only and is blocked from analytics routes
+
+Notes on Files/Artifacts
+- Keep this file updated each time a major feature is merged or a policy changes.
+- If older uploaded files expire in ChatGPT sessions, refer to the repo as source of truth.

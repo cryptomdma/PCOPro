@@ -1,100 +1,108 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../auth';
 import { useToast } from './ui/Toast';
-import { ModalShell } from './ui/ModalShell';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 export function ReceivingView() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const canReceive = user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'WAREHOUSE';
+
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [productId, setProductId] = useState('');
-  const [qtyInput, setQtyInput] = useState('1');
-  const [messages, setMessages] = useState<string[]>([]);
-  const [history, setHistory] = useState<
-    Array<{ receiptId: string; postedAt: string; destinationScope: string; lineCount: number; totalUnitsBase: number }>
+  const [locationScope, setLocationScope] = useState('WAREHOUSE');
+  const [lines, setLines] = useState<Array<{ productId: string; quantityInput: string }>>([
+    { productId: '', quantityInput: '1' },
+  ]);
+  const [products, setProducts] = useState<
+    Array<{ id: string; name: string; orderingUnitLabel: string; orderingToBase: number }>
   >([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
-  const [receiptDetail, setReceiptDetail] = useState<{
-    receiptId: string;
-    postedAt: string;
-    destinationScope: string;
-    lineCount: number;
-    lines: Array<{
-      productId: string;
-      productName: string;
-      quantityBase: number;
-      quantityOrdering: number;
-      orderingUnitLabel: string;
-      orderingToBase: number;
-      postedAt: string;
-      destinationScope: string;
-      idempotencyKey: string;
-    }>;
-  } | null>(null);
+  const [summary, setSummary] = useState<{ postedCount: number; skippedCount: number; idempotencyKeys: string[] } | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!canReceive) return;
-    fetchHistory();
+    axios
+      .get('/api/v1/products', { params: { limit: 500 } })
+      .then((res) => setProducts(res.data))
+      .catch((err) => setError(err?.response?.data?.message || 'Failed to load products.'));
   }, [canReceive]);
 
-  async function fetchHistory() {
-    setHistoryLoading(true);
-    setHistoryError(null);
-    try {
-      const response = await axios.get('/api/v1/incoming/receipts');
-      setHistory(response.data ?? []);
-    } catch (err: any) {
-      setHistoryError(err?.response?.data?.message || 'Failed to load receiving history.');
-    } finally {
-      setHistoryLoading(false);
-    }
+  const productById = useMemo(() => {
+    return new Map(products.map((product) => [product.id, product]));
+  }, [products]);
+
+  function updateLine(index: number, patch: Partial<{ productId: string; quantityInput: string }>) {
+    setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
   }
 
-  async function fetchReceiptDetail(receiptId: string) {
-    setReceiptDetail(null);
-    try {
-      const response = await axios.get(`/api/v1/incoming/receipts/${encodeURIComponent(receiptId)}`);
-      setReceiptDetail(response.data);
-    } catch (err: any) {
-      const message = err?.response?.data?.message || 'Failed to load receipt details.';
-      showToast({ kind: 'error', message });
-    }
+  function addLine() {
+    setLines((prev) => [...prev, { productId: '', quantityInput: '1' }]);
   }
 
-  function handleSelectQuantity(e: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>) {
-    const input = e.currentTarget;
-    input.select();
-    try {
-      input.setSelectionRange(0, input.value.length);
-    } catch {
-      // no-op for unsupported inputs
-    }
-  }
-
-  async function submit() {
-    if (!productId.trim()) {
-      showToast({ kind: 'error', message: 'Product ID is required.' });
-      return;
-    }
-    const qty = Number(qtyInput);
-    if (!Number.isFinite(qty) || !Number.isInteger(qty) || qty <= 0) {
-      showToast({ kind: 'error', message: 'Quantity must be a whole number greater than 0.' });
-      return;
-    }
-    await axios.post('/api/v1/incoming', {
-      receiptDate: date,
-      lines: [
-        { productId, qtyOrdered: qty, qtyReceived: qty, backorderedQty: 0, receivingUnitLabel: 'ordering' },
-      ],
+  function removeLine(index: number) {
+    setLines((prev) => {
+      if (prev.length === 1) return prev;
+      return prev.filter((_, i) => i !== index);
     });
-    setMessages((m) => [`Posted receipt for ${productId}`, ...m]);
-    setProductId('');
-    setQtyInput('1');
-    fetchHistory();
+  }
+
+  function validateLines() {
+    const trimmed = lines.filter((line) => line.productId || line.quantityInput.trim());
+    if (trimmed.length === 0) {
+      return { ok: false, message: 'At least one line item is required.' };
+    }
+    const parsed = trimmed.map((line) => {
+      const quantity = Number(line.quantityInput);
+      return { ...line, quantity };
+    });
+    const invalid = parsed.find((line) => !line.productId || !Number.isFinite(line.quantity) || line.quantity <= 0);
+    if (invalid) {
+      return { ok: false, message: 'Each line needs a product and quantity greater than 0.' };
+    }
+    return { ok: true, value: parsed };
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSummary(null);
+    const validation = validateLines();
+    if (!validation.ok) {
+      setError(validation.message);
+      showToast({ kind: 'error', message: validation.message });
+      return;
+    }
+    setLoading(true);
+    try {
+      const payload = {
+        receiptDate: date,
+        scope: locationScope,
+        lines: validation.value.map((line) => {
+          const product = productById.get(line.productId);
+          return {
+            productId: line.productId,
+            qtyOrdered: line.quantity,
+            qtyReceived: line.quantity,
+            backorderedQty: 0,
+            receivingUnitLabel: product?.orderingUnitLabel ?? 'ordering',
+          };
+        }),
+      };
+      const response = await axios.post('/api/v1/incoming', payload);
+      setSummary(response.data);
+      showToast({ kind: 'success', message: 'Receiving posted' });
+      setLines([{ productId: '', quantityInput: '1' }]);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Failed to post receiving.';
+      setError(message);
+      showToast({ kind: 'error', message });
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (!canReceive) {
@@ -115,108 +123,94 @@ export function ReceivingView() {
       <header className="section-header">
         <div>
           <h2>Receiving</h2>
-          <p>Stage items then post to create ledger entries.</p>
+          <p>Post incoming stock to update ledger balances.</p>
         </div>
       </header>
-      <div className="form card">
+
+      {error ? <div className="error-panel">{error}</div> : null}
+
+      <form className="form card" onSubmit={submit}>
         <label>
           Date
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
         <label>
-          Product ID (scan to fill)
-          <input value={productId} onChange={(e) => setProductId(e.target.value)} placeholder="MGPC scan or ID" />
+          Destination
+          <select value={locationScope} onChange={(e) => setLocationScope(e.target.value)}>
+            <option value="WAREHOUSE">WAREHOUSE</option>
+          </select>
         </label>
-        <label>
-          Qty Received
-          <input
-            type="number"
-            min={1}
-            step={1}
-            inputMode="numeric"
-            value={qtyInput}
-            onChange={(e) => setQtyInput(e.target.value)}
-            onFocus={handleSelectQuantity}
-            onClick={handleSelectQuantity}
-          />
-        </label>
-        <button type="button" onClick={submit}>
-          Post Receipt
-        </button>
-      </div>
-      <div className="card-stack">
-        <div className="card-row">
-          <div>
-            <div className="card-title">Receiving History</div>
-            <div className="muted">Recent posted receipts.</div>
-          </div>
-          <button type="button" className="ghost-button" onClick={fetchHistory} disabled={historyLoading}>
-            {historyLoading ? 'Refreshing...' : 'Refresh'}
+
+        <div className="card-stack">
+          <strong>Incoming items</strong>
+          {lines.map((line, idx) => (
+            <div key={idx} className="line-row">
+              <SearchableSelect
+                label="Product"
+                placeholder="Select product"
+                value={line.productId}
+                onChange={(value) => updateLine(idx, { productId: value })}
+                options={products.map((product) => ({
+                  value: product.id,
+                  label: product.name,
+                  subtitle: `Ordering unit: ${product.orderingUnitLabel}`,
+                }))}
+                required
+              />
+              <label>
+                Quantity
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={line.quantityInput}
+                  onChange={(e) => updateLine(idx, { quantityInput: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Unit
+                <input
+                  value={productById.get(line.productId)?.orderingUnitLabel ?? ''}
+                  readOnly
+                  placeholder="Ordering unit"
+                />
+              </label>
+              <div className="line-actions">
+                <button type="button" onClick={() => removeLine(idx)} disabled={lines.length === 1}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+          <button type="button" onClick={addLine}>
+            Add product
           </button>
         </div>
-        {historyError ? <div className="error-panel">{historyError}</div> : null}
-        {historyLoading ? (
-          <div className="muted">Loading history...</div>
-        ) : history.length === 0 ? (
-          <div className="muted">No receiving history yet.</div>
-        ) : (
-          <ul className="activity">
-            {history.map((receipt) => (
-              <li
-                key={receipt.receiptId}
-                className="clickable"
-                onClick={() => {
-                  setSelectedReceiptId(receipt.receiptId);
-                  fetchReceiptDetail(receipt.receiptId);
-                }}
-              >
-                <div className="card-stack">
-                  <strong>{receipt.receiptId}</strong>
-                  <div className="muted">
-                    {new Date(receipt.postedAt).toLocaleString()} | {receipt.destinationScope} | {receipt.lineCount} lines
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <ul className="activity">
-        {messages.map((msg, idx) => (
-          <li key={idx}>{msg}</li>
-        ))}
-      </ul>
 
-      <ModalShell
-        open={Boolean(selectedReceiptId)}
-        title="Receipt details"
-        onClose={() => {
-          setSelectedReceiptId(null);
-          setReceiptDetail(null);
-        }}
-      >
-        {!receiptDetail ? (
-          <div className="muted">Loading...</div>
-        ) : (
-          <div className="card-stack">
-            <div className="muted">
-              {new Date(receiptDetail.postedAt).toLocaleString()} | {receiptDetail.destinationScope} |{' '}
-              {receiptDetail.lineCount} lines
+        <button type="submit" disabled={loading}>
+          {loading ? 'Posting...' : 'Post receipt'}
+        </button>
+      </form>
+
+      {summary ? (
+        <div className="result-panel">
+          <h4>Receiving posted</h4>
+          <div className="grid two-col">
+            <div className="metric">
+              <div className="label">Lines posted</div>
+              <div className="value">{summary.postedCount}</div>
             </div>
-            {receiptDetail.lines.map((line) => (
-              <div key={`${line.idempotencyKey}-${line.productId}`} className="card">
-                <div className="card-row">
-                  <strong>{line.productName}</strong>
-                  <span className="muted">
-                    {line.quantityOrdering} {line.orderingUnitLabel}
-                  </span>
-                </div>
-                <div className="muted">Base units: {line.quantityBase}</div>
-              </div>
-            ))}
+            <div className="metric">
+              <div className="label">Lines skipped</div>
+              <div className="value">{summary.skippedCount}</div>
+            </div>
           </div>
-        )}
-      </ModalShell>
+          {summary.idempotencyKeys?.length ? (
+            <div className="muted">Idempotency keys: {summary.idempotencyKeys.join(', ')}</div>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
