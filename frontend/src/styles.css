@@ -286,6 +286,15 @@ button {
   width: 100%;
 }
 
+input[type='date'] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: block;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 button {
   background: #0ea5e9;
   border: none;
@@ -502,6 +511,10 @@ button:disabled {
 .modal-body {
   display: grid;
   gap: 0.75rem;
+}
+
+.receiving-history-card {
+  margin-top: 1.25rem;
 }
 
 .product-details-modal .modal-header {
