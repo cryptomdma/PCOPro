@@ -18,6 +18,7 @@ function navItemsFor(role?: string): NavItem[] {
     return [
       { path: '/', label: 'Home' },
       { path: '/checkout', label: 'Issue' },
+      { path: '/receiving', label: 'Receiving' },
       { path: '/orders', label: 'Orders' },
       { path: '/products', label: 'Products' },
       ...(role === 'ADMIN' ? [{ path: '/audit', label: 'Audit' }] : []),
@@ -26,6 +27,7 @@ function navItemsFor(role?: string): NavItem[] {
   return [
     { path: '/', label: 'Home' },
     { path: '/checkout', label: 'Issue' },
+    { path: '/receiving', label: 'Receiving' },
     { path: '/orders', label: 'Orders' },
   ];
 }

@@ -29,6 +29,10 @@ export class CreateIncomingDto {
   @IsString()
   supplier?: string;
 
+  @IsOptional()
+  @IsString()
+  scope?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => IncomingLineDto)
