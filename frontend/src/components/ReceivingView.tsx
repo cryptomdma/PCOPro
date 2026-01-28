@@ -305,13 +305,10 @@ export function ReceivingView() {
               <div className="value">{summary.skippedCount}</div>
             </div>
           </div>
-          {summary.idempotencyKeys?.length ? (
-            <div className="muted">Idempotency keys: {summary.idempotencyKeys.join(', ')}</div>
-          ) : null}
         </div>
       ) : null}
 
-      <div className="card card-stack">
+      <div className="card card-stack receiving-history-card">
         <div className="card-row">
           <div>
             <div className="card-title">Receiving History</div>
@@ -350,7 +347,7 @@ export function ReceivingView() {
               {receiptHistory.map((receipt) => (
                 <li key={receipt.receiptId} className="clickable" onClick={() => openReceipt(receipt.receiptId)}>
                   <div className="card-stack">
-                    <strong>{receipt.receiptId}</strong>
+                    <strong>Receipt</strong>
                     <div className="muted">
                       {new Date(receipt.postedAt).toLocaleString()} | {receipt.destinationScope} | {receipt.lineCount} lines
                     </div>
@@ -370,7 +367,6 @@ export function ReceivingView() {
                   <div className="muted">
                     {line.quantityReceived} {line.receivingUnitLabel} | {new Date(line.postedAt).toLocaleString()}
                   </div>
-                  <div className="muted">Receipt: {line.receiptId}</div>
                 </div>
               </li>
             ))}
