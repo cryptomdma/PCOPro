@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateIncomingDto } from './dto';
 import { getUnitFactor, toBaseQuantity } from '../utils/units';
 import { createHash } from 'crypto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class IncomingService {
