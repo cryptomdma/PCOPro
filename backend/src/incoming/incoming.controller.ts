@@ -1,17 +1,44 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { IncomingService } from './incoming.service';
 import { CreateIncomingDto } from './dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionGuard, RequirePerm } from '../auth/permissions';
 
 @Controller('incoming')
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class IncomingController {
   constructor(private incoming: IncomingService) {}
 
   @Get()
+  @RequirePerm('receiving.manage')
   list() {
     return this.incoming.list();
   }
 
+  @Get('receipts')
+  @RequirePerm('receiving.manage')
+  listReceipts(
+    @Query('take') takeRaw?: string,
+    @Query('skip') skipRaw?: string,
+    @Query('scope') scope?: string,
+  ) {
+    const take = Number(takeRaw);
+    const skip = Number(skipRaw);
+    return this.incoming.listReceipts({
+      take: Number.isFinite(take) ? take : undefined,
+      skip: Number.isFinite(skip) ? skip : undefined,
+      scope,
+    });
+  }
+
+  @Get('receipts/:receiptId')
+  @RequirePerm('receiving.manage')
+  receiptDetail(@Param('receiptId') receiptId: string, @Query('scope') scope?: string) {
+    return this.incoming.getReceiptDetail(receiptId, scope);
+  }
+
   @Post()
+  @RequirePerm('receiving.manage')
   create(@Body() dto: CreateIncomingDto) {
     return this.incoming.create(dto);
   }
