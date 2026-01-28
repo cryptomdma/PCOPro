@@ -405,10 +405,9 @@ export function ReceivingView() {
                 <div className="card-row">
                   <strong>{line.productName}</strong>
                   <span className="muted">
-                    {line.quantityOrdering} {line.orderingUnitLabel}
+                    {line.quantityOrdering} ({line.orderingUnitLabel})
                   </span>
                 </div>
-                <div className="muted">Base units: {line.quantityBase}</div>
               </button>
             ))}
           </div>
