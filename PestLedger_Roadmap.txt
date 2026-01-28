@@ -382,6 +382,10 @@ YYYY-MM-DD
 - Receiving history (receipt list + modal grouped by receipt idempotency keys)
 - Follow-ups: history grouping uses idempotency key prefixes from existing incoming posts; consider deterministic receipt-level keys in a future pass
 
+2026-01-28
+- Receiving History reintroduced with grouped/line toggle and receipt detail modal
+- Receiving quantity input now integer step with auto-select for faster entry
+
 2026-01-27
 - Created integrated roadmap and continuity log
 - Consolidated non-negotiable principles, git policy, and Prisma rules
