@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../auth';
 import { useToast } from './ui/Toast';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { ModalShell } from './ui/ModalShell';
 
 export function ReceivingView() {
   const { user } = useAuth();
@@ -22,6 +23,41 @@ export function ReceivingView() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyMode, setHistoryMode] = useState<'grouped' | 'lines'>('grouped');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [receiptHistory, setReceiptHistory] = useState<
+    Array<{ receiptId: string; postedAt: string; destinationScope: string; lineCount: number; totalUnitsBase: number }>
+  >([]);
+  const [lineHistory, setLineHistory] = useState<
+    Array<{
+      receiptId: string;
+      postedAt: string;
+      destinationScope: string;
+      productId: string;
+      productName: string;
+      quantityReceived: number;
+      receivingUnitLabel: string;
+    }>
+  >([]);
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
+  const [receiptDetail, setReceiptDetail] = useState<{
+    receiptId: string;
+    postedAt: string;
+    destinationScope: string;
+    lineCount: number;
+    lines: Array<{
+      productId: string;
+      productName: string;
+      quantityBase: number;
+      quantityOrdering: number;
+      orderingUnitLabel: string;
+      orderingToBase: number;
+      postedAt: string;
+      destinationScope: string;
+      idempotencyKey: string;
+    }>;
+  } | null>(null);
 
   useEffect(() => {
     if (!canReceive) return;
@@ -30,6 +66,11 @@ export function ReceivingView() {
       .then((res) => setProducts(res.data))
       .catch((err) => setError(err?.response?.data?.message || 'Failed to load products.'));
   }, [canReceive]);
+
+  useEffect(() => {
+    if (!canReceive) return;
+    fetchHistory(historyMode);
+  }, [canReceive, historyMode]);
 
   const productById = useMemo(() => {
     return new Map(products.map((product) => [product.id, product]));
@@ -59,11 +100,65 @@ export function ReceivingView() {
       const quantity = Number(line.quantityInput);
       return { ...line, quantity };
     });
-    const invalid = parsed.find((line) => !line.productId || !Number.isFinite(line.quantity) || line.quantity <= 0);
+    const invalid = parsed.find(
+      (line) => !line.productId || !Number.isFinite(line.quantity) || line.quantity <= 0 || !Number.isInteger(line.quantity),
+    );
     if (invalid) {
-      return { ok: false, message: 'Each line needs a product and quantity greater than 0.' };
+      return { ok: false, message: 'Each line needs a product and whole-number quantity greater than 0.' };
     }
     return { ok: true, value: parsed };
+  }
+
+  function handleSelectQuantity(e: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>) {
+    const input = e.currentTarget;
+    input.select();
+    try {
+      input.setSelectionRange(0, input.value.length);
+    } catch {
+      // no-op for unsupported inputs
+    }
+  }
+
+  async function fetchHistory(mode: 'grouped' | 'lines') {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      if (mode === 'grouped') {
+        const response = await axios.get('/api/v1/incoming/receipts');
+        setReceiptHistory(response.data ?? []);
+      } else {
+        const response = await axios.get('/api/v1/incoming');
+        const receipts = response.data ?? [];
+        const flattened = receipts.flatMap((receipt: any) =>
+          (receipt.lines ?? []).map((line: any) => ({
+            receiptId: receipt.id,
+            postedAt: receipt.postedAt ?? receipt.receiptDate,
+            destinationScope: 'WAREHOUSE',
+            productId: line.productId,
+            productName: line.product?.name ?? line.productName ?? line.productId,
+            quantityReceived: line.qtyReceived,
+            receivingUnitLabel: line.receivingUnitLabel,
+          })),
+        );
+        setLineHistory(flattened);
+      }
+    } catch (err: any) {
+      setHistoryError(err?.response?.data?.message || 'Failed to load receiving history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  async function openReceipt(receiptId: string) {
+    setSelectedReceiptId(receiptId);
+    setReceiptDetail(null);
+    try {
+      const response = await axios.get(`/api/v1/incoming/receipts/${encodeURIComponent(receiptId)}`);
+      setReceiptDetail(response.data);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Failed to load receipt details.';
+      showToast({ kind: 'error', message });
+    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -96,6 +191,7 @@ export function ReceivingView() {
       setSummary(response.data);
       showToast({ kind: 'success', message: 'Receiving posted' });
       setLines([{ productId: '', quantityInput: '1' }]);
+      fetchHistory(historyMode);
     } catch (err: any) {
       const message = err?.response?.data?.message || 'Failed to post receiving.';
       setError(message);
@@ -161,10 +257,13 @@ export function ReceivingView() {
                 Quantity
                 <input
                   type="number"
-                  min="0.01"
-                  step="0.01"
+                  min="1"
+                  step={1}
+                  inputMode="numeric"
                   value={line.quantityInput}
                   onChange={(e) => updateLine(idx, { quantityInput: e.target.value })}
+                  onFocus={handleSelectQuantity}
+                  onClick={handleSelectQuantity}
                   required
                 />
               </label>
@@ -211,6 +310,103 @@ export function ReceivingView() {
           ) : null}
         </div>
       ) : null}
+
+      <div className="card card-stack">
+        <div className="card-row">
+          <div>
+            <div className="card-title">Receiving History</div>
+            <div className="muted">Recent receipts (grouped by receipt).</div>
+          </div>
+          <div className="pill-row">
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setHistoryMode('grouped')}
+              disabled={historyMode === 'grouped'}
+            >
+              Grouped
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setHistoryMode('lines')}
+              disabled={historyMode === 'lines'}
+            >
+              Lines
+            </button>
+            <button type="button" className="ghost-button" onClick={() => fetchHistory(historyMode)} disabled={historyLoading}>
+              {historyLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+        </div>
+        {historyError ? <div className="error-panel">{historyError}</div> : null}
+        {historyLoading ? (
+          <div className="muted">Loading history...</div>
+        ) : historyMode === 'grouped' ? (
+          receiptHistory.length === 0 ? (
+            <div className="muted">No receipts yet.</div>
+          ) : (
+            <ul className="activity">
+              {receiptHistory.map((receipt) => (
+                <li key={receipt.receiptId} className="clickable" onClick={() => openReceipt(receipt.receiptId)}>
+                  <div className="card-stack">
+                    <strong>{receipt.receiptId}</strong>
+                    <div className="muted">
+                      {new Date(receipt.postedAt).toLocaleString()} | {receipt.destinationScope} | {receipt.lineCount} lines
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : lineHistory.length === 0 ? (
+          <div className="muted">No receipt lines yet.</div>
+        ) : (
+          <ul className="activity">
+            {lineHistory.map((line, idx) => (
+              <li key={`${line.receiptId}-${line.productId}-${idx}`} className="clickable" onClick={() => openReceipt(line.receiptId)}>
+                <div className="card-stack">
+                  <strong>{line.productName}</strong>
+                  <div className="muted">
+                    {line.quantityReceived} {line.receivingUnitLabel} | {new Date(line.postedAt).toLocaleString()}
+                  </div>
+                  <div className="muted">Receipt: {line.receiptId}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <ModalShell
+        open={Boolean(selectedReceiptId)}
+        title="Receipt details"
+        onClose={() => {
+          setSelectedReceiptId(null);
+          setReceiptDetail(null);
+        }}
+      >
+        {!receiptDetail ? (
+          <div className="muted">Loading...</div>
+        ) : (
+          <div className="card-stack">
+            <div className="muted">
+              {new Date(receiptDetail.postedAt).toLocaleString()} | {receiptDetail.destinationScope} | {receiptDetail.lineCount} lines
+            </div>
+            {receiptDetail.lines.map((line) => (
+              <div key={`${line.idempotencyKey}-${line.productId}`} className="card">
+                <div className="card-row">
+                  <strong>{line.productName}</strong>
+                  <span className="muted">
+                    {line.quantityOrdering} {line.orderingUnitLabel}
+                  </span>
+                </div>
+                <div className="muted">Base units: {line.quantityBase}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ModalShell>
     </section>
   );
 }

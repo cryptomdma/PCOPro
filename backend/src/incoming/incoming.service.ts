@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateIncomingDto } from './dto';
 import { getUnitFactor, toBaseQuantity } from '../utils/units';
 import { createHash } from 'crypto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class IncomingService {
@@ -164,6 +165,133 @@ export class IncomingService {
       include: { lines: true },
       orderBy: { receiptDate: 'desc' },
     });
+  }
+
+  async listReceipts(params?: { take?: number; skip?: number; scope?: string }) {
+    const take = params?.take && params.take > 0 ? Math.min(params.take, 100) : 20;
+    const skip = params?.skip && params.skip > 0 ? params.skip : 0;
+    const scope = params?.scope?.trim();
+
+    const where: Prisma.InventoryTransactionWhereInput = { type: 'receiving_posted' };
+    if (scope) {
+      where.scope = scope;
+    }
+
+    const fetchLimit = Math.min(500, (take + skip) * 6);
+    const transactions = await this.prisma.inventoryTransaction.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: fetchLimit,
+      select: {
+        idempotencyKey: true,
+        createdAt: true,
+        scope: true,
+        quantityBase: true,
+      },
+    });
+
+    const grouped = new Map<
+      string,
+      { receiptId: string; postedAt: Date; destinationScope: string; lineCount: number; totalUnitsBase: number }
+    >();
+
+    for (const tx of transactions) {
+      const receiptId = this.getReceiptKey(tx.idempotencyKey);
+      if (!receiptId) continue;
+      const existing = grouped.get(receiptId);
+      if (existing) {
+        existing.lineCount += 1;
+        existing.totalUnitsBase += tx.quantityBase;
+        if (tx.createdAt > existing.postedAt) {
+          existing.postedAt = tx.createdAt;
+        }
+      } else {
+        grouped.set(receiptId, {
+          receiptId,
+          postedAt: tx.createdAt,
+          destinationScope: tx.scope,
+          lineCount: 1,
+          totalUnitsBase: tx.quantityBase,
+        });
+      }
+    }
+
+    const receipts = Array.from(grouped.values()).sort((a, b) => b.postedAt.getTime() - a.postedAt.getTime());
+    return receipts.slice(skip, skip + take);
+  }
+
+  async getReceiptDetail(receiptId: string, scope?: string) {
+    const prefix = this.getReceiptPrefix(receiptId);
+    const where: Prisma.InventoryTransactionWhereInput = {
+      type: 'receiving_posted',
+      idempotencyKey: { startsWith: prefix },
+    };
+    if (scope?.trim()) {
+      where.scope = scope.trim();
+    }
+
+    const transactions = await this.prisma.inventoryTransaction.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: { product: true },
+    });
+
+    if (!transactions.length) {
+      throw new NotFoundException('Receipt not found');
+    }
+
+    const postedAt = transactions[0].createdAt;
+    const destinationScope = transactions[0].scope;
+    const lines = transactions.map((tx) => {
+      const orderingToBase = tx.product.orderingToBase || 1;
+      const orderingQty = Math.round((tx.quantityBase / orderingToBase) * 100) / 100;
+      return {
+        productId: tx.productId,
+        productName: tx.product.name,
+        quantityBase: tx.quantityBase,
+        quantityOrdering: orderingQty,
+        orderingUnitLabel: tx.product.orderingUnitLabel,
+        orderingToBase,
+        postedAt: tx.createdAt,
+        destinationScope: tx.scope,
+        idempotencyKey: tx.idempotencyKey,
+      };
+    });
+
+    return {
+      receiptId,
+      postedAt,
+      destinationScope,
+      lineCount: lines.length,
+      lines,
+    };
+  }
+
+  private getReceiptKey(idempotencyKey: string): string | null {
+    if (!idempotencyKey) return null;
+    if (idempotencyKey.startsWith('incoming-')) {
+      const parts = idempotencyKey.split('-');
+      if (parts.length >= 3) {
+        return `incoming-${parts[1]}`;
+      }
+    }
+    if (idempotencyKey.startsWith('receiving:')) {
+      const parts = idempotencyKey.split(':');
+      if (parts.length >= 3) {
+        return parts.slice(0, 3).join(':');
+      }
+    }
+    return idempotencyKey;
+  }
+
+  private getReceiptPrefix(receiptId: string): string {
+    if (receiptId.startsWith('incoming-')) {
+      return `${receiptId}-`;
+    }
+    if (receiptId.startsWith('receiving:')) {
+      return `${receiptId}:`;
+    }
+    return receiptId;
   }
 
   private async ensureSystemUser() {
