@@ -1,0 +1,456 @@
+PestLedger (PCOPro) - Integrated Roadmap & Continuity Log
+Last updated: 2026-01-28 (America/Chicago)
+
+============================================================
+PURPOSE / HOW TO USE THIS FILE
+============================================================
+This file is the single source of truth for PestLedger (aka PCOPro).
+
+It exists to:
+- Prevent drift between chats, agents, and feature branches
+- Record non-negotiable principles and policies
+- Track what is DONE, IN PROGRESS, and PLANNED
+- Capture decisions, constraints, and known issues
+
+When making changes to the system:
+- Update this file
+- Record what changed, why, and any new bugs or follow-ups
+- Treat this file as authoritative over chat memory
+
+============================================================
+PROJECT SUMMARY
+============================================================
+PestLedger (aka PCOPro) is a production-grade, ledger-based inventory + request management system for pest control operators.
+
+Primary goals:
+- Full auditability of inventory movement
+- Mobile-first UX for technicians
+- Strong role gating and permissions
+- Scalable foundation for ordering, analytics, and compliance
+
+============================================================
+NON-NEGOTIABLE CORE PRINCIPLES
+============================================================
+1) Ledger-only inventory
+   - Inventory balances are derived from immutable ledger transactions
+   - Balances are NEVER directly mutated
+
+2) Idempotent posting everywhere
+   - All posting actions must be safely repeatable
+   - Deterministic idempotency keys required
+
+3) Multi-location scopes
+   - Examples: WAREHOUSE, TRUCK:{techId}, etc.
+
+4) Auditability > convenience
+   - Traceability and explainability always win
+
+5) Mobile-first UI
+   - Desktop support is secondary
+
+6) Role gating
+   - TECH is restricted:
+     - No Analytics access
+     - Sees "In Stock" only, not numeric balances
+   - Other roles see progressively more detail
+
+============================================================
+PRISMA / DATABASE RULES (CRITICAL)
+============================================================
+- Use ONLY: prisma migrate deploy (against existing DB)
+- NEVER run: prisma migrate dev against an existing DB
+- NEVER edit an applied migration
+- NEVER reset the DB again
+
+LOCKED MIGRATION:
+- 20260120105720_add_analytics_indexes
+  - LOCKED and APPLIED
+  - If Prisma complains it cannot find it:
+    - The database is the source of truth
+    - Use prisma migrate resolve only if absolutely necessary
+
+============================================================
+GIT / BRANCH POLICY (MANDATORY)
+============================================================
+- main = stable, protected branch
+- ALL work happens on feature/* branches
+- One feature per branch
+
+Merge rules:
+- Open PR in GitHub
+- Fast-forward only
+- Do NOT merge locally into main
+
+Cleanup:
+- After PR is merged:
+  - Pull latest main
+  - Delete feature branch locally and remotely
+
+============================================================
+CURRENT STATUS (HIGH LEVEL)
+============================================================
+BACKEND / DATA
+- Initial stock import endpoint exists and works
+  - CSV parsing hardened
+  - Posts receiving ledger entries
+  - Idempotent
+
+- Audit system implemented
+  - Audit sessions
+  - Audit lines
+  - Finalize posts ledger adjustments idempotently
+
+- Par levels exist (per location scope)
+  - Low stock widget implemented
+
+FRONTEND / UX
+- On-hand displayed everywhere, role-aware
+  - TECH: In Stock / Out of Stock
+  - Others: numeric balances
+
+- Product modal redesigned
+  - Compact header
+  - Progressive disclosure
+
+- Products page
+  - Search
+  - Sorting
+
+BULK IMPORT
+- Bulk product import/update exists (Settings)
+- ADMIN / MANAGER only
+- Matching priority:
+  - productId -> sku -> exact name (case-insensitive unique)
+- Supports:
+  - Category / productType alias mapping
+  - EPA updates
+  - cost-per-tracking import aliases:
+    - defaultCostPerBase = costPerTrackingUnit / trackingToBase
+    - Blank defaultCostPerBase clears cost (null)
+
+ANALYTICS
+- Audit discrepancy analytics exists
+- UX may need "Run Report" style instead of heavy always-on filters
+
+============================================================
+GLOBAL UX & NAVIGATION FOUNDATIONS
+============================================================
+These are blocking hygiene items that affect all screens.
+
+- Fix dropdown menus globally
+  - Search-in-dropdown
+  - Consistent behavior across all screens
+  - Audit screen included
+
+- Menu button must remain labeled "Menu"
+- Remove dead space at top
+  - Reduce header size (mobile priority)
+- Move Light/Dark toggle into Settings
+- Fix vertical scrolling issues
+- Fix date picker horizontal scrolling
+
+============================================================
+BOTTOM NAVIGATION (ROLE-AWARE)
+============================================================
+- Add Analytics tab (non-TECH roles)
+- Add Receiving tab (to the right of Issue)
+- Rename Issue tab dynamically:
+  - TECH: "Checkout / Return"
+  - Warehouse / Manager / Admin: "Transfer"
+
+============================================================
+ROLE-BASED DASHBOARDS (MVP)
+============================================================
+TECH DASHBOARD
+- Checkout / Return widget (clickable)
+- Orders (own only)
+- Order history (tech-scoped)
+- Products checked out this month
+- Separate Checkout and Return flows
+- No Analytics access
+
+WAREHOUSE DASHBOARD
+- Tech list
+- Orders queue
+- Receiving
+- Inventory visibility
+
+MANAGER DASHBOARD
+- Warehouse
+- Products
+- Analytics
+
+ADMIN DASHBOARD
+- Everything
+- All configuration screens
+
+============================================================
+PRODUCTS SYSTEM (EXPANDED MVP)
+============================================================
+PRODUCTS LIST
+- Sorting:
+  - Alphabet index (A-Z quick scroll)
+  - Category
+  - Type
+- Utilities:
+  - "Top" scroll button
+  - Show / Hide Out-of-Stock
+  - Checkbox: balance > 0 only
+
+PRODUCT STATUS FLAGS
+- Active / Inactive
+- Stock / Do-Not-Stock
+- Discontinued
+
+============================================================
+PRODUCT TAGS (FOUNDATIONAL)
+============================================================
+Tags are functional, not cosmetic.
+
+TECH TAGS
+- Termite
+- Bed Bug
+- Mosquito
+- Exclusion
+- Tech must have matching tag to checkout related products/equipment
+- Manager override allowed
+
+EQUIPMENT TAGS
+- Termite
+- Bed Bug
+- Mosquito
+- Exclusion
+
+PRODUCT TAGS
+- Interior / Exterior
+- Insect categories
+
+============================================================
+PRODUCT DETAIL MODAL
+============================================================
+- Show recent transactions (last 10)
+  - Click -> RequestDetailsModal
+- History button
+  - Routes to Analytics with pre-populated query
+- Admin-only:
+  - On-hand value ($)
+
+============================================================
+REQUEST & ORDER WORKFLOW (AUTHORITATIVE)
+============================================================
+Workflow:
+Request (Tech)
+-> Finalize (Warehouse / Manager / Admin)
+-> Processing
+-> Ready For Pickup
+-> Acknowledge (Tech)
+
+Rules:
+- Ledger posts on Finalize, NOT on Acknowledge
+- Tech acknowledgment optional (admin setting)
+
+ORDERS SCREEN
+- Open requests editable by:
+  - Requesting Tech
+  - Warehouse
+  - Manager
+  - Admin
+- Controls:
+  - Send back
+  - Cancel / refuse
+- Locked after Finalize
+
+DISPUTES (MVP)
+- Tech can dispute
+- Alert Manager
+- Resolution screen
+- Dual acknowledgment (Tech + Manager)
+- Photo upload allowed
+
+============================================================
+RECEIVING & ORDERING (PHASE C)
+============================================================
+RECEIVING - PHASE 1 (MVP)
+- New Receiving screen + tab
+- Reverse of Issue flow
+- Posts incoming ledger entries only
+
+RECEIVING - PHASE 2
+- Supplier model:
+  - Name
+  - License # (optional)
+  - EIN (optional)
+- Supplier settings (Admin)
+- Order lifecycle:
+  - Created -> Pending -> Delivered -> Confirmed
+
+ORDERING SYSTEM
+- Low stock list (par-based)
+- Expandable detail views
+- Order history
+- Email-based ordering
+- Stored pending orders
+- Future vendor API integration
+
+============================================================
+AUDIT WORKFLOW (EXPANDED)
+============================================================
+- Scanning support
+- Delta count analytics
+- Visual reporting:
+  - Monthly
+  - Quarterly
+  - Annual
+- Remove time from audit date selection
+
+============================================================
+ANALYTICS (EXPANSION)
+============================================================
+- Global search usable everywhere (including audits)
+- Clickable drilldowns:
+  - Tech -> tech history
+  - Date -> date-filtered history
+- Charts:
+  - Usage
+  - Cost
+  - Discrepancies
+
+DASHBOARD COST WIDGETS
+- Monthly to date
+- Quarterly
+- Annual
+- On-hand value
+- Replace low-inventory cost widget with estimated reorder costs
+
+============================================================
+ADMIN SETTINGS (ALL MVP-CRITICAL)
+============================================================
+USERS
+- Add / edit
+- Role assignment
+- Tag assignment
+
+PRODUCTS
+- Add product
+  - Require initial count (ledger event; 0 allowed)
+- Edit product
+
+RULES ENGINE (MVP)
+- If X condition -> Z action
+  - Example:
+    - If category = Termiticide
+      - Alert Manager
+      - Require additional details:
+        - Customer Name
+        - Customer ID
+        - Work Ticket ID
+        - Service Type
+
+WORKFLOWS
+- Configurable approval chains
+- Optional tech acknowledgment
+
+PHOTO SETTINGS
+- Require photo for checkout?
+- Remote checkout rules
+
+============================================================
+PHASE C - RECEIVING & ORDERING (EXECUTION CHECKLIST)
+============================================================
+This checklist is mandatory guidance for implementing Phase C.
+Do not skip steps or reorder without updating this file.
+
+RECEIVING - MVP (PHASE C.1)
+- Add Receiving tab (role-aware: Warehouse / Manager / Admin)
+- Build Receiving screen (mobile-first)
+- Flow mirrors Transfer but reversed direction
+- Records incoming ledger entries ONLY
+- Deterministic idempotency keys for receiving posts
+- No direct balance mutation
+
+RECEIVING - DATA
+- Receiving creates ledger transactions scoped to destination location
+- Source is external/vendor (not another internal location)
+
+ORDERING - GROUNDWORK (PHASE C.2)
+- Supplier model (no over-design):
+  - Name (required)
+  - License # (optional)
+  - EIN (optional)
+- Supplier Settings screen (Admin only)
+
+ORDERING UI
+- Orders tab/screen
+- Low stock list (derived from par levels)
+- Expandable detail view
+- Order history list with detail view
+
+ORDER TYPES
+- Email (MVP)
+- API (future)
+
+ORDER LIFECYCLE
+- Created -> Pending -> Delivered -> Confirmed
+- Confirmed delivery triggers Receiving workflow
+
+GUARDRAILS
+- No schema changes unless unavoidable
+- No direct onHand edits (ledger/audit only)
+- Update this file when Phase C milestones are completed
+
+============================================================
+IMMEDIATE NEXT WORK
+============================================================
+1) Follow roadmap phases strictly
+2) Next major pushes:
+   - Bulk import expansion (existing fields only)
+     - Respect ledger rules (no direct onHand mutation)
+   - Receiving & ordering workflows
+   - Product intelligence (tags, recent transactions)
+   - Dropdown UI consistency
+
+============================================================
+CHANGE LOG
+============================================================
+Format:
+YYYY-MM-DD
+- What changed
+- Why
+- Follow-ups / risks
+
+---
+
+2026-01-28
+- Receiving UX fixes (quantity step=1, auto-select on focus)
+- Receiving history (receipt list + modal grouped by receipt idempotency keys)
+- Follow-ups: history grouping uses idempotency key prefixes from existing incoming posts; consider deterministic receipt-level keys in a future pass
+
+2026-01-27
+- Created integrated roadmap and continuity log
+- Consolidated non-negotiable principles, git policy, and Prisma rules
+- Clarified Phase C scope (Receiving & Ordering)
+- Established this file as authoritative over chat memory
+
+============================================================
+CHANGE LOG RULE
+============================================================
+When making changes:
+- Update this file
+- Record:
+  - What changed
+  - Why
+  - Any new bugs, risks, or follow-ups
+
+This file overrides chat memory when conflicts arise.
+
+============================================================
+CONTRIBUTING RULES (AGENTS & HUMANS)
+============================================================
+- Open this file before writing code
+- Do not implement features that contradict this roadmap
+- If a decision must change:
+  - Update this file FIRST
+  - Then implement
+- One feature per branch
+- One PR per logical unit of work
+- Update CHANGE LOG after every merged PR
