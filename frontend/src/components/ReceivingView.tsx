@@ -4,6 +4,7 @@ import { useAuth } from '../auth';
 import { useToast } from './ui/Toast';
 import { SearchableSelect } from './ui/SearchableSelect';
 import { ModalShell } from './ui/ModalShell';
+import { ProductDetailsModal } from './products/ProductDetailsModal';
 
 export function ReceivingView() {
   const { user } = useAuth();
@@ -58,6 +59,7 @@ export function ReceivingView() {
       idempotencyKey: string;
     }>;
   } | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!canReceive) return;
@@ -361,9 +363,13 @@ export function ReceivingView() {
         ) : (
           <ul className="activity">
             {lineHistory.map((line, idx) => (
-              <li key={`${line.receiptId}-${line.productId}-${idx}`} className="clickable" onClick={() => openReceipt(line.receiptId)}>
+              <li
+                key={`${line.receiptId}-${line.productId}-${idx}`}
+                className="clickable"
+                onClick={() => setSelectedProductId(line.productId)}
+              >
                 <div className="card-stack">
-                  <strong>{line.productName}</strong>
+                  <strong>{productById.get(line.productId)?.name ?? line.productName}</strong>
                   <div className="muted">
                     {line.quantityReceived} {line.receivingUnitLabel} | {new Date(line.postedAt).toLocaleString()}
                   </div>
@@ -390,7 +396,12 @@ export function ReceivingView() {
               {new Date(receiptDetail.postedAt).toLocaleString()} | {receiptDetail.destinationScope} | {receiptDetail.lineCount} lines
             </div>
             {receiptDetail.lines.map((line) => (
-              <div key={`${line.idempotencyKey}-${line.productId}`} className="card">
+              <button
+                key={`${line.idempotencyKey}-${line.productId}`}
+                type="button"
+                className="card clickable"
+                onClick={() => setSelectedProductId(line.productId)}
+              >
                 <div className="card-row">
                   <strong>{line.productName}</strong>
                   <span className="muted">
@@ -398,11 +409,17 @@ export function ReceivingView() {
                   </span>
                 </div>
                 <div className="muted">Base units: {line.quantityBase}</div>
-              </div>
+              </button>
             ))}
           </div>
         )}
       </ModalShell>
+
+      <ProductDetailsModal
+        open={Boolean(selectedProductId)}
+        product={selectedProductId ? productById.get(selectedProductId) ?? null : null}
+        onClose={() => setSelectedProductId(null)}
+      />
     </section>
   );
 }
