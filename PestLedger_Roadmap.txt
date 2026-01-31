@@ -459,6 +459,12 @@ YYYY-MM-DD
 2026-01-29
 - Added Phase H Hosting package + locked MVP definition + hosting trigger
 
+2026-01-31
+- Phase H MVP hosting package scaffolding (prod compose, Caddyfile template, env example, docs, backup/restore scripts)
+
+2026-01-31
+- Receiving UI polish: readable receipt line quantities and tighter iOS date input width
+
 2026-01-28
 - Receiving UX fixes (quantity step=1, auto-select on focus)
 - Receiving history (receipt list + modal grouped by receipt idempotency keys)
