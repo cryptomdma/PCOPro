@@ -287,8 +287,8 @@ button {
 }
 
 input[type='date'] {
-  width: 100%;
-  max-width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   min-width: 0;
   display: block;
   -webkit-appearance: none;
