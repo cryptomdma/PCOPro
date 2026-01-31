@@ -359,6 +359,85 @@ GUARDRAILS
 - No direct onHand edits (ledger/audit only)
 - Update this file when Phase C milestones are completed
 
+============================================================
+HOSTING & DEPLOYMENT (PHASE H – MVP HOSTING PACKAGE)
+============================================================
+Goal: Ship a boring, repeatable deployment path for BOTH:
+- Self-host (Community / free)
+- Managed cloud (Premium)
+
+IMPORTANT: Do NOT over-engineer hosting before MVP is stable.
+This phase is packaging + documentation + prod-safe defaults (not provider deep-dives).
+
+HOSTING INVARIANTS (LOCK THESE NOW)
+- Single-tenant per company (initially) for both self-host and cloud
+- Dockerized backend + frontend
+- ENV-based config only (no secrets in repo)
+- HTTPS everywhere
+- DB backups required
+- Prisma in prod uses ONLY: prisma migrate deploy
+
+ENVIRONMENTS
+- Local: Docker Compose (current)
+- Staging: production-like validation
+- Production: customer-facing
+
+SELF-HOST (COMMUNITY) – MVP PACKAGE
+Deliver:
+- docker-compose.prod.yml
+- Caddyfile template (HTTPS)
+- .env.example (no secrets)
+- install guide (VPS + domain + HTTPS)
+- backup + restore scripts (pg_dump / psql)
+- update guide (pull → rebuild → migrate deploy)
+- support boundaries (what we do/don’t support)
+
+MANAGED CLOUD (PREMIUM) – MVP PACKAGE
+Deliver provider-agnostic doc:
+- containerized API
+- static frontend hosting
+- managed Postgres
+- release step runs prisma migrate deploy
+- minimal ops guidance (health endpoint + monitoring + backups + rollback)
+
+NON-GOALS (FOR NOW)
+- Kubernetes
+- Multi-region replication
+- Complex autoscaling
+
+============================================================
+MVP DEFINITION (LOCKED)
+============================================================
+MVP means a real warehouse + a real tech can use the system daily without DB babysitting.
+
+MVP INCLUDES
+- Ledger-only inventory (idempotent posting)
+- Multi-location scopes (WAREHOUSE, TRUCK:{techId})
+- Role gating (TECH restricted; no Analytics; In Stock only)
+- Products: search/sort; product detail modal; par levels; low stock widget
+- Audit: sessions/lines/finalize posts adjustments idempotently
+- Receiving: post incoming stock (idempotent) + receiving history grouped by receipt
+- Ordering groundwork (Phase C.2): low stock list + order draft objects (email template later)
+- Admin settings MVP-critical:
+  - Users add/edit + roles + tags
+  - Products add/edit (add requires initial ledger event)
+  - Workflows (request → finalize → ready → optional acknowledge)
+  - Rules (category alerts + required required fields)
+  - Disputes (tech photo + manager resolution)
+
+MVP EXCLUDES (OK TO DEFER)
+- Vendor API integrations
+- Advanced charts/visual analytics
+- Multi-tenant shared DB
+- Premium permission engine beyond tags
+
+HOSTING TRIGGER (PROVIDER-SPECIFIC)
+- Begin provider-specific hosting only when:
+  - Phase C.1 + C.2 are stable
+  - Admin Settings MVP-critical are complete
+  - No schema-breaking changes expected for one full iteration cycle
+
+
 IMMEDIATE NEXT WORK
 1) Follow roadmap phases strictly
 2) Next major pushes:
@@ -376,6 +455,16 @@ YYYY-MM-DD
 - Follow-ups / risks
 
 ---
+
+2026-01-29
+- Added Phase H Hosting package + locked MVP definition + hosting trigger
+
+2026-01-31
+- Phase H MVP hosting package scaffolding (prod compose, Caddyfile template, env example, docs, backup/restore scripts)
+- Added prod-safe setup:admin CLI for first-time admin bootstrap
+
+2026-01-31
+- Receiving UI polish: readable receipt line quantities and tighter iOS date input width
 
 2026-01-28
 - Receiving UX fixes (quantity step=1, auto-select on focus)
