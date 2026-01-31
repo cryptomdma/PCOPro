@@ -11,6 +11,7 @@
     "import:products": "ts-node src/cli/import-products.ts",
     "import:opening": "ts-node src/cli/opening-load.ts",
     "bootstrap:admin": "ts-node src/cli/bootstrap-admin.ts",
+    "setup:admin": "ts-node src/cli/setup-admin.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate"
   },

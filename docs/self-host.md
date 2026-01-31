@@ -45,7 +45,20 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
 ```
 
-## 7) Backups
+## 7) Create the first admin (one-time)
+```bash
+docker compose -f docker-compose.prod.yml exec backend env \
+  SETUP_ADMIN_TOKEN=your_one_time_token \
+  SETUP_ADMIN_EMAIL=admin@yourdomain.com \
+  SETUP_ADMIN_PASSWORD='strong-password' \
+  npm run setup:admin
+```
+Notes:
+- `SETUP_ADMIN_TOKEN` is required; the command will refuse to run without it.
+- If `SETUP_ADMIN_PASSWORD` is omitted, a random password is generated and printed once.
+- If an admin already exists, the command exits without changes.
+
+## 8) Backups
 ```bash
 export POSTGRES_CONTAINER=pestledger-db
 export POSTGRES_USER=pco
@@ -55,12 +68,12 @@ export POSTGRES_DB=pco
 
 Retention: set `RETENTION_DAYS=14` to delete backups older than 14 days.
 
-## 8) Restore
+## 9) Restore
 ```bash
 ./scripts/restore.sh ./backups/pestledger_YYYYMMDD_HHMMSS.sql
 ```
 
-## 9) Updates
+## 10) Updates
 ```bash
 git pull
 docker compose -f docker-compose.prod.yml up -d --build

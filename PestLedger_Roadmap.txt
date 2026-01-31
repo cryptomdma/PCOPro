@@ -461,6 +461,7 @@ YYYY-MM-DD
 
 2026-01-31
 - Phase H MVP hosting package scaffolding (prod compose, Caddyfile template, env example, docs, backup/restore scripts)
+- Added prod-safe setup:admin CLI for first-time admin bootstrap
 
 2026-01-31
 - Receiving UI polish: readable receipt line quantities and tighter iOS date input width
