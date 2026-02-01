@@ -889,7 +889,29 @@ export class ProductsService {
     const failedCount = failures.length;
     const rowsRead = rows.length;
     skippedCount = rowsRead - updatedCount - createdCount - failedCount;
-    const summary = {
+    const summary: {
+      rowsRead: number;
+      mode: string;
+      dryRun: boolean;
+      createdCount: number;
+      updated: number;
+      skipped: number;
+      failed: number;
+      updatedCount: number;
+      skippedCount: number;
+      failedCount: number;
+      created: number;
+      initialPostedCount: number;
+      initialSkippedCount: number;
+      idempotencyKeys: string[];
+      updatedSample: string[];
+      createdSample: string[];
+      failures: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }>;
+      unmapped?: {
+        category: Array<{ value: string; count: number }>;
+        productType: Array<{ value: string; count: number }>;
+      };
+    } = {
       rowsRead,
       mode,
       dryRun,
