@@ -16,6 +16,10 @@ type BulkImportResult = {
   initialPostedCount?: number;
   initialSkippedCount?: number;
   idempotencyKeys?: string[];
+  unmapped?: {
+    category?: Array<{ value: string; count: number }>;
+    productType?: Array<{ value: string; count: number }>;
+  };
   failures?: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }>;
   updatedSample?: string[];
   createdSample?: string[];
@@ -79,13 +83,14 @@ export function BulkProductImportPanel() {
         </label>
       </div>
       <p className="muted">
-        Headers: productId | sku | name | epa | defaultCostPerBase | category | productType | baseType |
-        trackingUnitLabel | checkoutUnitLabel | orderingUnitLabel | trackingToBase | checkoutToBase | orderingToBase
+        Headers: productId | sku | name | epa | defaultCostPerBase | costPerTracking | category | productType | baseType
+        | trackingUnitLabel | checkoutUnitLabel | orderingUnitLabel | trackingToBase | checkoutToBase | orderingToBase
         {mode === 'initial_load' ? ' | initialQty | initialScope | asOfDate' : ''}.
       </p>
       <p className="muted">
-        Examples: category = Chemical, Ant Bait, PPE, Equipment; productType = Ant Bait, Roach Bait, Repellent, Aerosol,
-        Dust, Granule. baseType = MASS | VOLUME | COUNT.
+        Examples: category = Chemical, Sanitation, Physical, Exclusion; productType = Non-Repellent, Surfactant, Ant Bait,
+        Ant Bait Stations, Wasp Spray, Fly Bait, Other. Provide defaultCostPerBase OR costPerTracking (normalized using
+        trackingToBase). baseType = MASS | VOLUME | COUNT.
       </p>
       <div className="card-row">
         <input type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
@@ -105,6 +110,21 @@ export function BulkProductImportPanel() {
             {result.created ?? result.createdCount ?? 0} | Updated: {result.updated ?? result.updatedCount} | Skipped:{' '}
             {result.skipped ?? result.skippedCount} | Failed: {result.failed ?? result.failedCount}
           </div>
+          {result.unmapped?.category?.length || result.unmapped?.productType?.length ? (
+            <div className="card-stack">
+              {result.unmapped?.category?.length ? (
+                <div className="muted">
+                  Unmapped categories: {result.unmapped.category.map((entry) => `${entry.value} (${entry.count})`).join(', ')}
+                </div>
+              ) : null}
+              {result.unmapped?.productType?.length ? (
+                <div className="muted">
+                  Unmapped product types:{' '}
+                  {result.unmapped.productType.map((entry) => `${entry.value} (${entry.count})`).join(', ')}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {result.initialPostedCount !== undefined ? (
             <div className="muted">
               Initial stock posted: {result.initialPostedCount} | Initial stock skipped: {result.initialSkippedCount ?? 0}
