@@ -6,11 +6,19 @@ type BulkImportResult = {
   updatedCount: number;
   skippedCount: number;
   failedCount: number;
+  createdCount?: number;
   updated?: number;
   skipped?: number;
   failed?: number;
+  created?: number;
+  mode?: string;
+  dryRun?: boolean;
+  initialPostedCount?: number;
+  initialSkippedCount?: number;
+  idempotencyKeys?: string[];
   failures?: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }>;
   updatedSample?: string[];
+  createdSample?: string[];
   message?: string;
 };
 
@@ -19,8 +27,9 @@ export function BulkProductImportPanel() {
   const [result, setResult] = useState<BulkImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [mode, setMode] = useState<'upsert' | 'initial_load'>('upsert');
 
-  async function uploadCsv() {
+  async function uploadCsv(dryRun: boolean) {
     if (!file) {
       setError('Select a CSV file first.');
       return;
@@ -30,7 +39,7 @@ export function BulkProductImportPanel() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await axios.post('/api/v1/products/bulk-import', formData);
+      const response = await axios.post(`/api/v1/products/bulk-import?mode=${mode}&dryRun=${dryRun}`, formData);
       setResult(response.data);
     } catch (err: any) {
       const data = err?.response?.data;
@@ -47,16 +56,44 @@ export function BulkProductImportPanel() {
 
   return (
     <div className="card">
-      <h4>Bulk Product Update</h4>
-      <p className="muted">Upload a CSV to update existing products (EPA, SKU, cost, category, type).</p>
+      <h4>Bulk Product Import</h4>
+      <p className="muted">Upsert products with a preview step, or run an initial load for new products only.</p>
+      <div className="card-row">
+        <label className="muted">
+          <input
+            type="radio"
+            name="bulk-import-mode"
+            checked={mode === 'upsert'}
+            onChange={() => setMode('upsert')}
+          />{' '}
+          Upsert Products (metadata only)
+        </label>
+        <label className="muted">
+          <input
+            type="radio"
+            name="bulk-import-mode"
+            checked={mode === 'initial_load'}
+            onChange={() => setMode('initial_load')}
+          />{' '}
+          Initial Load (create + optional initial stock for new products)
+        </label>
+      </div>
       <p className="muted">
-        Headers: productId | sku | name | epa | defaultCostPerBase | category | productType. Examples: category =
-        Chemical, Ant Bait, PPE, Equipment; productType = Ant Bait, Roach Bait, Repellent, Aerosol, Dust, Granule.
+        Headers: productId | sku | name | epa | defaultCostPerBase | category | productType | baseType |
+        trackingUnitLabel | checkoutUnitLabel | orderingUnitLabel | trackingToBase | checkoutToBase | orderingToBase
+        {mode === 'initial_load' ? ' | initialQty | initialScope | asOfDate' : ''}.
+      </p>
+      <p className="muted">
+        Examples: category = Chemical, Ant Bait, PPE, Equipment; productType = Ant Bait, Roach Bait, Repellent, Aerosol,
+        Dust, Granule. baseType = MASS | VOLUME | COUNT.
       </p>
       <div className="card-row">
         <input type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        <button type="button" onClick={uploadCsv} disabled={uploading}>
-          {uploading ? 'Uploading...' : 'Upload'}
+        <button type="button" onClick={() => uploadCsv(true)} disabled={uploading}>
+          {uploading ? 'Uploading...' : 'Preview'}
+        </button>
+        <button type="button" onClick={() => uploadCsv(false)} disabled={uploading}>
+          {uploading ? 'Uploading...' : 'Apply'}
         </button>
       </div>
       {error ? <div className="error-panel">{error}</div> : null}
@@ -64,11 +101,23 @@ export function BulkProductImportPanel() {
         <div className="card-stack">
           {result.message ? <div className="muted">{result.message}</div> : null}
           <div className="muted">
-            Rows: {result.rowsRead} | Updated: {result.updated ?? result.updatedCount} | Skipped:{' '}
+            Mode: {result.mode ?? mode} {result.dryRun ? '(preview)' : ''} | Rows: {result.rowsRead} | Created:{' '}
+            {result.created ?? result.createdCount ?? 0} | Updated: {result.updated ?? result.updatedCount} | Skipped:{' '}
             {result.skipped ?? result.skippedCount} | Failed: {result.failed ?? result.failedCount}
           </div>
+          {result.initialPostedCount !== undefined ? (
+            <div className="muted">
+              Initial stock posted: {result.initialPostedCount} | Initial stock skipped: {result.initialSkippedCount ?? 0}
+            </div>
+          ) : null}
           {result.updatedSample?.length ? (
             <div className="muted">Updated sample: {result.updatedSample.join(', ')}</div>
+          ) : null}
+          {result.createdSample?.length ? (
+            <div className="muted">Created sample: {result.createdSample.join(', ')}</div>
+          ) : null}
+          {result.idempotencyKeys?.length ? (
+            <div className="muted">Idempotency sample: {result.idempotencyKeys.join(', ')}</div>
           ) : null}
           {result.failures?.length ? (
             <textarea

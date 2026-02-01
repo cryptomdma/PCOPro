@@ -47,8 +47,20 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequirePerm('products.manage')
   @UseInterceptors(FileInterceptor('file'))
-  bulkImport(@UploadedFile() file?: { buffer: Buffer }) {
-    return this.products.bulkImportCsv(file?.buffer ?? Buffer.from(''));
+  bulkImport(
+    @UploadedFile() file?: { buffer: Buffer },
+    @Query('mode') mode?: string,
+    @Query('dryRun') dryRunRaw?: string,
+    @Query('allowExistingInitialQty') allowExistingRaw?: string,
+  ) {
+    const dryRun = dryRunRaw === 'true' || dryRunRaw === '1' || dryRunRaw === 'yes';
+    const allowExistingInitialQty = allowExistingRaw === 'true' || allowExistingRaw === '1' || allowExistingRaw === 'yes';
+    const normalizedMode = mode === 'initial_load' ? 'initial_load' : 'upsert';
+    return this.products.bulkImportCsv(file?.buffer ?? Buffer.from(''), {
+      mode: normalizedMode,
+      dryRun,
+      allowExistingInitialQty,
+    });
   }
 
   @Get(':id')

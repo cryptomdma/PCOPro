@@ -1,9 +1,19 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
-import { Prisma, ProductCategory, ProductType, Role } from '@prisma/client';
+import {
+  Prisma,
+  ProductBehavior,
+  ProductCategory,
+  ProductTrackingMode,
+  ProductType,
+  Role,
+  TransactionType,
+  UnitBaseType,
+} from '@prisma/client';
 import * as QRCode from 'qrcode';
 import { parse } from 'csv-parse/sync';
+import { toBaseQuantity } from '../utils/units';
 
 @Injectable()
 export class ProductsService {
@@ -216,10 +226,16 @@ export class ProductsService {
     return { rowsRead, updatedCount, skippedCount, failedCount, failures };
   }
 
-  async bulkImportCsv(buffer: Buffer) {
+  async bulkImportCsv(
+    buffer: Buffer,
+    options?: { mode?: 'upsert' | 'initial_load'; dryRun?: boolean; allowExistingInitialQty?: boolean },
+  ) {
     if (!buffer?.length) {
       throw new BadRequestException('CSV file is required');
     }
+    const mode = options?.mode === 'initial_load' ? 'initial_load' : 'upsert';
+    const dryRun = options?.dryRun ?? false;
+    const allowExistingInitialQty = options?.allowExistingInitialQty ?? false;
 
     const raw = buffer.toString('utf-8');
     const rows = parse(raw, {
@@ -231,9 +247,14 @@ export class ProductsService {
     const failures: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }> =
       [];
     const updatedIds: string[] = [];
+    const createdIds: string[] = [];
+    const idempotencyKeys: string[] = [];
     let updatedCount = 0;
+    let createdCount = 0;
     let skippedCount = 0;
     let conflictCount = 0;
+    let initialPostedCount = 0;
+    let initialSkippedCount = 0;
 
     const normalizeKey = (value: string) => value.replace(/^\uFEFF/, '').trim().toLowerCase();
     const normalizeAlias = (value: string) => {
@@ -250,6 +271,27 @@ export class ProductsService {
         .replace(/livetrap/g, 'live trap')
         .replace(/\s+/g, ' ')
         .trim();
+    };
+    const parseBoolean = (value?: string) => {
+      if (value === undefined || value === null) return null;
+      const normalized = String(value).trim().toLowerCase();
+      if (!normalized) return null;
+      if (['1', 'true', 'yes', 'y'].includes(normalized)) return true;
+      if (['0', 'false', 'no', 'n'].includes(normalized)) return false;
+      return null;
+    };
+    const normalizeBaseType = (value?: string) => {
+      const normalized = (value ?? '').trim().toUpperCase();
+      switch (normalized) {
+        case 'MASS':
+          return UnitBaseType.MASS;
+        case 'VOLUME':
+          return UnitBaseType.VOLUME;
+        case 'COUNT':
+          return UnitBaseType.COUNT;
+        default:
+          return null;
+      }
     };
 
     const getField = (row: Record<string, string>, keys: string[]) => {
@@ -335,13 +377,16 @@ export class ProductsService {
       const skuIdentifier = skuField.present ? normalizeNullable(skuField.value) : null;
       const nameIdentifier = nameField.present ? normalizeNullable(nameField.value) : null;
 
-      let product: { id: string } | null = null;
+      let product: { id: string; trackingToBase: number; checkoutToBase: number; orderingToBase: number } | null = null;
       let identifier = '';
 
       let skuRawValue: string | undefined;
       try {
         if (productId) {
-          product = await this.prisma.product.findUnique({ where: { id: productId } });
+          product = await this.prisma.product.findUnique({
+            where: { id: productId },
+            select: { id: true, trackingToBase: true, checkoutToBase: true, orderingToBase: true },
+          });
           identifier = `productId:${productId}`;
         } else if (skuIdentifier) {
           const code = await this.prisma.productCode.findFirst({
@@ -349,13 +394,16 @@ export class ProductsService {
             select: { productId: true },
           });
           if (code) {
-            product = { id: code.productId };
+            product = await this.prisma.product.findUnique({
+              where: { id: code.productId },
+              select: { id: true, trackingToBase: true, checkoutToBase: true, orderingToBase: true },
+            });
           }
           identifier = `sku:${skuIdentifier}`;
         } else if (nameIdentifier) {
           const matches = await this.prisma.product.findMany({
             where: { name: { equals: nameIdentifier.trim(), mode: 'insensitive' } },
-            select: { id: true },
+            select: { id: true, trackingToBase: true, checkoutToBase: true, orderingToBase: true },
           });
           if (matches.length === 1) {
             product = matches[0];
@@ -372,13 +420,6 @@ export class ProductsService {
           failures.push({ rowIndex, identifier: 'unknown', reason: 'Missing identifier' });
           continue;
         }
-
-        if (!product) {
-          failures.push({ rowIndex, identifier, reason: 'Product not found' });
-          continue;
-        }
-
-        const productIdResolved = product.id;
 
         const updateData: Prisma.ProductUpdateInput = {};
 
@@ -456,14 +497,35 @@ export class ProductsService {
         const skuValue = hasSkuUpdate ? normalizeNullable(skuUpdateField.value, true) : null;
         skuRawValue = hasSkuUpdate ? skuUpdateField.value : undefined;
 
-        if (!Object.keys(updateData).length && !hasSkuUpdate) {
-          skippedCount += 1;
+        const initialQtyField =
+          mode === 'initial_load' ? getField(row, ['initialQty', 'initial_qty', 'initial', 'qty']) : { value: '', present: false };
+        const initialScopeField =
+          mode === 'initial_load' ? getField(row, ['initialScope', 'scope', 'locationScope']) : { value: '', present: false };
+        const asOfDateField =
+          mode === 'initial_load' ? getField(row, ['asOfDate', 'as_of_date', 'date']) : { value: '', present: false };
+        const initialQtyParsed = initialQtyField.present ? parseDecimal(initialQtyField.value) : null;
+        if (initialQtyField.present && initialQtyParsed === undefined) {
+          failures.push({
+            rowIndex,
+            identifier,
+            field: 'initialQty',
+            rawValue: initialQtyField.value,
+            reason: 'Invalid initialQty',
+          });
+          continue;
+        }
+
+        const shouldHandleInitial = mode === 'initial_load' && initialQtyParsed !== null && initialQtyParsed !== undefined;
+
+        if (!product && productId) {
+          failures.push({ rowIndex, identifier, reason: 'Product not found for productId' });
           continue;
         }
 
         if (hasSkuUpdate && skuValue) {
           const seenProductId = seenSkus.get(skuValue);
-          if (seenProductId && seenProductId !== productIdResolved) {
+          const currentKey = product?.id ?? `row-${rowIndex}`;
+          if (seenProductId && seenProductId !== currentKey) {
             failures.push({
               rowIndex,
               identifier,
@@ -476,44 +538,270 @@ export class ProductsService {
           }
         }
 
-        await this.prisma.$transaction(async (tx) => {
-          if (hasSkuUpdate) {
-            if (!skuValue) {
-              await tx.productCode.deleteMany({ where: { productId: productIdResolved, codeType: 'sku' } });
-            } else {
-              const existing = await tx.productCode.findFirst({
-                where: { payload: skuValue, codeType: 'sku' },
-                select: { productId: true, id: true, payload: true },
-              });
-              if (existing && existing.productId !== productIdResolved) {
-                throw new ConflictException('SKU already assigned to another product');
-              }
-              const currentSku = await tx.productCode.findFirst({
-                where: { productId: productIdResolved, codeType: 'sku' },
-                select: { id: true, payload: true },
-              });
-              if (currentSku) {
-                if (currentSku.payload !== skuValue) {
-                  await tx.productCode.update({ where: { id: currentSku.id }, data: { payload: skuValue } });
+        if (product) {
+          const productIdResolved = product.id;
+          if (mode === 'initial_load' && shouldHandleInitial && !allowExistingInitialQty && (initialQtyParsed ?? 0) > 0) {
+            failures.push({
+              rowIndex,
+              identifier,
+              field: 'initialQty',
+              rawValue: initialQtyField.value,
+              reason: 'Initial quantity only allowed for newly created products',
+            });
+            continue;
+          }
+
+          if (!Object.keys(updateData).length && !hasSkuUpdate) {
+            skippedCount += 1;
+            continue;
+          }
+
+          if (!dryRun) {
+            await this.prisma.$transaction(async (tx) => {
+              if (hasSkuUpdate) {
+                if (!skuValue) {
+                  await tx.productCode.deleteMany({ where: { productId: productIdResolved, codeType: 'sku' } });
+                } else {
+                  const existing = await tx.productCode.findFirst({
+                    where: { payload: skuValue, codeType: 'sku' },
+                    select: { productId: true, id: true, payload: true },
+                  });
+                  if (existing && existing.productId !== productIdResolved) {
+                    throw new ConflictException('SKU already assigned to another product');
+                  }
+                  const currentSku = await tx.productCode.findFirst({
+                    where: { productId: productIdResolved, codeType: 'sku' },
+                    select: { id: true, payload: true },
+                  });
+                  if (currentSku) {
+                    if (currentSku.payload !== skuValue) {
+                      await tx.productCode.update({ where: { id: currentSku.id }, data: { payload: skuValue } });
+                    }
+                  } else {
+                    await tx.productCode.create({ data: { productId: productIdResolved, payload: skuValue, codeType: 'sku' } });
+                  }
                 }
-              } else {
-                await tx.productCode.create({ data: { productId: productIdResolved, payload: skuValue, codeType: 'sku' } });
               }
+
+              if (Object.keys(updateData).length) {
+                await tx.product.update({ where: { id: productIdResolved }, data: updateData });
+              }
+            });
+          }
+
+          if (hasSkuUpdate && skuValue) {
+            seenSkus.set(skuValue, productIdResolved);
+          }
+
+          updatedCount += 1;
+          if (updatedIds.length < 5) {
+            updatedIds.push(productIdResolved);
+          }
+        } else {
+          const nameValue = nameIdentifier ?? normalizeNullable(nameUpdate.value);
+          if (!nameValue) {
+            failures.push({ rowIndex, identifier, reason: 'Missing name for create' });
+            continue;
+          }
+
+          const categoryValueRaw = categoryField.present ? String(categoryField.value ?? '').trim() : '';
+          const mappedCategory = categoryValueRaw ? mapCategoryAlias(categoryValueRaw) : null;
+          if (!mappedCategory) {
+            failures.push({
+              rowIndex,
+              identifier: identifier || `name:${nameValue}`,
+              field: 'category',
+              rawValue: categoryField.value,
+              reason: `Unmapped category value: ${categoryField.value}`,
+            });
+            continue;
+          }
+
+          const typeValueRaw = typeField.present ? String(typeField.value ?? '').trim() : '';
+          const mappedType = typeValueRaw ? mapProductTypeAlias(typeValueRaw) : null;
+          if (!mappedType) {
+            failures.push({
+              rowIndex,
+              identifier: identifier || `name:${nameValue}`,
+              field: 'productType',
+              rawValue: typeField.value,
+              reason: `Unmapped productType value: ${typeField.value}`,
+            });
+            continue;
+          }
+
+          const baseTypeField = getField(row, ['baseType', 'base_type', 'base type']);
+          const baseType = normalizeBaseType(baseTypeField.value);
+          if (!baseType) {
+            failures.push({
+              rowIndex,
+              identifier: identifier || `name:${nameValue}`,
+              field: 'baseType',
+              rawValue: baseTypeField.value,
+              reason: 'Missing or invalid baseType',
+            });
+            continue;
+          }
+
+          const trackingLabelField = getField(row, ['trackingUnitLabel', 'tracking_unit_label', 'tracking unit label']);
+          const checkoutLabelField = getField(row, ['checkoutUnitLabel', 'checkout_unit_label', 'checkout unit label']);
+          const orderingLabelField = getField(row, ['orderingUnitLabel', 'ordering_unit_label', 'ordering unit label']);
+          const trackingUnitLabel = (trackingLabelField.value ?? '').trim();
+          const checkoutUnitLabel = (checkoutLabelField.value ?? '').trim();
+          const orderingUnitLabel = (orderingLabelField.value ?? '').trim();
+
+          if (!trackingUnitLabel || !checkoutUnitLabel || !orderingUnitLabel) {
+            failures.push({
+              rowIndex,
+              identifier: identifier || `name:${nameValue}`,
+              reason: 'Missing required unit labels for create',
+            });
+            continue;
+          }
+
+          const trackingToBaseField = getField(row, ['trackingToBase', 'tracking_to_base', 'tracking to base']);
+          const checkoutToBaseField = getField(row, ['checkoutToBase', 'checkout_to_base', 'checkout to base']);
+          const orderingToBaseField = getField(row, ['orderingToBase', 'ordering_to_base', 'ordering to base']);
+          const trackingToBase = parseDecimal(trackingToBaseField.value);
+          const checkoutToBase = parseDecimal(checkoutToBaseField.value);
+          const orderingToBase = parseDecimal(orderingToBaseField.value);
+
+          if (!trackingToBase || !checkoutToBase || !orderingToBase) {
+            failures.push({
+              rowIndex,
+              identifier: identifier || `name:${nameValue}`,
+              reason: 'Missing or invalid unit conversion values',
+            });
+            continue;
+          }
+
+          if (skuValue) {
+            const existingSku = await this.prisma.productCode.findFirst({
+              where: { payload: skuValue, codeType: 'sku' },
+              select: { productId: true },
+            });
+            if (existingSku) {
+              failures.push({
+                rowIndex,
+                identifier: identifier || `name:${nameValue}`,
+                field: 'sku',
+                rawValue: skuUpdateField.value,
+                reason: 'SKU already assigned to another product',
+              });
+              conflictCount += 1;
+              continue;
             }
           }
 
-          if (Object.keys(updateData).length) {
-            await tx.product.update({ where: { id: productIdResolved }, data: updateData });
+          if (dryRun) {
+            createdCount += 1;
+            if (createdIds.length < 5) {
+              createdIds.push(nameValue);
+            }
+            if (skuValue) {
+              seenSkus.set(skuValue, `row-${rowIndex}`);
+            }
+          } else {
+            const trackingMode =
+              mappedCategory === ProductCategory.EQUIPMENT || mappedCategory === ProductCategory.PPE
+                ? ProductTrackingMode.EQUIPMENT
+                : ProductTrackingMode.BULK;
+
+            const isStockedField = getField(row, ['isStocked', 'stock', 'stocked']);
+            const doNotStockField = getField(row, ['doNotStock', 'do_not_stock']);
+            const discontinuedField = getField(row, ['isDiscontinued', 'discontinued']);
+
+            const isStocked = parseBoolean(doNotStockField.value) === true ? false : parseBoolean(isStockedField.value);
+            const isDiscontinued = parseBoolean(discontinuedField.value);
+
+            await this.prisma.$transaction(async (tx) => {
+              const created = await tx.product.create({
+                data: {
+                  name: nameValue,
+                  epaRegNo: updateData.epaRegNo as string | null | undefined,
+                  description: updateData.description as string | null | undefined,
+                  category: mappedCategory,
+                  productType: mappedType,
+                  baseType,
+                  trackingUnitLabel,
+                  checkoutUnitLabel,
+                  orderingUnitLabel,
+                  trackingToBase: Math.round(trackingToBase),
+                  checkoutToBase: Math.round(checkoutToBase),
+                  orderingToBase: Math.round(orderingToBase),
+                  trackingMode,
+                  behavior: ProductBehavior.CONSUMABLE,
+                  isStocked: isStocked ?? undefined,
+                  isDiscontinued: isDiscontinued ?? undefined,
+                  defaultCostPerBase: updateData.defaultCostPerBase as Prisma.Decimal | null | undefined,
+                },
+              });
+
+              if (skuValue) {
+                await tx.productCode.create({
+                  data: { productId: created.id, payload: skuValue, codeType: 'sku' },
+                });
+              }
+
+              if (mode === 'initial_load' && shouldHandleInitial && (initialQtyParsed ?? 0) > 0) {
+                const scope = (initialScopeField.value ?? '').trim() || 'WAREHOUSE';
+                const asOfRaw = (asOfDateField.value ?? '').trim();
+                const asOfDate = asOfRaw ? new Date(asOfRaw) : new Date();
+                if (Number.isNaN(asOfDate.getTime())) {
+                  throw new BadRequestException('Invalid asOfDate');
+                }
+
+                const qtyBase = toBaseQuantity(initialQtyParsed ?? 0, Math.round(trackingToBase));
+                if (qtyBase <= 0) {
+                  initialSkippedCount += 1;
+                } else {
+                  const asOfKey = asOfDate.toISOString().slice(0, 10);
+                  const idempotencyKey = `initload:${scope}:${created.id}:${qtyBase}:${asOfKey}`;
+                  if (idempotencyKeys.length < 5) {
+                    idempotencyKeys.push(idempotencyKey);
+                  }
+                  const existingTx = await tx.inventoryTransaction.findUnique({ where: { idempotencyKey } });
+                  if (existingTx) {
+                    initialSkippedCount += 1;
+                  } else {
+                    const balance = await tx.inventoryBalance.upsert({
+                      where: { productId_scope: { productId: created.id, scope } },
+                      update: {},
+                      create: { productId: created.id, scope, onHandBase: 0 },
+                    });
+                    const beforeBase = balance.onHandBase ?? 0;
+                    const afterBase = beforeBase + qtyBase;
+                    await tx.inventoryTransaction.create({
+                      data: {
+                        productId: created.id,
+                        scope,
+                        type: TransactionType.initial_load,
+                        quantityBase: qtyBase,
+                        beforeBase,
+                        afterBase,
+                        reason: 'Initial load import',
+                        idempotencyKey,
+                      },
+                    });
+                    await tx.inventoryBalance.update({
+                      where: { id: balance.id },
+                      data: { onHandBase: afterBase },
+                    });
+                    initialPostedCount += 1;
+                  }
+                }
+              }
+
+              if (createdIds.length < 5) {
+                createdIds.push(created.id);
+              }
+
+              if (skuValue) {
+                seenSkus.set(skuValue, created.id);
+              }
+            });
+            createdCount += 1;
           }
-        });
-
-        if (hasSkuUpdate && skuValue) {
-          seenSkus.set(skuValue, productIdResolved);
-        }
-
-        updatedCount += 1;
-        if (updatedIds.length < 5) {
-          updatedIds.push(productIdResolved);
         }
       } catch (err: any) {
         const reason = err?.message || 'Update failed';
@@ -534,16 +822,24 @@ export class ProductsService {
 
     const failedCount = failures.length;
     const rowsRead = rows.length;
-    skippedCount = rowsRead - updatedCount - failedCount;
+    skippedCount = rowsRead - updatedCount - createdCount - failedCount;
     const summary = {
       rowsRead,
+      mode,
+      dryRun,
+      createdCount,
       updated: updatedCount,
       skipped: skippedCount,
       failed: failedCount,
       updatedCount,
       skippedCount,
       failedCount,
+      created: createdCount,
+      initialPostedCount,
+      initialSkippedCount,
+      idempotencyKeys,
       updatedSample: updatedIds,
+      createdSample: createdIds,
       failures,
     };
 
