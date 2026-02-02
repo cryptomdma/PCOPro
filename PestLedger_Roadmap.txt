@@ -537,6 +537,7 @@ YYYY-MM-DD
 * Bulk product import now supports upsert (create + update) with dry-run preview
 * Added Initial Load mode for new products with optional initial stock ledger posting (idempotent)
 * Added row-level failure summaries for bulk import preview/apply runs
+* Expanded bulk import taxonomy aliases, cost-per-tracking normalization, and unmapped preview summaries
 
 ============================================================
 CHANGE LOG RULE

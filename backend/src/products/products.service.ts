@@ -244,8 +244,11 @@ export class ProductsService {
       trim: true,
     }) as Record<string, string>[];
 
-    const failures: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }> =
-      [];
+    const failures: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }> = [];
+    const unmappedCounts = {
+      category: new Map<string, number>(),
+      productType: new Map<string, number>(),
+    };
     const updatedIds: string[] = [];
     const createdIds: string[] = [];
     const idempotencyKeys: string[] = [];
@@ -327,6 +330,8 @@ export class ProductsService {
       equipment: ProductCategory.EQUIPMENT,
       ppe: ProductCategory.PPE,
       sanitation: ProductCategory.CHEMICAL,
+      physical: ProductCategory.OTHER,
+      exclusion: ProductCategory.OTHER,
       other: ProductCategory.OTHER,
       bait: ProductCategory.CHEMICAL,
       'ant bait': ProductCategory.CHEMICAL,
@@ -340,30 +345,42 @@ export class ProductsService {
       insecticide: ProductType.CONCENTRATE,
       termiticide: ProductType.CONCENTRATE,
       larvicide: ProductType.CONCENTRATE,
+      'non repellent': ProductType.CONCENTRATE,
+      'non-repellent': ProductType.CONCENTRATE,
       igr: ProductType.CONCENTRATE,
       repellent: ProductType.CONCENTRATE,
+      surfactant: ProductType.CONCENTRATE,
       adjuvant: ProductType.CONCENTRATE,
       sanitizer: ProductType.SANITATION,
       sanitation: ProductType.SANITATION,
       'ant bait': ProductType.ANT_BAIT,
+      'ant bait stations': ProductType.ANT_BAIT,
       'roach bait': ProductType.ROACH_BAIT,
       'rodent bait': ProductType.RODENT_BAIT,
       'termite bait': ProductType.OTHER,
       'mosquito bait': ProductType.OTHER,
+      'fly bait': ProductType.OTHER,
       trap: ProductType.OTHER,
       equipment: ProductType.OTHER,
       ppe: ProductType.OTHER,
       'live trap': ProductType.OTHER,
       monitor: ProductType.OTHER,
+      'wettable powder': ProductType.DUST,
       dust: ProductType.DUST,
       granule: ProductType.GRANULE,
       aerosol: ProductType.AEROSOL,
+      'wasp spray': ProductType.AEROSOL,
       concentrate: ProductType.CONCENTRATE,
       other: ProductType.OTHER,
     };
 
     const mapCategoryAlias = (value: string) => categoryAliases[normalizeAlias(value)] ?? null;
     const mapProductTypeAlias = (value: string) => productTypeAliases[normalizeAlias(value)] ?? null;
+    const recordUnmapped = (map: Map<string, number>, value: string) => {
+      const key = (value ?? '').trim();
+      if (!key) return;
+      map.set(key, (map.get(key) ?? 0) + 1);
+    };
 
     const seenSkus = new Map<string, string>();
 
@@ -429,6 +446,28 @@ export class ProductsService {
         }
 
         const costField = getField(row, ['defaultCostPerBase', 'default_cost_per_base', 'default_cost', 'cost_per_base']);
+        const costPerTrackingField = getField(row, [
+          'costPerTracking',
+          'costPerTrackingUnit',
+          'cost_per_tracking',
+          'cost_per_tracking_unit',
+        ]);
+
+        let costPerTrackingParsed: number | null | undefined;
+        if (costPerTrackingField.present) {
+          costPerTrackingParsed = parseDecimal(costPerTrackingField.value);
+          if (costPerTrackingParsed === undefined) {
+            failures.push({
+              rowIndex,
+              identifier,
+              field: 'costPerTracking',
+              rawValue: costPerTrackingField.value,
+              reason: 'Invalid costPerTracking',
+            });
+            continue;
+          }
+        }
+
         if (costField.present) {
           const parsed = parseDecimal(costField.value);
           if (parsed === undefined) {
@@ -442,6 +481,25 @@ export class ProductsService {
             continue;
           }
           updateData.defaultCostPerBase = parsed === null ? null : new Prisma.Decimal(parsed);
+        } else if (costPerTrackingField.present) {
+          if (costPerTrackingParsed === null) {
+            updateData.defaultCostPerBase = null;
+          } else if (costPerTrackingParsed !== undefined) {
+            const trackingToBase =
+              product?.trackingToBase ??
+              parseDecimal(getField(row, ['trackingToBase', 'tracking_to_base', 'tracking to base']).value);
+            if (!trackingToBase || trackingToBase <= 0) {
+              failures.push({
+                rowIndex,
+                identifier,
+                field: 'costPerTracking',
+                rawValue: costPerTrackingField.value,
+                reason: 'Missing or invalid trackingToBase for costPerTracking conversion',
+              });
+              continue;
+            }
+            updateData.defaultCostPerBase = new Prisma.Decimal(costPerTrackingParsed / trackingToBase);
+          }
         }
 
         const nameUpdate = getField(row, ['name', 'product_name', 'product name']);
@@ -458,6 +516,7 @@ export class ProductsService {
           if (normalized) {
             const mapped = mapCategoryAlias(normalized);
             if (!mapped) {
+              recordUnmapped(unmappedCounts.category, categoryField.value);
               failures.push({
                 rowIndex,
                 identifier,
@@ -479,6 +538,7 @@ export class ProductsService {
           } else {
             const mapped = mapProductTypeAlias(normalized);
             if (!mapped) {
+              recordUnmapped(unmappedCounts.productType, typeField.value);
               failures.push({
                 rowIndex,
                 identifier,
@@ -606,7 +666,8 @@ export class ProductsService {
 
           const categoryValueRaw = categoryField.present ? String(categoryField.value ?? '').trim() : '';
           const mappedCategory = categoryValueRaw ? mapCategoryAlias(categoryValueRaw) : null;
-          if (!mappedCategory) {
+          if (categoryValueRaw && !mappedCategory) {
+            recordUnmapped(unmappedCounts.category, categoryField.value);
             failures.push({
               rowIndex,
               identifier: identifier || `name:${nameValue}`,
@@ -619,7 +680,8 @@ export class ProductsService {
 
           const typeValueRaw = typeField.present ? String(typeField.value ?? '').trim() : '';
           const mappedType = typeValueRaw ? mapProductTypeAlias(typeValueRaw) : null;
-          if (!mappedType) {
+          if (typeValueRaw && !mappedType) {
+            recordUnmapped(unmappedCounts.productType, typeField.value);
             failures.push({
               rowIndex,
               identifier: identifier || `name:${nameValue}`,
@@ -702,8 +764,9 @@ export class ProductsService {
               seenSkus.set(skuValue, `row-${rowIndex}`);
             }
           } else {
+            const categoryForMode = mappedCategory ?? ProductCategory.CHEMICAL;
             const trackingMode =
-              mappedCategory === ProductCategory.EQUIPMENT || mappedCategory === ProductCategory.PPE
+              categoryForMode === ProductCategory.EQUIPMENT || categoryForMode === ProductCategory.PPE
                 ? ProductTrackingMode.EQUIPMENT
                 : ProductTrackingMode.BULK;
 
@@ -720,8 +783,8 @@ export class ProductsService {
                   name: nameValue,
                   epaRegNo: updateData.epaRegNo as string | null | undefined,
                   description: updateData.description as string | null | undefined,
-                  category: mappedCategory,
-                  productType: mappedType,
+                  category: mappedCategory ?? undefined,
+                  productType: mappedType ?? undefined,
                   baseType,
                   trackingUnitLabel,
                   checkoutUnitLabel,
@@ -744,7 +807,10 @@ export class ProductsService {
               }
 
               if (mode === 'initial_load' && shouldHandleInitial && (initialQtyParsed ?? 0) > 0) {
-                const scope = (initialScopeField.value ?? '').trim() || 'WAREHOUSE';
+                const scopeRaw = (initialScopeField.value ?? '').trim();
+                const scopeNormalized = scopeRaw.toUpperCase();
+                const scope =
+                  !scopeRaw || scopeNormalized === 'TRUE' || scopeNormalized === 'FALSE' ? 'WAREHOUSE' : scopeRaw;
                 const asOfRaw = (asOfDateField.value ?? '').trim();
                 const asOfDate = asOfRaw ? new Date(asOfRaw) : new Date();
                 if (Number.isNaN(asOfDate.getTime())) {
@@ -823,7 +889,29 @@ export class ProductsService {
     const failedCount = failures.length;
     const rowsRead = rows.length;
     skippedCount = rowsRead - updatedCount - createdCount - failedCount;
-    const summary = {
+    const summary: {
+      rowsRead: number;
+      mode: string;
+      dryRun: boolean;
+      createdCount: number;
+      updated: number;
+      skipped: number;
+      failed: number;
+      updatedCount: number;
+      skippedCount: number;
+      failedCount: number;
+      created: number;
+      initialPostedCount: number;
+      initialSkippedCount: number;
+      idempotencyKeys: string[];
+      updatedSample: string[];
+      createdSample: string[];
+      failures: Array<{ rowIndex: number; identifier: string; field?: string; rawValue?: string; reason: string }>;
+      unmapped?: {
+        category: Array<{ value: string; count: number }>;
+        productType: Array<{ value: string; count: number }>;
+      };
+    } = {
       rowsRead,
       mode,
       dryRun,
@@ -842,6 +930,12 @@ export class ProductsService {
       createdSample: createdIds,
       failures,
     };
+    if (dryRun) {
+      summary['unmapped'] = {
+        category: Array.from(unmappedCounts.category.entries()).map(([value, count]) => ({ value, count })),
+        productType: Array.from(unmappedCounts.productType.entries()).map(([value, count]) => ({ value, count })),
+      };
+    }
 
     if (conflictCount > 0) {
       throw new ConflictException(summary);
