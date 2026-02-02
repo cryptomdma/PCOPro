@@ -602,6 +602,12 @@ export class IncomingService {
         return parts.slice(0, 3).join(':');
       }
     }
+    if (idempotencyKey.startsWith('receiving_csv:')) {
+      const parts = idempotencyKey.split(':');
+      if (parts.length >= 4) {
+        return parts.slice(0, 4).join(':');
+      }
+    }
     return idempotencyKey;
   }
 
@@ -610,6 +616,9 @@ export class IncomingService {
       return `${receiptId}-`;
     }
     if (receiptId.startsWith('receiving:')) {
+      return `${receiptId}:`;
+    }
+    if (receiptId.startsWith('receiving_csv:')) {
       return `${receiptId}:`;
     }
     return receiptId;
