@@ -473,6 +473,7 @@ export function ReceivingView() {
         open={showCsvImport}
         title="Receiving CSV Import"
         onClose={() => setShowCsvImport(false)}
+        sheetClassName="receiving-csv-modal"
       >
         <div className="card card-stack">
           <div className="muted">
