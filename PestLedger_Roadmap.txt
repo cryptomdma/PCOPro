@@ -543,6 +543,7 @@ YYYY-MM-DD
 
 * Added Receiving CSV import with dry-run preview and idempotent ledger posting
 * Receiving history now shows grouped receipt keys for CSV imports
+* Added Admin Users management (create users, link/create technicians, deactivate) to unblock testing of checkout/transfer flows
 
 ============================================================
 CHANGE LOG RULE

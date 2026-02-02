@@ -1,6 +1,7 @@
 import { useAuth } from '../auth';
 import { BulkProductImportPanel } from './settings/BulkProductImportPanel';
 import { EpaImportPanel } from './settings/EpaImportPanel';
+import { UsersPanel } from './settings/UsersPanel';
 
 export function SettingsView() {
   const { user } = useAuth();
@@ -28,6 +29,7 @@ export function SettingsView() {
         </div>
       </header>
       <div className="card-stack">
+        {user?.role === 'ADMIN' ? <UsersPanel /> : null}
         <BulkProductImportPanel />
         <EpaImportPanel />
       </div>
