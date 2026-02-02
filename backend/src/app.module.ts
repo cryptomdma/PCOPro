@@ -13,6 +13,7 @@ import { HealthController } from './health.controller';
 import { ImportModule } from './import/import.module';
 import { AuditsModule } from './audits/audits.module';
 import { ParLevelsModule } from './par-levels/par-levels.module';
+import { UsersModule } from './users/users.module';
 
 
 @Module({
@@ -27,6 +28,7 @@ import { ParLevelsModule } from './par-levels/par-levels.module';
     InventoryModule,
     TechniciansModule,
     AuthModule,
+    UsersModule,
     TransferRequestsModule,
   ],
 
