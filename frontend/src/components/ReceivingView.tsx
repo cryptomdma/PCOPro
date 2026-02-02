@@ -76,6 +76,7 @@ export function ReceivingView() {
     dryRun?: boolean;
     errors?: Array<{ rowIndex: number; identifier: string; reason: string }>;
   } | null>(null);
+  const [showCsvImport, setShowCsvImport] = useState(false);
 
   useEffect(() => {
     if (!canReceive) return;
@@ -267,6 +268,9 @@ export function ReceivingView() {
           <h2>Receiving</h2>
           <p>Post incoming stock to update ledger balances.</p>
         </div>
+        <button type="button" className="ghost-button" onClick={() => setShowCsvImport(true)}>
+          CSV Import
+        </button>
       </header>
 
       {error ? <div className="error-panel">{error}</div> : null}
@@ -353,55 +357,6 @@ export function ReceivingView() {
           </div>
         </div>
       ) : null}
-
-      <div className="card card-stack">
-        <div className="card-title">Import CSV</div>
-        <div className="muted">
-          Upload a CSV to post a single receiving receipt. qtyReceived is interpreted as tracking units.
-        </div>
-        <div className="muted">
-          Headers: productId | sku | name | qtyReceived | scope | date | note (aliases supported).
-        </div>
-        <div className="card-row">
-          <input type="file" accept=".csv,text/csv" onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
-          <button type="button" onClick={() => uploadReceivingCsv(true)} disabled={csvLoading}>
-            {csvLoading ? 'Uploading...' : 'Preview'}
-          </button>
-          <button type="button" onClick={() => uploadReceivingCsv(false)} disabled={csvLoading}>
-            {csvLoading ? 'Uploading...' : 'Apply'}
-          </button>
-        </div>
-        {csvError ? <div className="error-panel">{csvError}</div> : null}
-        {csvResult ? (
-          <div className="card-stack">
-            <div className="muted">
-              Rows: {csvResult.rowsRead} | Resolved: {csvResult.resolvedCount} | Failed: {csvResult.failedCount}
-            </div>
-            <div className="muted">
-              Scope: {csvResult.scope} | Date: {csvResult.date}
-            </div>
-            {csvResult.receiptKey ? <div className="muted">Receipt key: {csvResult.receiptKey}</div> : null}
-            {csvResult.dryRun ? (
-              <div className="muted">
-                Would post: {csvResult.wouldPostCount ?? 0} | Already posted: {csvResult.skippedCount ?? 0}
-              </div>
-            ) : csvResult.postedCount !== undefined ? (
-              <div className="muted">
-                Posted: {csvResult.postedCount} | Skipped: {csvResult.skippedCount ?? 0}
-              </div>
-            ) : null}
-            {csvResult.errors?.length ? (
-              <textarea
-                readOnly
-                rows={Math.min(10, csvResult.errors.length + 1)}
-                value={csvResult.errors
-                  .map((failure) => `Row ${failure.rowIndex} (${failure.identifier}): ${failure.reason}`)
-                  .join('\n')}
-              />
-            ) : null}
-          </div>
-        ) : null}
-      </div>
 
       <div className="card card-stack receiving-history-card">
         <div className="card-row">
@@ -513,6 +468,60 @@ export function ReceivingView() {
         product={selectedProductId ? productById.get(selectedProductId) ?? null : null}
         onClose={() => setSelectedProductId(null)}
       />
+
+      <ModalShell
+        open={showCsvImport}
+        title="Receiving CSV Import"
+        onClose={() => setShowCsvImport(false)}
+      >
+        <div className="card card-stack">
+          <div className="muted">
+            Upload a CSV to post a single receiving receipt. qtyReceived is interpreted as tracking units.
+          </div>
+          <div className="muted">
+            Headers: productId | sku | name | qtyReceived | scope | date | note (aliases supported).
+          </div>
+          <div className="card-row">
+            <input type="file" accept=".csv,text/csv" onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
+            <button type="button" onClick={() => uploadReceivingCsv(true)} disabled={csvLoading}>
+              {csvLoading ? 'Uploading...' : 'Preview'}
+            </button>
+            <button type="button" onClick={() => uploadReceivingCsv(false)} disabled={csvLoading}>
+              {csvLoading ? 'Uploading...' : 'Apply'}
+            </button>
+          </div>
+          {csvError ? <div className="error-panel">{csvError}</div> : null}
+          {csvResult ? (
+            <div className="card-stack">
+              <div className="muted">
+                Rows: {csvResult.rowsRead} | Resolved: {csvResult.resolvedCount} | Failed: {csvResult.failedCount}
+              </div>
+              <div className="muted">
+                Scope: {csvResult.scope} | Date: {csvResult.date}
+              </div>
+              {csvResult.receiptKey ? <div className="muted">Receipt key: {csvResult.receiptKey}</div> : null}
+              {csvResult.dryRun ? (
+                <div className="muted">
+                  Would post: {csvResult.wouldPostCount ?? 0} | Already posted: {csvResult.skippedCount ?? 0}
+                </div>
+              ) : csvResult.postedCount !== undefined ? (
+                <div className="muted">
+                  Posted: {csvResult.postedCount} | Skipped: {csvResult.skippedCount ?? 0}
+                </div>
+              ) : null}
+              {csvResult.errors?.length ? (
+                <textarea
+                  readOnly
+                  rows={Math.min(10, csvResult.errors.length + 1)}
+                  value={csvResult.errors
+                    .map((failure) => `Row ${failure.rowIndex} (${failure.identifier}): ${failure.reason}`)
+                    .join('\n')}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </ModalShell>
     </section>
   );
 }
