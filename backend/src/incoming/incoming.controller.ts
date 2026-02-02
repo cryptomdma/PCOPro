@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { IncomingService } from './incoming.service';
 import { CreateIncomingDto } from './dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard, RequirePerm } from '../auth/permissions';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('incoming')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -42,5 +43,17 @@ export class IncomingController {
   @RequirePerm('receiving.manage')
   create(@Body() dto: CreateIncomingDto, @CurrentUser() user?: { userId?: string; role?: string }) {
     return this.incoming.create(dto, user);
+  }
+
+  @Post('receiving-csv')
+  @RequirePerm('receiving.manage')
+  @UseInterceptors(FileInterceptor('file'))
+  receivingCsv(
+    @UploadedFile() file?: { buffer: Buffer },
+    @Query('dryRun') dryRunRaw?: string,
+    @CurrentUser() user?: { userId?: string; role?: string },
+  ) {
+    const dryRun = dryRunRaw === 'true' || dryRunRaw === '1' || dryRunRaw === 'yes';
+    return this.incoming.importReceivingCsv(file?.buffer ?? Buffer.from(''), { dryRun }, user);
   }
 }

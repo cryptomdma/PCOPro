@@ -539,6 +539,11 @@ YYYY-MM-DD
 * Added row-level failure summaries for bulk import preview/apply runs
 * Expanded bulk import taxonomy aliases, cost-per-tracking normalization, and unmapped preview summaries
 
+2026-02-02
+
+* Added Receiving CSV import with dry-run preview and idempotent ledger posting
+* Receiving history now shows grouped receipt keys for CSV imports
+
 ============================================================
 CHANGE LOG RULE
 ===============

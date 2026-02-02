@@ -513,6 +513,22 @@ button:disabled {
   gap: 0.75rem;
 }
 
+.receiving-csv-modal .modal-body {
+  overflow-x: hidden;
+}
+
+.receiving-csv-modal .modal-body .card-row {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.receiving-csv-modal .modal-body .card-stack,
+.receiving-csv-modal .modal-body .muted,
+.receiving-csv-modal .modal-body textarea {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .receiving-history-card {
   margin-top: 1.25rem;
 }

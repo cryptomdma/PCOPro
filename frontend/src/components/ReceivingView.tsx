@@ -60,6 +60,23 @@ export function ReceivingView() {
     }>;
   } | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [csvResult, setCsvResult] = useState<{
+    rowsRead: number;
+    resolvedCount: number;
+    failedCount: number;
+    scope: string;
+    date: string;
+    receiptKey: string | null;
+    postedCount?: number;
+    skippedCount?: number;
+    wouldPostCount?: number;
+    dryRun?: boolean;
+    errors?: Array<{ rowIndex: number; identifier: string; reason: string }>;
+  } | null>(null);
+  const [showCsvImport, setShowCsvImport] = useState(false);
 
   useEffect(() => {
     if (!canReceive) return;
@@ -203,6 +220,34 @@ export function ReceivingView() {
     }
   }
 
+  async function uploadReceivingCsv(dryRun: boolean) {
+    if (!csvFile) {
+      setCsvError('Select a CSV file first.');
+      return;
+    }
+    setCsvError(null);
+    setCsvLoading(true);
+    setCsvResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', csvFile);
+      const response = await axios.post(`/api/v1/incoming/receiving-csv?dryRun=${dryRun}`, formData);
+      setCsvResult(response.data);
+      if (!dryRun) {
+        fetchHistory(historyMode);
+      }
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'CSV import failed.';
+      setCsvError(message);
+      const data = err?.response?.data;
+      if (data?.rowsRead !== undefined) {
+        setCsvResult(data);
+      }
+    } finally {
+      setCsvLoading(false);
+    }
+  }
+
   if (!canReceive) {
     return (
       <section>
@@ -223,6 +268,9 @@ export function ReceivingView() {
           <h2>Receiving</h2>
           <p>Post incoming stock to update ledger balances.</p>
         </div>
+        <button type="button" className="ghost-button" onClick={() => setShowCsvImport(true)}>
+          CSV Import
+        </button>
       </header>
 
       {error ? <div className="error-panel">{error}</div> : null}
@@ -353,6 +401,7 @@ export function ReceivingView() {
                     <div className="muted">
                       {new Date(receipt.postedAt).toLocaleString()} | {receipt.destinationScope} | {receipt.lineCount} lines
                     </div>
+                    <div className="muted">{receipt.receiptId}</div>
                   </div>
                 </li>
               ))}
@@ -419,6 +468,61 @@ export function ReceivingView() {
         product={selectedProductId ? productById.get(selectedProductId) ?? null : null}
         onClose={() => setSelectedProductId(null)}
       />
+
+      <ModalShell
+        open={showCsvImport}
+        title="Receiving CSV Import"
+        onClose={() => setShowCsvImport(false)}
+        sheetClassName="receiving-csv-modal"
+      >
+        <div className="card card-stack">
+          <div className="muted">
+            Upload a CSV to post a single receiving receipt. qtyReceived is interpreted as tracking units.
+          </div>
+          <div className="muted">
+            Headers: productId | sku | name | qtyReceived | scope | date | note (aliases supported).
+          </div>
+          <div className="card-row">
+            <input type="file" accept=".csv,text/csv" onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
+            <button type="button" onClick={() => uploadReceivingCsv(true)} disabled={csvLoading}>
+              {csvLoading ? 'Uploading...' : 'Preview'}
+            </button>
+            <button type="button" onClick={() => uploadReceivingCsv(false)} disabled={csvLoading}>
+              {csvLoading ? 'Uploading...' : 'Apply'}
+            </button>
+          </div>
+          {csvError ? <div className="error-panel">{csvError}</div> : null}
+          {csvResult ? (
+            <div className="card-stack">
+              <div className="muted">
+                Rows: {csvResult.rowsRead} | Resolved: {csvResult.resolvedCount} | Failed: {csvResult.failedCount}
+              </div>
+              <div className="muted">
+                Scope: {csvResult.scope} | Date: {csvResult.date}
+              </div>
+              {csvResult.receiptKey ? <div className="muted">Receipt key: {csvResult.receiptKey}</div> : null}
+              {csvResult.dryRun ? (
+                <div className="muted">
+                  Would post: {csvResult.wouldPostCount ?? 0} | Already posted: {csvResult.skippedCount ?? 0}
+                </div>
+              ) : csvResult.postedCount !== undefined ? (
+                <div className="muted">
+                  Posted: {csvResult.postedCount} | Skipped: {csvResult.skippedCount ?? 0}
+                </div>
+              ) : null}
+              {csvResult.errors?.length ? (
+                <textarea
+                  readOnly
+                  rows={Math.min(10, csvResult.errors.length + 1)}
+                  value={csvResult.errors
+                    .map((failure) => `Row ${failure.rowIndex} (${failure.identifier}): ${failure.reason}`)
+                    .join('\n')}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </ModalShell>
     </section>
   );
 }
