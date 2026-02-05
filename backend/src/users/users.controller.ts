@@ -33,9 +33,12 @@ export class UsersController {
   @RequirePerm('admin.users')
   update(@Param('id') id: string, @Body() body: any) {
     return this.users.update(id, {
+      name: body?.name,
+      email: body?.email,
       active: body?.active,
       role: body?.role as Role | undefined,
       technicianId: body?.technicianId,
+      createTechnician: body?.createTechnician === true,
     });
   }
 }

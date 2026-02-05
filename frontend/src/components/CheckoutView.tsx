@@ -8,7 +8,14 @@ import { getStockDisplay } from '../utils/stockDisplay';
 type TransferDirection = 'ISSUE' | 'RETURN';
 type TransferRequestLine = { productId: string; quantityInput: string; unitLabel: string };
 
-type Technician = { id: string; name: string; active: boolean };
+type CheckoutRecipient = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  active: boolean;
+  technicianId: string;
+};
 type Product = {
   id: string;
   name: string;
@@ -34,7 +41,7 @@ export function CheckoutView() {
   const [inventoryFilter, setInventoryFilter] = useState<'all' | 'equipment' | 'bulk'>('all');
   const [lines, setLines] = useState<TransferRequestLine[]>([{ productId: '', quantityInput: '1', unitLabel: '' }]);
 
-  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [recipients, setRecipients] = useState<CheckoutRecipient[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,10 +65,10 @@ export function CheckoutView() {
   async function fetchReference() {
     try {
       const [techRes, prodRes] = await Promise.all([
-        axios.get<Technician[]>('/api/v1/technicians'),
+        axios.get<CheckoutRecipient[]>('/api/v1/transfer-requests/recipients'),
         axios.get<Product[]>('/api/v1/products', { params: { limit: 200 } }),
       ]);
-      setTechnicians(techRes.data);
+      setRecipients(techRes.data);
       setProducts(prodRes.data);
     } catch (err: any) {
       const message = err?.response?.data?.message || 'Failed to load reference data';
@@ -174,10 +181,10 @@ export function CheckoutView() {
               placeholder="Select technician"
               value={technicianId}
               onChange={setTechnicianId}
-              options={technicians.map((tech) => ({
-                value: tech.id,
-                label: tech.name,
-                subtitle: tech.id,
+              options={recipients.map((recipient) => ({
+                value: recipient.technicianId,
+                label: recipient.active ? recipient.name : `${recipient.name} (inactive)`,
+                subtitle: recipient.technicianId,
               }))}
               required
             />

@@ -25,6 +25,7 @@ export function UsersPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -34,6 +35,13 @@ export function UsersPanel() {
   const [createTechnician, setCreateTechnician] = useState(true);
   const [technicians, setTechnicians] = useState<TechnicianRow[]>([]);
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
+  const [editId, setEditId] = useState<string>('');
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState('TECH');
+  const [editActive, setEditActive] = useState(true);
+  const [editCreateTechnician, setEditCreateTechnician] = useState(false);
+  const [editTechnicianId, setEditTechnicianId] = useState<string>('');
 
   async function loadUsers() {
     setLoading(true);
@@ -50,7 +58,7 @@ export function UsersPanel() {
 
   async function loadTechnicians() {
     try {
-      const response = await axios.get('/api/v1/technicians', { params: { active: true, limit: 200 } });
+      const response = await axios.get('/api/v1/technicians', { params: { limit: 200 } });
       setTechnicians(response.data ?? []);
     } catch {
       // optional list
@@ -62,10 +70,10 @@ export function UsersPanel() {
   }, []);
 
   useEffect(() => {
-    if (role === 'TECH' && !createTechnician) {
+    if (open || editOpen) {
       loadTechnicians();
     }
-  }, [role, createTechnician]);
+  }, [open, editOpen]);
 
   function resetForm() {
     setName('');
@@ -77,9 +85,36 @@ export function UsersPanel() {
     setSelectedTechnicianId('');
   }
 
+  function resetEditForm() {
+    setEditId('');
+    setEditName('');
+    setEditEmail('');
+    setEditRole('TECH');
+    setEditActive(true);
+    setEditCreateTechnician(false);
+    setEditTechnicianId('');
+  }
+
+  function openEdit(user: UserRow) {
+    setEditId(user.id);
+    setEditName(user.name ?? '');
+    setEditEmail(user.email ?? '');
+    setEditRole(user.role ?? 'TECH');
+    setEditActive(Boolean(user.active));
+    setEditTechnicianId(user.technicianId ?? '');
+    setEditCreateTechnician(user.role === 'TECH' && !user.technicianId);
+    setEditOpen(true);
+  }
+
   async function submit() {
     if (!name.trim() || !email.trim() || !password.trim()) {
       setError('Name, email, and password are required.');
+      return;
+    }
+    if (role === 'TECH' && !createTechnician && !selectedTechnicianId) {
+      const message = 'TECH users must be linked to a Technician (select existing or create).';
+      setError(message);
+      showToast({ kind: 'error', message });
       return;
     }
     setError(null);
@@ -92,10 +127,12 @@ export function UsersPanel() {
         active,
       };
       if (role === 'TECH') {
-        payload.createTechnician = createTechnician;
-        if (!createTechnician && selectedTechnicianId) {
+        payload.createTechnician = createTechnician && !selectedTechnicianId;
+        if (selectedTechnicianId) {
           payload.technicianId = selectedTechnicianId;
         }
+      } else if (selectedTechnicianId) {
+        payload.technicianId = selectedTechnicianId;
       }
       await axios.post('/api/v1/admin/users', payload);
       showToast({ kind: 'success', message: 'User created' });
@@ -115,6 +152,45 @@ export function UsersPanel() {
       setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, active: !u.active } : u)));
     } catch (err: any) {
       const message = err?.response?.data?.message || 'Failed to update user.';
+      showToast({ kind: 'error', message });
+    }
+  }
+
+  async function submitEdit() {
+    if (!editName.trim() || !editEmail.trim()) {
+      const message = 'Name and email are required.';
+      setError(message);
+      showToast({ kind: 'error', message });
+      return;
+    }
+    if (editRole === 'TECH' && !editCreateTechnician && !editTechnicianId) {
+      const message = 'TECH users must be linked to a Technician (select existing or create).';
+      setError(message);
+      showToast({ kind: 'error', message });
+      return;
+    }
+    setError(null);
+    try {
+      const payload: any = {
+        name: editName.trim(),
+        email: editEmail.trim(),
+        role: editRole,
+        active: editActive,
+      };
+      if (editRole === 'TECH') {
+        payload.createTechnician = editCreateTechnician && !editTechnicianId;
+        payload.technicianId = editTechnicianId || null;
+      } else {
+        payload.technicianId = editTechnicianId || null;
+      }
+      await axios.patch(`/api/v1/admin/users/${editId}`, payload);
+      showToast({ kind: 'success', message: 'User updated' });
+      setEditOpen(false);
+      resetEditForm();
+      loadUsers();
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Failed to update user.';
+      setError(message);
       showToast({ kind: 'error', message });
     }
   }
@@ -157,6 +233,9 @@ export function UsersPanel() {
                   <td>{user.active ? 'Yes' : 'No'}</td>
                   <td>{user.technicianId ? 'Yes' : 'No'}</td>
                   <td>
+                    <button type="button" className="ghost-button" onClick={() => openEdit(user)}>
+                      Edit
+                    </button>
                     <button type="button" className="ghost-button" onClick={() => toggleActive(user)}>
                       {user.active ? 'Deactivate' : 'Reactivate'}
                     </button>
@@ -168,7 +247,14 @@ export function UsersPanel() {
         </div>
       )}
 
-      <ModalShell open={open} title="Add User" onClose={() => setOpen(false)}>
+      <ModalShell
+        open={open}
+        title="Add User"
+        onClose={() => {
+          setOpen(false);
+          resetForm();
+        }}
+      >
         <div className="form">
           <label>
             Name
@@ -196,39 +282,130 @@ export function UsersPanel() {
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
           </label>
           {role === 'TECH' ? (
-            <>
-              <label>
-                Create Technician record
-                <input
-                  type="checkbox"
-                  checked={createTechnician}
-                  onChange={(e) => setCreateTechnician(e.target.checked)}
-                />
-              </label>
-              {!createTechnician ? (
-                <label>
-                  Link existing Technician (optional)
-                  <select
-                    value={selectedTechnicianId}
-                    onChange={(e) => setSelectedTechnicianId(e.target.value)}
-                  >
-                    <option value="">None</option>
-                    {technicians.map((tech) => (
-                      <option key={tech.id} value={tech.id}>
-                        {tech.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-            </>
+            <label>
+              Create Technician record
+              <input
+                type="checkbox"
+                checked={createTechnician}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setCreateTechnician(next);
+                  if (next) {
+                    setSelectedTechnicianId('');
+                  }
+                }}
+              />
+            </label>
           ) : null}
+          <label>
+            {role === 'TECH' ? 'Technician (required if not creating)' : 'Technician (optional)'}
+            <select
+              value={selectedTechnicianId}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedTechnicianId(value);
+                if (value) {
+                  setCreateTechnician(false);
+                }
+              }}
+            >
+              <option value="">{role === 'TECH' ? 'Select technician' : 'None'}</option>
+              {technicians.map((tech) => (
+                <option key={tech.id} value={tech.id}>
+                  {tech.active ? tech.name : `${tech.name} (inactive)`}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="card-row">
             <button type="button" className="ghost-button" onClick={() => setOpen(false)}>
               Cancel
             </button>
             <button type="button" onClick={submit}>
               Create User
+            </button>
+          </div>
+        </div>
+      </ModalShell>
+      <ModalShell
+        open={editOpen}
+        title="Edit User"
+        onClose={() => {
+          setEditOpen(false);
+          resetEditForm();
+        }}
+      >
+        <div className="form">
+          <label>
+            Name
+            <input value={editName} onChange={(e) => setEditName(e.target.value)} />
+          </label>
+          <label>
+            Email
+            <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+          </label>
+          <label>
+            Role
+            <select value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+              <option value="ADMIN">ADMIN</option>
+              <option value="MANAGER">MANAGER</option>
+              <option value="WAREHOUSE">WAREHOUSE</option>
+              <option value="TECH">TECH</option>
+            </select>
+          </label>
+          <label>
+            Active
+            <input type="checkbox" checked={editActive} onChange={(e) => setEditActive(e.target.checked)} />
+          </label>
+          {editRole === 'TECH' ? (
+            <label>
+              Create Technician record
+              <input
+                type="checkbox"
+                checked={editCreateTechnician}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setEditCreateTechnician(next);
+                  if (next) {
+                    setEditTechnicianId('');
+                  }
+                }}
+              />
+            </label>
+          ) : null}
+          <label>
+            {editRole === 'TECH' ? 'Technician (required if not creating)' : 'Technician (optional)'}
+            <select
+              value={editTechnicianId}
+              onChange={(e) => {
+                const value = e.target.value;
+                setEditTechnicianId(value);
+                if (value) {
+                  setEditCreateTechnician(false);
+                }
+              }}
+            >
+              <option value="">{editRole === 'TECH' ? 'Select technician' : 'None'}</option>
+              {technicians.map((tech) => (
+                <option key={tech.id} value={tech.id}>
+                  {tech.active ? tech.name : `${tech.name} (inactive)`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="card-row">
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                setEditOpen(false);
+                resetEditForm();
+              }}
+            >
+              Cancel
+            </button>
+            <button type="button" onClick={submitEdit}>
+              Save Changes
             </button>
           </div>
         </div>

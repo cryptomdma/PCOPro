@@ -545,6 +545,12 @@ YYYY-MM-DD
 * Receiving history now shows grouped receipt keys for CSV imports
 * Added Admin Users management (create users, link/create technicians, deactivate) to unblock testing of checkout/transfer flows
 
+2026-02-05
+
+* Added admin edit user profiles (name, email, role, active, technician link) with TECH link enforcement
+* TECH users now require a linked Technician on create/edit (create-or-select enforced, clear blocked)
+* Transfer recipient selection now pulls users with technicianId (role-agnostic) and backend rejects unlinked technician issuance
+
 ============================================================
 CHANGE LOG RULE
 ===============

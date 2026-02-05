@@ -20,6 +20,14 @@ export class TransferRequestsService {
     return { fromScope: `TRUCK:${technicianId}`, toScope: 'WAREHOUSE' };
   }
 
+  async listRecipients() {
+    return this.prisma.user.findMany({
+      where: { technicianId: { not: null } },
+      select: { id: true, name: true, email: true, role: true, active: true, technicianId: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async create(dto: CreateTransferRequestDto, user: CurrentUser) {
     const { technicianId } = dto;
     if (user.role === 'TECH' && user.technicianId !== technicianId) {
@@ -43,6 +51,11 @@ export class TransferRequestsService {
         include: { lines: true },
       });
       if (existing) return existing;
+    }
+
+    const linkedUser = await this.prisma.user.findFirst({ where: { technicianId } });
+    if (!linkedUser) {
+      throw new BadRequestException('Technician must be linked to a user profile');
     }
 
     const tech = await this.prisma.technician.findUnique({ where: { id: technicianId } });
