@@ -70,7 +70,7 @@ export class UsersService {
         technicianId = tech.id;
         technicianCreated = true;
       } else {
-        throw new BadRequestException('TECH users must be linked to a Technician (select existing or create).');
+        throw new BadRequestException('TECH users must be linked to a Technician record.');
       }
     } else if (technicianId) {
       const tech = await this.prisma.technician.findUnique({ where: { id: technicianId } });
@@ -140,7 +140,7 @@ export class UsersService {
         });
         nextTechnicianId = tech.id;
       } else {
-        throw new BadRequestException('TECH users must be linked to a Technician (select existing or create).');
+        throw new BadRequestException('TECH users must be linked to a Technician record.');
       }
     } else if (nextTechnicianId) {
       const tech = await this.prisma.technician.findUnique({ where: { id: nextTechnicianId } });

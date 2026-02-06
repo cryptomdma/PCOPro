@@ -19,6 +19,12 @@ type TechnicianRow = {
   active: boolean;
 };
 
+const truncateId = (value?: string | null) => {
+  if (!value) return '';
+  if (value.length <= 10) return value;
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+};
+
 export function UsersPanel() {
   const { showToast } = useToast();
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -112,7 +118,7 @@ export function UsersPanel() {
       return;
     }
     if (role === 'TECH' && !createTechnician && !selectedTechnicianId) {
-      const message = 'TECH users must be linked to a Technician (select existing or create).';
+      const message = 'TECH users must be linked to a Technician record.';
       setError(message);
       showToast({ kind: 'error', message });
       return;
@@ -164,7 +170,7 @@ export function UsersPanel() {
       return;
     }
     if (editRole === 'TECH' && !editCreateTechnician && !editTechnicianId) {
-      const message = 'TECH users must be linked to a Technician (select existing or create).';
+      const message = 'TECH users must be linked to a Technician record.';
       setError(message);
       showToast({ kind: 'error', message });
       return;
@@ -231,7 +237,9 @@ export function UsersPanel() {
                   <td>{user.email}</td>
                   <td>{user.role}</td>
                   <td>{user.active ? 'Yes' : 'No'}</td>
-                  <td>{user.technicianId ? 'Yes' : 'No'}</td>
+                  <td>
+                    {user.technicianId ? `Yes (${truncateId(user.technicianId)})` : 'No'}
+                  </td>
                   <td>
                     <button type="button" className="ghost-button" onClick={() => openEdit(user)}>
                       Edit
@@ -283,7 +291,7 @@ export function UsersPanel() {
           </label>
           {role === 'TECH' ? (
             <label>
-              Create Technician record
+              Create & link Technician record
               <input
                 type="checkbox"
                 checked={createTechnician}
@@ -297,26 +305,33 @@ export function UsersPanel() {
               />
             </label>
           ) : null}
-          <label>
-            {role === 'TECH' ? 'Technician (required if not creating)' : 'Technician (optional)'}
-            <select
-              value={selectedTechnicianId}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSelectedTechnicianId(value);
-                if (value) {
-                  setCreateTechnician(false);
-                }
-              }}
-            >
-              <option value="">{role === 'TECH' ? 'Select technician' : 'None'}</option>
-              {technicians.map((tech) => (
-                <option key={tech.id} value={tech.id}>
-                  {tech.active ? tech.name : `${tech.name} (inactive)`}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="muted">Users with a linked Technician can receive inventory (issued/checked out).</div>
+          {createTechnician && role === 'TECH' ? null : (
+            <label>
+              Link existing Technician record
+              <select
+                value={selectedTechnicianId}
+                required={role === 'TECH' && !createTechnician}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedTechnicianId(value);
+                  if (value) {
+                    setCreateTechnician(false);
+                  }
+                }}
+              >
+                <option value="">{role === 'TECH' ? 'Select technician' : 'None'}</option>
+                {technicians.map((tech) => (
+                  <option key={tech.id} value={tech.id}>
+                    {tech.active ? tech.name : `${tech.name} (inactive)`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {role === 'TECH' && !createTechnician && !selectedTechnicianId ? (
+            <div className="error-panel">TECH users must be linked to a Technician record.</div>
+          ) : null}
           <div className="card-row">
             <button type="button" className="ghost-button" onClick={() => setOpen(false)}>
               Cancel
@@ -359,7 +374,7 @@ export function UsersPanel() {
           </label>
           {editRole === 'TECH' ? (
             <label>
-              Create Technician record
+              Create & link Technician record
               <input
                 type="checkbox"
                 checked={editCreateTechnician}
@@ -373,26 +388,33 @@ export function UsersPanel() {
               />
             </label>
           ) : null}
-          <label>
-            {editRole === 'TECH' ? 'Technician (required if not creating)' : 'Technician (optional)'}
-            <select
-              value={editTechnicianId}
-              onChange={(e) => {
-                const value = e.target.value;
-                setEditTechnicianId(value);
-                if (value) {
-                  setEditCreateTechnician(false);
-                }
-              }}
-            >
-              <option value="">{editRole === 'TECH' ? 'Select technician' : 'None'}</option>
-              {technicians.map((tech) => (
-                <option key={tech.id} value={tech.id}>
-                  {tech.active ? tech.name : `${tech.name} (inactive)`}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="muted">Users with a linked Technician can receive inventory (issued/checked out).</div>
+          {editCreateTechnician && editRole === 'TECH' ? null : (
+            <label>
+              Link existing Technician record
+              <select
+                value={editTechnicianId}
+                required={editRole === 'TECH' && !editCreateTechnician}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setEditTechnicianId(value);
+                  if (value) {
+                    setEditCreateTechnician(false);
+                  }
+                }}
+              >
+                <option value="">{editRole === 'TECH' ? 'Select technician' : 'None'}</option>
+                {technicians.map((tech) => (
+                  <option key={tech.id} value={tech.id}>
+                    {tech.active ? tech.name : `${tech.name} (inactive)`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {editRole === 'TECH' && !editCreateTechnician && !editTechnicianId ? (
+            <div className="error-panel">TECH users must be linked to a Technician record.</div>
+          ) : null}
           <div className="card-row">
             <button
               type="button"

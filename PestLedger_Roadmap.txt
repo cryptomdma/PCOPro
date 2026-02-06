@@ -551,6 +551,11 @@ YYYY-MM-DD
 * TECH users now require a linked Technician on create/edit (create-or-select enforced, clear blocked)
 * Transfer recipient selection now pulls users with technicianId (role-agnostic) and backend rejects unlinked technician issuance
 
+2026-02-06
+
+* Clarified Users admin UX for Technician record linking (labels, helper text, required selection rules)
+* Standardized TECH linkage error messaging to "Technician record" wording for UI/backend alignment
+
 ============================================================
 CHANGE LOG RULE
 ===============
