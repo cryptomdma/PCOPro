@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateCheckoutDto } from './dto';
 
@@ -7,6 +7,10 @@ export class CheckoutService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateCheckoutDto, selfCheckoutEnabled = false) {
+    const linkedUser = await this.prisma.user.findFirst({ where: { technicianId: dto.technicianId } });
+    if (!linkedUser) {
+      throw new BadRequestException('Technician must be linked to a user profile');
+    }
     const status = selfCheckoutEnabled ? 'issued' : 'requested';
     const request = await this.prisma.checkoutRequest.create({
       data: {

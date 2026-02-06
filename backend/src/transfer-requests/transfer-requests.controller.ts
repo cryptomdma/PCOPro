@@ -16,6 +16,12 @@ export class TransferRequestsController {
     return this.service.create(dto, { userId: user.userId, role: user.role, technicianId: user.technicianId });
   }
 
+  @Get('recipients')
+  @RequirePerm('transfer.create')
+  recipients() {
+    return this.service.listRecipients();
+  }
+
   @Get()
   @RequirePerm('transfer.view')
   list(@Query() query: ListTransferRequestsQuery, @CurrentUser() user: any) {
