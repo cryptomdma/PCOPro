@@ -23,7 +23,15 @@ export class TransferRequestsService {
   async listRecipients() {
     return this.prisma.user.findMany({
       where: { technicianId: { not: null } },
-      select: { id: true, name: true, email: true, role: true, active: true, technicianId: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        technicianId: true,
+        technician: { select: { id: true, name: true, licenseNumber: true } },
+      },
       orderBy: { name: 'asc' },
     });
   }

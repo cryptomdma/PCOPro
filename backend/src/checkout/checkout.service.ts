@@ -45,7 +45,12 @@ export class CheckoutService {
   detail(id: string) {
     return this.prisma.checkoutRequest.findUnique({
       where: { id },
-      include: { lines: true, technician: { select: { id: true, name: true, technicianId: true } } },
+      include: {
+        lines: true,
+        technician: {
+          select: { id: true, name: true, technicianId: true, technician: { select: { licenseNumber: true } } },
+        },
+      },
     });
   }
 

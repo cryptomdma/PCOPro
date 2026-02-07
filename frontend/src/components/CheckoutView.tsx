@@ -15,6 +15,7 @@ type CheckoutRecipient = {
   role: string;
   active: boolean;
   technicianId: string;
+  technician?: { licenseNumber?: string | null } | null;
 };
 type Product = {
   id: string;
@@ -181,16 +182,21 @@ export function CheckoutView() {
               placeholder="Select technician"
               value={technicianId}
               onChange={setTechnicianId}
-              options={recipients.map((recipient) => ({
-                value: recipient.technicianId,
-                label: recipient.active ? recipient.name : `${recipient.name} (inactive)`,
-                subtitle: recipient.technicianId,
-              }))}
+              options={recipients.map((recipient) => {
+                const licenseLabel = recipient.technician?.licenseNumber
+                  ? `Lic #${recipient.technician.licenseNumber}`
+                  : 'Lic # missing';
+                return {
+                  value: recipient.technicianId,
+                  label: recipient.active ? recipient.name : `${recipient.name} (inactive)`,
+                  subtitle: licenseLabel,
+                };
+              })}
               required
             />
           </>
         ) : (
-          <div className="muted">Requesting as technician {technicianId || 'Unknown'}</div>
+          <div className="muted">Requesting as technician</div>
         )}
         <label>
           Inventory filter

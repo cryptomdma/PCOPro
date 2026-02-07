@@ -11,6 +11,7 @@ type CreateUserInput = {
   active?: boolean;
   technicianId?: string | null;
   createTechnician?: boolean;
+  licenseNumber?: string | null;
 };
 
 type UpdateUserInput = {
@@ -20,6 +21,7 @@ type UpdateUserInput = {
   role?: Role;
   technicianId?: string | null;
   createTechnician?: boolean;
+  licenseNumber?: string | null;
 };
 
 @Injectable()
@@ -36,7 +38,7 @@ export class UsersService {
         role: true,
         active: true,
         technicianId: true,
-        technician: { select: { id: true, name: true } },
+        technician: { select: { id: true, name: true, licenseNumber: true } },
       },
     });
   }
@@ -48,6 +50,7 @@ export class UsersService {
     if (!name || !email || !password || !input.role) {
       throw new BadRequestException('Missing required fields');
     }
+    const licenseNumber = (input.licenseNumber ?? '').trim().slice(0, 10) || null;
 
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -64,8 +67,11 @@ export class UsersService {
           throw new BadRequestException('Technician not found');
         }
       } else if (input.createTechnician !== false) {
+        if (!licenseNumber) {
+          throw new BadRequestException('License number is required when creating a Technician record.');
+        }
         const tech = await this.prisma.technician.create({
-          data: { name, active: true },
+          data: { name, active: true, licenseNumber },
         });
         technicianId = tech.id;
         technicianCreated = true;
@@ -127,6 +133,7 @@ export class UsersService {
 
     const nextRole = input.role ?? existing.role;
     let nextTechnicianId = input.technicianId === undefined ? existing.technicianId : input.technicianId;
+    const licenseNumber = (input.licenseNumber ?? '').trim().slice(0, 10) || null;
 
     if (nextRole === Role.TECH) {
       if (nextTechnicianId) {
@@ -135,8 +142,11 @@ export class UsersService {
           throw new BadRequestException('Technician not found');
         }
       } else if (input.createTechnician) {
+        if (!licenseNumber) {
+          throw new BadRequestException('License number is required when creating a Technician record.');
+        }
         const tech = await this.prisma.technician.create({
-          data: { name: nextName, active: true },
+          data: { name: nextName, active: true, licenseNumber },
         });
         nextTechnicianId = tech.id;
       } else {

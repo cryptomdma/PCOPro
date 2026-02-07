@@ -10,19 +10,14 @@ type UserRow = {
   role: string;
   active: boolean;
   technicianId?: string | null;
-  technician?: { id: string; name: string } | null;
+  technician?: { id: string; name: string; licenseNumber?: string | null } | null;
 };
 
 type TechnicianRow = {
   id: string;
   name: string;
+  licenseNumber?: string | null;
   active: boolean;
-};
-
-const truncateId = (value?: string | null) => {
-  if (!value) return '';
-  if (value.length <= 10) return value;
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
 };
 
 export function UsersPanel() {
@@ -41,6 +36,7 @@ export function UsersPanel() {
   const [createTechnician, setCreateTechnician] = useState(true);
   const [technicians, setTechnicians] = useState<TechnicianRow[]>([]);
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
+  const [licenseNumber, setLicenseNumber] = useState('');
   const [editId, setEditId] = useState<string>('');
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
@@ -48,6 +44,7 @@ export function UsersPanel() {
   const [editActive, setEditActive] = useState(true);
   const [editCreateTechnician, setEditCreateTechnician] = useState(false);
   const [editTechnicianId, setEditTechnicianId] = useState<string>('');
+  const [editLicenseNumber, setEditLicenseNumber] = useState('');
 
   async function loadUsers() {
     setLoading(true);
@@ -89,6 +86,7 @@ export function UsersPanel() {
     setActive(true);
     setCreateTechnician(true);
     setSelectedTechnicianId('');
+    setLicenseNumber('');
   }
 
   function resetEditForm() {
@@ -99,6 +97,7 @@ export function UsersPanel() {
     setEditActive(true);
     setEditCreateTechnician(false);
     setEditTechnicianId('');
+    setEditLicenseNumber('');
   }
 
   function openEdit(user: UserRow) {
@@ -109,12 +108,19 @@ export function UsersPanel() {
     setEditActive(Boolean(user.active));
     setEditTechnicianId(user.technicianId ?? '');
     setEditCreateTechnician(user.role === 'TECH' && !user.technicianId);
+    setEditLicenseNumber('');
     setEditOpen(true);
   }
 
   async function submit() {
     if (!name.trim() || !email.trim() || !password.trim()) {
       setError('Name, email, and password are required.');
+      return;
+    }
+    if (role === 'TECH' && createTechnician && !licenseNumber.trim()) {
+      const message = 'License number is required when creating a Technician record.';
+      setError(message);
+      showToast({ kind: 'error', message });
       return;
     }
     if (role === 'TECH' && !createTechnician && !selectedTechnicianId) {
@@ -134,6 +140,9 @@ export function UsersPanel() {
       };
       if (role === 'TECH') {
         payload.createTechnician = createTechnician && !selectedTechnicianId;
+        if (payload.createTechnician) {
+          payload.licenseNumber = licenseNumber.trim();
+        }
         if (selectedTechnicianId) {
           payload.technicianId = selectedTechnicianId;
         }
@@ -169,6 +178,12 @@ export function UsersPanel() {
       showToast({ kind: 'error', message });
       return;
     }
+    if (editRole === 'TECH' && editCreateTechnician && !editLicenseNumber.trim()) {
+      const message = 'License number is required when creating a Technician record.';
+      setError(message);
+      showToast({ kind: 'error', message });
+      return;
+    }
     if (editRole === 'TECH' && !editCreateTechnician && !editTechnicianId) {
       const message = 'TECH users must be linked to a Technician record.';
       setError(message);
@@ -185,6 +200,9 @@ export function UsersPanel() {
       };
       if (editRole === 'TECH') {
         payload.createTechnician = editCreateTechnician && !editTechnicianId;
+        if (payload.createTechnician) {
+          payload.licenseNumber = editLicenseNumber.trim();
+        }
         payload.technicianId = editTechnicianId || null;
       } else {
         payload.technicianId = editTechnicianId || null;
@@ -238,7 +256,9 @@ export function UsersPanel() {
                   <td>{user.role}</td>
                   <td>{user.active ? 'Yes' : 'No'}</td>
                   <td>
-                    {user.technicianId ? `Yes (${truncateId(user.technicianId)})` : 'No'}
+                    {user.technicianId
+                      ? `Yes (Lic #${user.technician?.licenseNumber ?? 'missing'})`
+                      : 'No'}
                   </td>
                   <td>
                     <button type="button" className="ghost-button" onClick={() => openEdit(user)}>
@@ -306,7 +326,17 @@ export function UsersPanel() {
             </label>
           ) : null}
           <div className="muted">Users with a linked Technician can receive inventory (issued/checked out).</div>
-          {createTechnician && role === 'TECH' ? null : (
+          {createTechnician && role === 'TECH' ? (
+            <label>
+              License #
+              <input
+                value={licenseNumber}
+                maxLength={10}
+                onChange={(e) => setLicenseNumber(e.target.value)}
+                required
+              />
+            </label>
+          ) : (
             <label>
               Link existing Technician record
               <select
@@ -321,11 +351,15 @@ export function UsersPanel() {
                 }}
               >
                 <option value="">{role === 'TECH' ? 'Select technician' : 'None'}</option>
-                {technicians.map((tech) => (
-                  <option key={tech.id} value={tech.id}>
-                    {tech.active ? tech.name : `${tech.name} (inactive)`}
-                  </option>
-                ))}
+                {technicians.map((tech) => {
+                  const licenseLabel = tech.licenseNumber ? `Lic #${tech.licenseNumber}` : 'Lic # missing';
+                  const nameLabel = tech.active ? tech.name : `${tech.name} (inactive)`;
+                  return (
+                    <option key={tech.id} value={tech.id}>
+                      {`${nameLabel} — ${licenseLabel}`}
+                    </option>
+                  );
+                })}
               </select>
             </label>
           )}
@@ -389,7 +423,17 @@ export function UsersPanel() {
             </label>
           ) : null}
           <div className="muted">Users with a linked Technician can receive inventory (issued/checked out).</div>
-          {editCreateTechnician && editRole === 'TECH' ? null : (
+          {editCreateTechnician && editRole === 'TECH' ? (
+            <label>
+              License #
+              <input
+                value={editLicenseNumber}
+                maxLength={10}
+                onChange={(e) => setEditLicenseNumber(e.target.value)}
+                required
+              />
+            </label>
+          ) : (
             <label>
               Link existing Technician record
               <select
@@ -404,11 +448,15 @@ export function UsersPanel() {
                 }}
               >
                 <option value="">{editRole === 'TECH' ? 'Select technician' : 'None'}</option>
-                {technicians.map((tech) => (
-                  <option key={tech.id} value={tech.id}>
-                    {tech.active ? tech.name : `${tech.name} (inactive)`}
-                  </option>
-                ))}
+                {technicians.map((tech) => {
+                  const licenseLabel = tech.licenseNumber ? `Lic #${tech.licenseNumber}` : 'Lic # missing';
+                  const nameLabel = tech.active ? tech.name : `${tech.name} (inactive)`;
+                  return (
+                    <option key={tech.id} value={tech.id}>
+                      {`${nameLabel} — ${licenseLabel}`}
+                    </option>
+                  );
+                })}
               </select>
             </label>
           )}

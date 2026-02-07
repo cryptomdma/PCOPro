@@ -19,7 +19,7 @@ type TransferRequestDetail = {
   direction: string;
   status: string;
   technicianId: string;
-  technician?: { id: string; name: string };
+  technician?: { id: string; name: string; licenseNumber?: string | null };
   reason?: string;
   createdAt: string;
   finalizedAt?: string;
@@ -33,7 +33,7 @@ type CheckoutRequestDetail = {
   status: string;
   requestDate: string;
   technicianId: string;
-  technician?: { id: string; name: string; technicianId?: string };
+  technician?: { id: string; name: string; technicianId?: string; technician?: { licenseNumber?: string | null } };
   lines?: Array<{ id: string; productId: string; qtyRequested: number; qtyIssued?: number; checkoutUnitLabel: string }>;
 };
 
@@ -122,14 +122,17 @@ export function RequestDetailsModal({
   }, [open, selectedProductId, productById]);
 
   const technicianLabel = useMemo(() => {
-    return (
+    const name =
       source?.technicianName ??
       transferDetail?.technician?.name ??
-      transferDetail?.technicianId ??
       checkoutDetail?.technician?.name ??
-      checkoutDetail?.technicianId ??
-      'Unknown'
-    );
+      'Unknown technician';
+    const license =
+      transferDetail?.technician?.licenseNumber ??
+      checkoutDetail?.technician?.technician?.licenseNumber ??
+      null;
+    const licenseLabel = license ? `Lic #${license}` : 'Lic # missing';
+    return `${name} | ${licenseLabel}`;
   }, [source, transferDetail, checkoutDetail]);
 
   const eventAt = useMemo(() => {

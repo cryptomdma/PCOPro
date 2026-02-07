@@ -18,7 +18,7 @@ type Product = {
   balances?: { onHandBase: number } | null;
 };
 
-type Technician = { id: string; name: string };
+type Technician = { id: string; name: string; licenseNumber?: string | null };
 
 type UsageSourcePreview = {
   type: 'checkout' | 'transfer';
@@ -372,7 +372,11 @@ export function AnalyticsPreview() {
               placeholder="Select technicians"
               values={technicianIds}
               onChange={setTechnicianIds}
-              options={technicians.map((tech) => ({ value: tech.id, label: tech.name, subtitle: tech.id }))}
+              options={technicians.map((tech) => ({
+                value: tech.id,
+                label: tech.name,
+                subtitle: tech.licenseNumber ? `Lic #${tech.licenseNumber}` : 'Lic # missing',
+              }))}
             />
             <MultiSearchableSelect
               label="Product"
