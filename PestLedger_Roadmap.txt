@@ -562,6 +562,11 @@ YYYY-MM-DD
 * Updated technician selection and request UIs to display license numbers instead of UUIDs
 * Required license number when creating a Technician record from admin user management
 
+2026-02-08
+
+* Allowed transfer acknowledgments for any user linked to the recipient technician (not TECH-only)
+* Updated Orders UI to show Acknowledge/Dispute for the recipient regardless of role
+
 ============================================================
 CHANGE LOG RULE
 ===============

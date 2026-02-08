@@ -50,7 +50,7 @@ export function OrdersView() {
 
   const ackPending = useMemo(() => openRequests.filter((r) => r.status === 'ACK_PENDING'), [openRequests]);
   const ackPendingForUser = useMemo(() => {
-    if (user?.role === 'TECH' && user.technicianId) {
+    if (user?.technicianId) {
       return ackPending.filter((r) => r.technicianId === user.technicianId);
     }
     return ackPending;
@@ -101,11 +101,11 @@ export function OrdersView() {
 
   function availableActions(req: TransferRequest) {
     const isWarehouseRole = ['WAREHOUSE', 'MANAGER', 'ADMIN'].includes(user?.role ?? '');
-    const isTechForRequest = user?.role === 'TECH' && user.technicianId === req.technicianId;
+    const isRecipient = Boolean(user?.technicianId && user.technicianId === req.technicianId);
     return {
       canFinalize: req.status === 'SUBMITTED' && isWarehouseRole,
-      canAcknowledge: req.status === 'ACK_PENDING' && isTechForRequest,
-      canDispute: req.status === 'ACK_PENDING' && isTechForRequest,
+      canAcknowledge: req.status === 'ACK_PENDING' && isRecipient,
+      canDispute: req.status === 'ACK_PENDING' && isRecipient,
     };
   }
 

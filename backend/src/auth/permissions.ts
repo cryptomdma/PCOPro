@@ -24,6 +24,7 @@ const ROLE_PERMISSIONS: Record<Role, Set<string>> = {
     'transfer.reverse',
     'transfer.finalize',
     'transfer.view',
+    'transfer.acknowledge',
     'audit.manage',
     'par.view',
     'receiving.manage',
