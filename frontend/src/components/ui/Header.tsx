@@ -34,7 +34,6 @@ export function Header() {
   const title = titleForPath(location.pathname, user?.role);
   const isTech = user?.role === 'TECH';
   const canAccessSettings = user?.role === 'ADMIN' || user?.role === 'MANAGER';
-  const canGoBack = location.pathname !== '/';
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -57,8 +56,8 @@ export function Header() {
     <>
       <header className="app-header">
         <div className="header-side">
-          <button type="button" className="ghost-button" onClick={() => (canGoBack ? navigate(-1) : setMenuOpen(true))}>
-            {canGoBack ? 'Back' : 'Menu'}
+          <button type="button" className="ghost-button" onClick={() => setMenuOpen(true)}>
+            Menu
           </button>
         </div>
         <div className="header-title">{title}</div>
