@@ -28,7 +28,7 @@ type TransferRequest = {
   acknowledgedAt?: string;
   disputeNote?: string;
   _count?: { lines: number };
-  technician?: { id: string; name: string };
+  technician?: { id: string; name: string; licenseNumber?: string | null };
 };
 
 export function OrdersView() {
@@ -59,6 +59,12 @@ export function OrdersView() {
     () => historyRequests.filter((r) => !['SUBMITTED', 'ACK_PENDING', 'DISPUTED', 'OPEN'].includes(r.status)),
     [historyRequests],
   );
+
+  const technicianLabelFor = (req: TransferRequest) => {
+    const name = req.technician?.name ?? 'Unknown technician';
+    const license = req.technician?.licenseNumber ? `Lic #${req.technician.licenseNumber}` : 'Lic # missing';
+    return `${name} | ${license}`;
+  };
 
   function handleError(context: string, err: any, fallback: string) {
     const message = err?.response?.data?.message || fallback;
@@ -188,7 +194,7 @@ export function OrdersView() {
                       <StatusBadge status={req.status} />
                     </div>
                     <div className="muted">
-                      Tech: {req.technician?.name ?? req.technicianId} | Lines: {req._count?.lines ?? 0}
+                      Tech: {technicianLabelFor(req)} | Lines: {req._count?.lines ?? 0}
                     </div>
                   </div>
                   <div className="pill-row">
@@ -246,7 +252,7 @@ export function OrdersView() {
                       <strong>{req.direction}</strong>
                       <StatusBadge status={req.status} />
                     </div>
-                    <div className="muted">Tech: {req.technician?.name ?? req.technicianId}</div>
+                    <div className="muted">Tech: {technicianLabelFor(req)}</div>
                   </div>
                   <div className="pill-row">
                     {actions.canAcknowledge ? (
@@ -292,7 +298,7 @@ export function OrdersView() {
                   <strong>{req.direction}</strong>
                   <StatusBadge status={req.status} />
                 </div>
-                <div className="muted">Tech: {req.technician?.name ?? req.technicianId}</div>
+                <div className="muted">Tech: {technicianLabelFor(req)}</div>
                 <div className="muted">
                   Created {new Date(req.createdAt).toLocaleString()}
                   {req.finalizedAt ? ` | Finalized ${new Date(req.finalizedAt).toLocaleString()}` : ''}

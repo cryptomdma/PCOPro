@@ -406,6 +406,7 @@ model Notification {
 model Technician {
   id               String            @id @default(cuid())
   name             String
+  licenseNumber    String?
   active           Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt

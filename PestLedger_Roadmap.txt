@@ -556,6 +556,12 @@ YYYY-MM-DD
 * Clarified Users admin UX for Technician record linking (labels, helper text, required selection rules)
 * Standardized TECH linkage error messaging to "Technician record" wording for UI/backend alignment
 
+2026-02-07
+
+* Added Technician license number field (schema + migration) and exposed it in technician/user recipient APIs
+* Updated technician selection and request UIs to display license numbers instead of UUIDs
+* Required license number when creating a Technician record from admin user management
+
 ============================================================
 CHANGE LOG RULE
 ===============

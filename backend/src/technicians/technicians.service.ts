@@ -19,7 +19,7 @@ export class TechniciansService {
             }
           : {}),
       },
-      select: { id: true, name: true, active: true },
+      select: { id: true, name: true, licenseNumber: true, active: true },
       orderBy: { name: 'asc' },
       take: limit,
     });

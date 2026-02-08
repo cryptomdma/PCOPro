@@ -26,6 +26,7 @@ export class UsersController {
       active: body?.active,
       technicianId: body?.technicianId ?? null,
       createTechnician: body?.createTechnician !== false,
+      licenseNumber: body?.licenseNumber,
     });
   }
 
@@ -39,6 +40,7 @@ export class UsersController {
       role: body?.role as Role | undefined,
       technicianId: body?.technicianId,
       createTechnician: body?.createTechnician === true,
+      licenseNumber: body?.licenseNumber,
     });
   }
 }
