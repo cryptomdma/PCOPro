@@ -49,8 +49,10 @@ export function CheckoutView() {
 
   useEffect(() => {
     if (!user) return;
-    if (user.role === 'TECH' && user.technicianId) {
-      setTechnicianId(user.technicianId);
+    if (user.role === 'TECH') {
+      setTechnicianId(user.technicianId ?? '');
+    } else {
+      setTechnicianId('');
     }
     fetchReference();
   }, [user]);
@@ -105,7 +107,10 @@ export function CheckoutView() {
 
   function validateLines() {
     if (!technicianId) {
-      return { ok: false, message: 'Technician is required' };
+      if (user?.role === 'TECH') {
+        return { ok: false, message: 'Your user profile is missing a linked technician.' };
+      }
+      return { ok: false, message: 'Recipient technician is required' };
     }
     const trimmed = lines.filter((line) => line.productId || line.unitLabel || line.quantityInput);
     if (trimmed.length === 0) {
@@ -154,6 +159,7 @@ export function CheckoutView() {
   const isTech = user?.role === 'TECH';
   const headerTitle = isTech ? 'Request' : 'Issue';
   const directionLabel = isTech ? 'Request type' : 'Issue type';
+  const missingTechLink = isTech && !technicianId;
 
   return (
     <section>
@@ -198,6 +204,9 @@ export function CheckoutView() {
         ) : (
           <div className="muted">Requesting as technician</div>
         )}
+        {missingTechLink ? (
+          <div className="error-panel">Your user profile is missing a linked technician.</div>
+        ) : null}
         <label>
           Inventory filter
           <select value={inventoryFilter} onChange={(e) => setInventoryFilter(e.target.value as 'all' | 'equipment' | 'bulk')}>

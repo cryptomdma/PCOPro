@@ -312,6 +312,9 @@ Rules:
 
 * Ledger posts on Finalize, NOT on Acknowledge
 * Tech acknowledgment optional (admin setting)
+* Request creation recipient rules:
+  * TECH: can only create requests for themselves (recipient technician locked to their linked technician record).
+  * WAREHOUSE / MANAGER / ADMIN: can create requests for any eligible technician (recipient selectable; same behavior as Admin request modal).
 
 ORDERS SCREEN
 
@@ -566,6 +569,10 @@ YYYY-MM-DD
 
 * Allowed transfer acknowledgments for any user linked to the recipient technician (not TECH-only)
 * Updated Orders UI to show Acknowledge/Dispute for the recipient regardless of role
+
+2026-02-09
+
+* Clarified request creation recipient rules by role; Warehouse/Manager previously used TECH self-only modal behavior and is being corrected
 
 ============================================================
 CHANGE LOG RULE
