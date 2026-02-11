@@ -244,8 +244,8 @@ export function CheckoutView() {
                   Quantity
                   <input
                     type="number"
-                    min="0.01"
-                    step="0.01"
+                    min="0"
+                    step="1"
                     value={line.quantityInput}
                     onChange={(e) => updateLine(idx, { quantityInput: e.target.value })}
                     onBlur={(e) => {

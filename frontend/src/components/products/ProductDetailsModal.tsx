@@ -566,7 +566,7 @@ export function ProductDetailsModal({
                       <input
                         type="number"
                         min="0"
-                        step="0.01"
+                        step="1"
                         value={parInput}
                         onChange={(e) => setParInput(e.target.value)}
                         placeholder="Set par"
@@ -589,7 +589,7 @@ export function ProductDetailsModal({
                     <input
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="1"
                       value={form.costQty}
                       onChange={(e) => setForm((prev) => ({ ...prev, costQty: e.target.value }))}
                     />
@@ -599,7 +599,7 @@ export function ProductDetailsModal({
                     <input
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="1"
                       value={form.costPrice}
                       onChange={(e) => setForm((prev) => ({ ...prev, costPrice: e.target.value }))}
                     />
