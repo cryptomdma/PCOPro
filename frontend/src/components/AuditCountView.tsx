@@ -294,7 +294,7 @@ export function AuditCountView() {
           Counted quantity
           <input
             type="number"
-            step="0.01"
+            step="1"
             min="0"
             value={countedQty}
             onChange={(e) => setCountedQty(e.target.value)}
@@ -347,7 +347,7 @@ export function AuditCountView() {
                       <td>
                         <input
                           type="number"
-                          step="0.01"
+                          step="1"
                           min="0"
                           value={line.countedQtyInput}
                           onChange={(e) =>
