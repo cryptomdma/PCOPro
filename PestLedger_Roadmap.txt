@@ -419,7 +419,22 @@ PRODUCTS
 
 * Add product
 
-  * Require initial count (ledger event; 0 allowed)
+  * ADMIN + INVENTORY_MANAGER only (MANAGER role in current codebase)
+  * Required product master fields:
+
+    * Name (unique)
+    * EPA Reg #
+    * baseType
+    * trackingUnitLabel / checkoutUnitLabel / orderingUnitLabel
+    * trackingToBase / checkoutToBase / orderingToBase
+  * Optional workflow: Add Product + Initial On-Hand
+
+    * Initial On-Hand is NOT a Product attribute
+    * If Initial On-Hand is provided, scope/location selection is required
+    * Post Initial On-Hand via audit-style delta logic only:
+
+      * count -> compute delta -> ledger adjustment -> balances recalc
+    * No direct balance mutation
 * Edit product
 
 RULES ENGINE (MVP)
@@ -573,6 +588,12 @@ YYYY-MM-DD
 2026-02-09
 
 * Clarified request creation recipient rules by role; Warehouse/Manager previously used TECH self-only modal behavior and is being corrected
+
+2026-02-13
+
+* Expanded Products > Add Product workflow to require product master fields (name unique, EPA Reg #, base/unit labels, conversion multipliers)
+* Added optional "Add Product + Initial On-Hand" flow requiring selected scope/location only when Initial On-Hand is supplied
+* Clarified Initial On-Hand posting implementation: audit-style delta computation with ledger adjustment transaction; no direct balance mutation
 
 ============================================================
 CHANGE LOG RULE
