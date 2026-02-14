@@ -158,7 +158,6 @@ export function CheckoutView() {
 
   const isTech = user?.role === 'TECH';
   const headerTitle = isTech ? 'Request' : 'Issue';
-  const directionLabel = isTech ? 'Request type' : 'Issue type';
   const missingTechLink = isTech && !technicianId;
 
   return (
@@ -174,13 +173,25 @@ export function CheckoutView() {
 
       <form className="form card" onSubmit={submitRequest}>
         <h4>Request Details</h4>
-        <label>
-          {directionLabel}
-          <select value={direction} onChange={(e) => setDirection(e.target.value as TransferDirection)}>
-            <option value="ISSUE">Issue to technician</option>
-            <option value="RETURN">Return to warehouse</option>
-          </select>
-        </label>
+        <div>
+          <div className="muted">Direction</div>
+          <div className="binary-switch">
+            <button
+              type="button"
+              className={direction === 'ISSUE' ? 'active' : ''}
+              onClick={() => setDirection('ISSUE')}
+            >
+              {isTech ? 'Request' : 'Issue'}
+            </button>
+            <button
+              type="button"
+              className={direction === 'RETURN' ? 'active' : ''}
+              onClick={() => setDirection('RETURN')}
+            >
+              Return
+            </button>
+          </div>
+        </div>
         {!isTech ? (
           <>
             <SearchableSelect
