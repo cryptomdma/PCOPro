@@ -320,15 +320,29 @@ ORDERS SCREEN
 
 * Open requests editable by:
 
-  * Requesting Tech
-  * Warehouse
-  * Manager
-  * Admin
+  * TECH:
+
+    * Own requests only
+    * Open status only
+    * Recipient technician cannot be changed (self-only)
+  * WAREHOUSE / MANAGER / ADMIN:
+
+    * Open status requests in scope
+    * May edit line items / quantities before finalize
 * Controls:
 
-  * Send back
-  * Cancel / refuse
-* Locked after Finalize
+  * Send Back (WAREHOUSE / MANAGER / ADMIN):
+
+    * Returns request to TECH for edits/resubmission
+    * Optional note captured when provided
+  * Cancel / Refuse:
+
+    * WAREHOUSE / MANAGER / ADMIN can Cancel or Refuse open requests
+    * TECH may Cancel own open request only (if still open and owned)
+* Locked after Finalize:
+
+  * No edits allowed once finalized/closed
+  * Ledger posting remains on Finalize only
 
 DISPUTES (MVP)
 
@@ -604,6 +618,12 @@ YYYY-MM-DD
 * Added optional "Add Product + Initial On-Hand" flow requiring selected scope/location only when Initial On-Hand is supplied
 * Clarified Initial On-Hand posting implementation: audit-style delta computation with ledger adjustment transaction; no direct balance mutation
 * Added optional Add Product category/type selectors and baseType-driven default assumptions for labels/conversion values (COUNT, MASS, VOLUME)
+
+2026-02-14
+
+* Clarified Orders request editability by role/status (TECH own open only; WAREHOUSE/MANAGER/ADMIN open requests in scope)
+* Added explicit Orders actions: Send Back plus Cancel/Refuse, including role constraints and optional notes
+* Reasserted immutability after finalize/closed and confirmed ledger posting remains finalize-only
 
 ============================================================
 CHANGE LOG RULE

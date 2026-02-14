@@ -1,13 +1,32 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { AcknowledgeDto, CreateTransferRequestDto, DisputeDto, ListTransferRequestsQuery } from './dto';
+import {
+  AcknowledgeDto,
+  CancelTransferRequestDto,
+  CreateTransferRequestDto,
+  DisputeDto,
+  ListTransferRequestsQuery,
+  SendBackDto,
+  UpdateTransferRequestDto,
+} from './dto';
 import { TransferDirection, TransferRequestStatus, Role } from '@prisma/client';
 import { getUnitFactor, toBaseQuantity } from '../utils/units';
-import { randomUUID } from 'crypto';
 
 type CurrentUser = { userId: string; role: Role; technicianId?: string };
 
-const OPEN_STATUSES = [TransferRequestStatus.SUBMITTED, TransferRequestStatus.ACK_PENDING, TransferRequestStatus.DISPUTED];
+const OPEN_STATUSES: TransferRequestStatus[] = [
+  TransferRequestStatus.OPEN,
+  TransferRequestStatus.SUBMITTED,
+  TransferRequestStatus.ACK_PENDING,
+  TransferRequestStatus.DISPUTED,
+];
+const EDITABLE_STATUSES: TransferRequestStatus[] = [TransferRequestStatus.OPEN, TransferRequestStatus.SUBMITTED];
+const CLOSED_STATUSES: TransferRequestStatus[] = [
+  TransferRequestStatus.FINALIZED,
+  TransferRequestStatus.ACKNOWLEDGED,
+  TransferRequestStatus.REJECTED,
+  TransferRequestStatus.CANCELED,
+];
 
 @Injectable()
 export class TransferRequestsService {
@@ -144,6 +163,51 @@ export class TransferRequestsService {
     return request;
   }
 
+  async update(id: string, dto: UpdateTransferRequestDto, user: CurrentUser) {
+    if (!dto.lines?.length) {
+      throw new BadRequestException('At least one line is required');
+    }
+    const request = await this.prisma.transferRequest.findUnique({
+      where: { id },
+      include: { lines: true },
+    });
+    if (!request) throw new NotFoundException('Request not found');
+    if (!EDITABLE_STATUSES.includes(request.status)) {
+      throw new BadRequestException('Only open requests can be edited');
+    }
+
+    if (user.role === 'TECH') {
+      if (!user.technicianId || request.technicianId !== user.technicianId) {
+        throw new ForbiddenException('Technician can only edit their own open requests');
+      }
+    }
+
+    const direction = dto.direction ?? request.direction;
+    const { fromScope, toScope } = this.scopesFor(direction, request.technicianId);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.transferRequestLine.deleteMany({ where: { transferRequestId: request.id } });
+      await tx.transferRequest.update({
+        where: { id: request.id },
+        data: {
+          direction,
+          fromScope,
+          toScope,
+          reason: dto.reason ?? request.reason,
+          lines: {
+            create: dto.lines.map((line) => ({
+              productId: line.productId,
+              quantity: line.quantity,
+              unitLabel: line.unitLabel,
+            })),
+          },
+        },
+      });
+    });
+
+    return this.detail(id, user);
+  }
+
   async finalize(id: string, user: CurrentUser) {
     const request = await this.prisma.transferRequest.findUnique({
       where: { id },
@@ -265,6 +329,58 @@ export class TransferRequestsService {
       data: {
         status: 'DISPUTED',
         disputeNote: dto.note,
+      },
+    });
+    return this.detail(id, user);
+  }
+
+  async sendBack(id: string, user: CurrentUser, dto: SendBackDto) {
+    if (!['WAREHOUSE', 'MANAGER', 'ADMIN'].includes(user.role)) {
+      throw new ForbiddenException('Only warehouse/manager/admin can send back requests');
+    }
+    const request = await this.prisma.transferRequest.findUnique({ where: { id } });
+    if (!request) throw new NotFoundException('Request not found');
+    if (!EDITABLE_STATUSES.includes(request.status)) {
+      throw new BadRequestException('Only open requests can be sent back');
+    }
+
+    await this.prisma.transferRequest.update({
+      where: { id },
+      data: {
+        status: TransferRequestStatus.OPEN,
+        disputeNote: dto.note?.trim() || request.disputeNote,
+      },
+    });
+    return this.detail(id, user);
+  }
+
+  async cancel(id: string, user: CurrentUser, dto: CancelTransferRequestDto) {
+    const request = await this.prisma.transferRequest.findUnique({ where: { id } });
+    if (!request) throw new NotFoundException('Request not found');
+    if (CLOSED_STATUSES.includes(request.status)) {
+      throw new BadRequestException('Request is already closed');
+    }
+    if (!EDITABLE_STATUSES.includes(request.status)) {
+      throw new BadRequestException('Only open requests can be canceled or refused');
+    }
+
+    const isWarehouseRole = ['WAREHOUSE', 'MANAGER', 'ADMIN'].includes(user.role);
+    const isTechOwner = user.role === 'TECH' && Boolean(user.technicianId && user.technicianId === request.technicianId);
+
+    if (!isWarehouseRole && !isTechOwner) {
+      throw new ForbiddenException('Not allowed to cancel or refuse this request');
+    }
+
+    const action = dto.action ?? (isWarehouseRole ? 'REFUSE' : 'CANCEL');
+    if (action === 'REFUSE' && !isWarehouseRole) {
+      throw new ForbiddenException('Only warehouse/manager/admin can refuse requests');
+    }
+
+    await this.prisma.transferRequest.update({
+      where: { id },
+      data: {
+        status: action === 'REFUSE' ? TransferRequestStatus.REJECTED : TransferRequestStatus.CANCELED,
+        disputeNote: dto.note?.trim() || request.disputeNote,
       },
     });
     return this.detail(id, user);

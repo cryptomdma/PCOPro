@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TransferDirection, TransferRequestStatus } from '@prisma/client';
 
@@ -77,4 +77,35 @@ export class AcknowledgeDto {
 export class DisputeDto {
   @IsString()
   note!: string;
+}
+
+export class UpdateTransferRequestDto {
+  @IsOptional()
+  @IsEnum(TransferDirection)
+  direction?: TransferDirection;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TransferRequestLineDto)
+  lines!: TransferRequestLineDto[];
+}
+
+export class SendBackDto {
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class CancelTransferRequestDto {
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @IsOptional()
+  @IsIn(['CANCEL', 'REFUSE'])
+  action?: 'CANCEL' | 'REFUSE';
 }

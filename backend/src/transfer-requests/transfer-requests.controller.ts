@@ -1,6 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { TransferRequestsService } from './transfer-requests.service';
-import { AcknowledgeDto, CreateTransferRequestDto, DisputeDto, ListTransferRequestsQuery } from './dto';
+import {
+  AcknowledgeDto,
+  CancelTransferRequestDto,
+  CreateTransferRequestDto,
+  DisputeDto,
+  ListTransferRequestsQuery,
+  SendBackDto,
+  UpdateTransferRequestDto,
+} from './dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard, RequirePerm } from '../auth/permissions';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -34,6 +42,12 @@ export class TransferRequestsController {
     return this.service.detail(id, { userId: user.userId, role: user.role, technicianId: user.technicianId });
   }
 
+  @Put(':id')
+  @RequirePerm('transfer.create')
+  update(@Param('id') id: string, @Body() dto: UpdateTransferRequestDto, @CurrentUser() user: any) {
+    return this.service.update(id, dto, { userId: user.userId, role: user.role, technicianId: user.technicianId });
+  }
+
   @Post(':id/finalize')
   @RequirePerm('transfer.finalize')
   finalize(@Param('id') id: string, @CurrentUser() user: any) {
@@ -50,5 +64,17 @@ export class TransferRequestsController {
   @RequirePerm('transfer.acknowledge')
   dispute(@Param('id') id: string, @Body() dto: DisputeDto, @CurrentUser() user: any) {
     return this.service.dispute(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
+  }
+
+  @Post(':id/send-back')
+  @RequirePerm('transfer.finalize')
+  sendBack(@Param('id') id: string, @Body() dto: SendBackDto, @CurrentUser() user: any) {
+    return this.service.sendBack(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
+  }
+
+  @Post(':id/cancel')
+  @RequirePerm('transfer.create')
+  cancel(@Param('id') id: string, @Body() dto: CancelTransferRequestDto, @CurrentUser() user: any) {
+    return this.service.cancel(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
   }
 }
