@@ -24,8 +24,10 @@ export class ProductsController {
   }
 
   @Post()
-  create(@Body() dto: CreateProductDto) {
-    return this.products.create(dto);
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePerm('products.manage')
+  create(@Body() dto: CreateProductDto, @CurrentUser() user: any) {
+    return this.products.create(dto, { userId: user.userId, role: user.role });
   }
 
   @Put(':id')

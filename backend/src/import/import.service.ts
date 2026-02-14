@@ -83,7 +83,7 @@ export class ImportService {
           orderingToBase: row.orderingToBase,
           isStocked: row.isStocked,
           isDiscontinued: row.isDiscontinued,
-          epaRegNo: row.metadata?.epaRegNo ?? undefined,
+          epaRegNo: row.metadata?.epaRegNo ?? '',
           description: row.metadata?.description ?? undefined,
           category,
           behavior: this.resolveBehavior(row.metadata?.category),

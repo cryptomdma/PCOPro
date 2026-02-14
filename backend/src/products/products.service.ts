@@ -14,6 +14,7 @@ import {
 import * as QRCode from 'qrcode';
 import { parse } from 'csv-parse/sync';
 import { toBaseQuantity } from '../utils/units';
+import { computeDelta, toCountedBase } from '../inventory/audit-helpers';
 
 @Injectable()
 export class ProductsService {
@@ -48,8 +49,103 @@ export class ProductsService {
       });
   }
 
-  create(dto: CreateProductDto) {
-    return this.prisma.product.create({ data: dto });
+  async create(dto: CreateProductDto, actor?: { userId: string; role: Role }) {
+    const name = dto.name.trim();
+    const epaRegNo = dto.epaRegNo.trim();
+    const trackingUnitLabel = dto.trackingUnitLabel.trim();
+    const checkoutUnitLabel = dto.checkoutUnitLabel.trim();
+    const orderingUnitLabel = dto.orderingUnitLabel.trim();
+    const hasInitialOnHand = dto.initialOnHand !== undefined && dto.initialOnHand !== null;
+    const initialScopeId = dto.initialScopeId?.trim();
+
+    if (!name) {
+      throw new BadRequestException('Product name is required');
+    }
+    if (!epaRegNo) {
+      throw new BadRequestException('EPA Reg # is required');
+    }
+    if (!trackingUnitLabel || !checkoutUnitLabel || !orderingUnitLabel) {
+      throw new BadRequestException('All unit labels are required');
+    }
+    if (hasInitialOnHand && !initialScopeId) {
+      throw new BadRequestException('Scope/Location is required when Initial On-Hand is provided');
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const created = await tx.product.create({
+          data: {
+            name,
+            epaRegNo,
+            description: dto.description?.trim() || undefined,
+            category: dto.category,
+            trackingMode: dto.trackingMode,
+            productType: dto.productType,
+            baseType: dto.baseType,
+            trackingUnitLabel,
+            checkoutUnitLabel,
+            orderingUnitLabel,
+            trackingToBase: dto.trackingToBase,
+            checkoutToBase: dto.checkoutToBase,
+            orderingToBase: dto.orderingToBase,
+            reorderLevelBase: dto.reorderLevelBase,
+            leadTimeDays: dto.leadTimeDays,
+            behavior: dto.behavior,
+          },
+        });
+
+        if (!hasInitialOnHand) {
+          return created;
+        }
+
+        const scope = this.normalizeScope(initialScopeId!);
+        const countedBase = toCountedBase(dto.initialOnHand!, created.trackingToBase);
+        const balance = await tx.inventoryBalance.upsert({
+          where: { productId_scope: { productId: created.id, scope } },
+          update: {},
+          create: { productId: created.id, scope, onHandBase: 0 },
+        });
+        const currentBase = balance.onHandBase ?? 0;
+        const { deltaBase, afterBase } = computeDelta(currentBase, countedBase);
+        const idempotencyKey = `initial_on_hand:${created.id}:${scope}:${countedBase}`;
+        const existingTx = await tx.inventoryTransaction.findUnique({ where: { idempotencyKey } });
+
+        if (!existingTx && deltaBase !== 0) {
+          await tx.inventoryTransaction.create({
+            data: {
+              productId: created.id,
+              scope,
+              type: TransactionType.adjustment,
+              quantityBase: deltaBase,
+              beforeBase: currentBase,
+              afterBase,
+              actorId: actor?.userId,
+              actorRole: actor?.role,
+              reason: 'INITIAL_ON_HAND',
+              idempotencyKey,
+            },
+          });
+
+          await tx.inventoryBalance.update({
+            where: { id: balance.id },
+            data: { onHandBase: afterBase },
+          });
+        }
+
+        return created;
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = err.meta?.target;
+        const isNameConflict =
+          (Array.isArray(target) && target.includes('name')) || (typeof target === 'string' && target.includes('name'));
+        if (isNameConflict) {
+          throw new ConflictException('Product name already exists');
+        }
+        throw new ConflictException('Create failed due to duplicate data');
+      }
+      throw err;
+    }
   }
 
   async update(id: string, dto: UpdateProductDto) {
@@ -207,7 +303,7 @@ export class ProductsService {
 
         await this.prisma.product.update({
           where: { id: product.id },
-          data: { epaRegNo: epaValue },
+          data: { epaRegNo: epaValue ?? '' },
         });
         updatedCount += 1;
       } catch (err) {
@@ -442,7 +538,7 @@ export class ProductsService {
 
         const epaField = getField(row, ['epa', 'epa_reg_no', 'epa reg no', 'epa_reg']);
         if (epaField.present) {
-          updateData.epaRegNo = normalizeNullable(epaField.value, true);
+          updateData.epaRegNo = normalizeNullable(epaField.value, true) ?? '';
         }
 
         const costField = getField(row, ['defaultCostPerBase', 'default_cost_per_base', 'default_cost', 'cost_per_base']);
@@ -781,7 +877,7 @@ export class ProductsService {
               const created = await tx.product.create({
                 data: {
                   name: nameValue,
-                  epaRegNo: updateData.epaRegNo as string | null | undefined,
+                  epaRegNo: (updateData.epaRegNo as string | undefined) ?? '',
                   description: updateData.description as string | null | undefined,
                   category: mappedCategory ?? undefined,
                   productType: mappedType ?? undefined,
@@ -942,5 +1038,19 @@ export class ProductsService {
     }
 
     return summary;
+  }
+
+  private normalizeScope(scope: string) {
+    const normalized = scope.trim();
+    if (!normalized) {
+      throw new BadRequestException('Scope/Location is required when Initial On-Hand is provided');
+    }
+    if (normalized === 'WAREHOUSE') {
+      return normalized;
+    }
+    if (normalized.startsWith('TRUCK:') && normalized.length > 'TRUCK:'.length) {
+      return normalized;
+    }
+    throw new BadRequestException('Invalid scope/location');
   }
 }

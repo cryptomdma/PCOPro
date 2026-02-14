@@ -1,14 +1,15 @@
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ProductBehavior, ProductCategory, ProductTrackingMode, ProductType, UnitBaseType } from '@prisma/client';
 
 export class CreateProductDto {
   @IsString()
+  @IsNotEmpty()
   name!: string;
 
-  @IsOptional()
   @IsString()
-  epaRegNo?: string;
+  @IsNotEmpty()
+  epaRegNo!: string;
 
   @IsOptional()
   @IsString()
@@ -61,6 +62,16 @@ export class CreateProductDto {
   @IsOptional()
   @IsEnum(ProductBehavior)
   behavior?: ProductBehavior;
+
+  @IsOptional()
+  @IsNumber()
+  @Transform(({ value }) => (value === '' || value === null || value === undefined ? undefined : Number(value)))
+  @Min(0)
+  initialOnHand?: number;
+
+  @IsOptional()
+  @IsString()
+  initialScopeId?: string;
 }
 
 export class UpdateProductDto {

@@ -435,6 +435,15 @@ PRODUCTS
 
       * count -> compute delta -> ledger adjustment -> balances recalc
     * No direct balance mutation
+  * Optional product classification at create:
+
+    * category dropdown
+    * type dropdown
+  * Add Product defaults by baseType:
+
+    * COUNT defaults labels to EACH and conversion multipliers to 1
+    * MASS defaults tracking/order labels to lbs, checkout to oz, and multipliers based on 1 lb = 16 oz
+    * VOLUME defaults tracking/order labels to gal, checkout to oz, and multipliers based on 1 gal = 128 oz
 * Edit product
 
 RULES ENGINE (MVP)
@@ -594,6 +603,7 @@ YYYY-MM-DD
 * Expanded Products > Add Product workflow to require product master fields (name unique, EPA Reg #, base/unit labels, conversion multipliers)
 * Added optional "Add Product + Initial On-Hand" flow requiring selected scope/location only when Initial On-Hand is supplied
 * Clarified Initial On-Hand posting implementation: audit-style delta computation with ledger adjustment transaction; no direct balance mutation
+* Added optional Add Product category/type selectors and baseType-driven default assumptions for labels/conversion values (COUNT, MASS, VOLUME)
 
 ============================================================
 CHANGE LOG RULE
