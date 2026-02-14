@@ -35,6 +35,7 @@ async function main() {
     update: {},
     create: {
       name: 'Suspend SC',
+      epaRegNo: '',
       baseType: UnitBaseType.VOLUME,
       trackingUnitLabel: 'gal',
       checkoutUnitLabel: 'oz',

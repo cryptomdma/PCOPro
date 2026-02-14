@@ -132,7 +132,7 @@ model Setting {
 model Product {
   id                String              @id @default(cuid())
   name              String              @unique
-  epaRegNo          String?
+  epaRegNo          String
   description       String?
   category          ProductCategory     @default(CHEMICAL)
   behavior          ProductBehavior     @default(CONSUMABLE)
