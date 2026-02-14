@@ -65,8 +65,9 @@ type AuditDiscrepancyRow = {
 type AuditDiscrepancyDetail = {
   createdAt: string;
   auditSessionId: string;
+  sourceType?: 'AUDIT' | 'INITIAL_ON_HAND';
   notes?: string | null;
-  countedQty: number;
+  countedQty: number | null;
   unitBasis: string;
   desiredBase: number;
   deltaBase: number;
@@ -539,7 +540,7 @@ export function AnalyticsPreview() {
                 <thead>
                   <tr>
                     <th>Product</th>
-                    <th># Audits</th>
+                    <th># Entries</th>
                     <th>Net Delta</th>
                     <th>Abs Delta</th>
                   </tr>
@@ -683,10 +684,9 @@ export function AnalyticsPreview() {
                     </button>
                   </div>
                   <div className="muted">Session: {line.auditSessionId}</div>
+                  {line.sourceType ? <div className="muted">Source: {line.sourceType}</div> : null}
                   {line.notes ? <div className="muted">Notes: {line.notes}</div> : null}
-                  <div className="muted">
-                    Counted: {line.countedQty} {line.unitBasis}
-                  </div>
+                  {line.countedQty !== null ? <div className="muted">Counted: {line.countedQty} {line.unitBasis}</div> : null}
                   <div className="muted">
                     Desired: {formatNumber(desired.value)} {desired.label} | Delta: {formatNumber(delta.value)} {delta.label}
                   </div>

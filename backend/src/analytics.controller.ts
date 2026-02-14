@@ -304,6 +304,19 @@ export class AnalyticsController {
         createdAt: true,
       },
     });
+    const initialOnHandAdjustments = await this.prisma.inventoryTransaction.findMany({
+      where: {
+        type: 'adjustment',
+        reason: 'INITIAL_ON_HAND',
+        createdAt: { gte: start, lt: end },
+        ...(locationScope ? { scope: locationScope } : {}),
+      },
+      select: {
+        productId: true,
+        quantityBase: true,
+        createdAt: true,
+      },
+    });
 
     const byProduct = new Map<
       string,
@@ -328,6 +341,26 @@ export class AnalyticsController {
         entry.absDeltaBase += Math.abs(delta);
         if (line.createdAt < entry.firstSeen) entry.firstSeen = line.createdAt;
         if (line.createdAt > entry.lastSeen) entry.lastSeen = line.createdAt;
+      }
+    }
+    for (const tx of initialOnHandAdjustments) {
+      const delta = Number(tx.quantityBase);
+      const entry = byProduct.get(tx.productId);
+      if (!entry) {
+        byProduct.set(tx.productId, {
+          productId: tx.productId,
+          auditLineCount: 1,
+          netDeltaBase: delta,
+          absDeltaBase: Math.abs(delta),
+          firstSeen: tx.createdAt,
+          lastSeen: tx.createdAt,
+        });
+      } else {
+        entry.auditLineCount += 1;
+        entry.netDeltaBase += delta;
+        entry.absDeltaBase += Math.abs(delta);
+        if (tx.createdAt < entry.firstSeen) entry.firstSeen = tx.createdAt;
+        if (tx.createdAt > entry.lastSeen) entry.lastSeen = tx.createdAt;
       }
     }
 
@@ -373,16 +406,46 @@ export class AnalyticsController {
       orderBy: { createdAt: 'desc' },
       include: { auditSession: { select: { id: true, notes: true } } },
     });
-
-    return lines.map((line) => ({
-      createdAt: line.createdAt.toISOString(),
-      auditSessionId: line.auditSessionId,
-      notes: line.auditSession?.notes ?? null,
-      countedQty: Number(line.countedQty),
-      unitBasis: line.unitBasis,
-      desiredBase: Number(line.desiredBase),
-      deltaBase: Number(line.deltaBase),
-    }));
+    const initialOnHandAdjustments = await this.prisma.inventoryTransaction.findMany({
+      where: {
+        productId,
+        type: 'adjustment',
+        reason: 'INITIAL_ON_HAND',
+        createdAt: { gte: start, lt: end },
+        ...(locationScope ? { scope: locationScope } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        reason: true,
+        createdAt: true,
+        quantityBase: true,
+        afterBase: true,
+      },
+    });
+    const merged = [
+      ...lines.map((line) => ({
+        createdAt: line.createdAt.toISOString(),
+        auditSessionId: line.auditSessionId,
+        notes: line.auditSession?.notes ?? null,
+        countedQty: Number(line.countedQty),
+        unitBasis: line.unitBasis,
+        desiredBase: Number(line.desiredBase),
+        deltaBase: Number(line.deltaBase),
+        sourceType: 'AUDIT',
+      })),
+      ...initialOnHandAdjustments.map((tx) => ({
+        createdAt: tx.createdAt.toISOString(),
+        auditSessionId: `initial_on_hand:${tx.id}`,
+        notes: tx.reason ?? 'INITIAL_ON_HAND',
+        countedQty: null,
+        unitBasis: 'BASE',
+        desiredBase: Number(tx.afterBase),
+        deltaBase: Number(tx.quantityBase),
+        sourceType: 'INITIAL_ON_HAND',
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return merged;
   }
 
   private extractTechnicianIdFromScope(scope?: string | null) {
