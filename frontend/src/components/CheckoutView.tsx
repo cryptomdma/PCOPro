@@ -181,7 +181,7 @@ export function CheckoutView() {
               className={direction === 'ISSUE' ? 'active' : ''}
               onClick={() => setDirection('ISSUE')}
             >
-              Issue
+              {isTech ? 'Request' : 'Issue'}
             </button>
             <button
               type="button"
