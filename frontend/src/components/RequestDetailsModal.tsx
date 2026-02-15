@@ -21,6 +21,14 @@ type TransferRequestDetail = {
   technicianId: string;
   technician?: { id: string; name: string; licenseNumber?: string | null };
   reason?: string;
+  pickupDate?: string;
+  fulfillmentNote?: string | null;
+  changeRequestPayload?: {
+    direction?: string;
+    reason?: string;
+    pickupDate?: string;
+    lines?: Array<{ productId: string; quantity: number; unitLabel: string }>;
+  } | null;
   createdAt: string;
   finalizedAt?: string;
   acknowledgedAt?: string;
@@ -156,6 +164,12 @@ export function RequestDetailsModal({
 
       {transferDetail ? (
         <div className="card-stack">
+          {transferDetail.status === 'CHANGE_REQUESTED' ? (
+            <div className="result-panel">
+              <h4>Pending Change Request</h4>
+              <p>Review these proposed changes before approving or denying.</p>
+            </div>
+          ) : null}
           <div className="muted">Technician: {technicianLabel}</div>
           <div className="muted">Date: {formattedEventAt}</div>
           <div className="card-row">
@@ -163,17 +177,36 @@ export function RequestDetailsModal({
             <StatusBadge status={transferDetail.status} />
           </div>
           <div className="muted">Created: {new Date(transferDetail.createdAt).toLocaleString()}</div>
+          {transferDetail.pickupDate ? (
+            <div className="muted">
+              Pickup Date:{' '}
+              {new Date(
+                transferDetail.status === 'CHANGE_REQUESTED'
+                  ? transferDetail.changeRequestPayload?.pickupDate ?? transferDetail.pickupDate
+                  : transferDetail.pickupDate,
+              ).toLocaleString()}
+            </div>
+          ) : null}
           {transferDetail.finalizedAt ? (
             <div className="muted">Finalized: {new Date(transferDetail.finalizedAt).toLocaleString()}</div>
           ) : null}
           {transferDetail.acknowledgedAt ? (
             <div className="muted">Acknowledged: {new Date(transferDetail.acknowledgedAt).toLocaleString()}</div>
           ) : null}
-          {transferDetail.reason ? <div className="muted">Reason: {transferDetail.reason}</div> : null}
-          {transferDetail.lines && transferDetail.lines.length > 0 ? (
+          <div className="muted">
+            Reason: {transferDetail.status === 'CHANGE_REQUESTED' ? transferDetail.changeRequestPayload?.reason ?? transferDetail.reason ?? 'N/A' : transferDetail.reason ?? 'N/A'}
+          </div>
+          {transferDetail.fulfillmentNote ? <div className="muted">Fulfillment note: {transferDetail.fulfillmentNote}</div> : null}
+          {(transferDetail.status === 'CHANGE_REQUESTED'
+            ? transferDetail.changeRequestPayload?.lines ?? transferDetail.lines
+            : transferDetail.lines
+          )?.length ? (
             <div className="card-stack">
               <strong>Lines</strong>
-              {transferDetail.lines.map((line) => {
+              {(transferDetail.status === 'CHANGE_REQUESTED'
+                ? transferDetail.changeRequestPayload?.lines ?? transferDetail.lines
+                : transferDetail.lines
+              ).map((line, idx) => {
                 const product = productById[line.productId];
                 const stock = getStockDisplay({
                   role: user?.role,
@@ -182,7 +215,7 @@ export function RequestDetailsModal({
                   trackingUnitLabel: product?.trackingUnitLabel ?? null,
                 });
                 return (
-                  <div key={line.id} className="card-stack">
+                  <div key={(line as any).id ?? `${line.productId}-${idx}`} className="card-stack">
                     <div className="card-row">
                       <button
                         type="button"

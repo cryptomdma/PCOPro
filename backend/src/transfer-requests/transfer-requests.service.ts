@@ -2,27 +2,50 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma.service';
 import {
   AcknowledgeDto,
+  ApproveTransferDto,
   CancelTransferRequestDto,
   CreateTransferRequestDto,
   DisputeDto,
+  FinalizeTransferDto,
   ListTransferRequestsQuery,
   SendBackDto,
   UpdateTransferRequestDto,
 } from './dto';
-import { TransferDirection, TransferRequestStatus, Role } from '@prisma/client';
+import { Prisma, Role, TransferDirection, TransferRequestStatus } from '@prisma/client';
 import { getUnitFactor, toBaseQuantity } from '../utils/units';
 
 type CurrentUser = { userId: string; role: Role; technicianId?: string };
+type RequestEditPayload = {
+  direction: TransferDirection;
+  reason?: string;
+  pickupDate: string;
+  lines: Array<{ productId: string; quantity: number; unitLabel: string }>;
+};
 
 const OPEN_STATUSES: TransferRequestStatus[] = [
   TransferRequestStatus.OPEN,
   TransferRequestStatus.SUBMITTED,
+  TransferRequestStatus.APPROVAL_PENDING,
+  TransferRequestStatus.APPROVED,
+  TransferRequestStatus.CHANGE_REQUESTED,
   TransferRequestStatus.ACK_PENDING,
   TransferRequestStatus.DISPUTED,
 ];
-const EDITABLE_STATUSES: TransferRequestStatus[] = [TransferRequestStatus.OPEN, TransferRequestStatus.SUBMITTED];
+const TECH_DIRECT_EDIT_STATUSES: TransferRequestStatus[] = [
+  TransferRequestStatus.OPEN,
+  TransferRequestStatus.SUBMITTED,
+  TransferRequestStatus.APPROVAL_PENDING,
+];
+const NON_TECH_EDIT_STATUSES: TransferRequestStatus[] = [
+  TransferRequestStatus.OPEN,
+  TransferRequestStatus.SUBMITTED,
+  TransferRequestStatus.APPROVAL_PENDING,
+  TransferRequestStatus.APPROVED,
+  TransferRequestStatus.CHANGE_REQUESTED,
+];
 const CLOSED_STATUSES: TransferRequestStatus[] = [
   TransferRequestStatus.FINALIZED,
+  TransferRequestStatus.ACK_PENDING,
   TransferRequestStatus.ACKNOWLEDGED,
   TransferRequestStatus.REJECTED,
   TransferRequestStatus.CANCELED,
@@ -37,6 +60,75 @@ export class TransferRequestsService {
       return { fromScope: 'WAREHOUSE', toScope: `TRUCK:${technicianId}` };
     }
     return { fromScope: `TRUCK:${technicianId}`, toScope: 'WAREHOUSE' };
+  }
+
+  private parsePickupDate(value?: Date) {
+    const pickupDate = value ? new Date(value) : new Date();
+    if (Number.isNaN(pickupDate.getTime())) {
+      throw new BadRequestException('Invalid pickupDate');
+    }
+    return pickupDate;
+  }
+
+  private isFutureDate(date: Date) {
+    return date.getTime() > Date.now();
+  }
+
+  private buildEditPayload(dto: UpdateTransferRequestDto, fallback: { direction: TransferDirection; reason?: string | null; pickupDate: Date }) {
+    if (!dto.lines?.length) {
+      throw new BadRequestException('At least one line is required');
+    }
+    const pickupDate = dto.pickupDate ? this.parsePickupDate(dto.pickupDate) : fallback.pickupDate;
+    return {
+      direction: dto.direction ?? fallback.direction,
+      reason: dto.reason ?? fallback.reason ?? undefined,
+      pickupDate,
+      lines: dto.lines.map((line) => ({
+        productId: line.productId,
+        quantity: line.quantity,
+        unitLabel: line.unitLabel,
+      })),
+    };
+  }
+
+  private parseChangePayload(raw: Prisma.JsonValue | null): RequestEditPayload {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new BadRequestException('No pending change payload');
+    }
+    const payload = raw as any;
+    if (!payload.direction || !Array.isArray(payload.lines) || !payload.pickupDate) {
+      throw new BadRequestException('Invalid pending change payload');
+    }
+    return payload as RequestEditPayload;
+  }
+
+  private async applyEdits(
+    tx: Prisma.TransactionClient,
+    requestId: string,
+    technicianId: string,
+    payload: { direction: TransferDirection; reason?: string; pickupDate: Date; lines: Array<{ productId: string; quantity: number; unitLabel: string }> },
+    extraData?: Prisma.TransferRequestUpdateInput,
+  ) {
+    const { fromScope, toScope } = this.scopesFor(payload.direction, technicianId);
+    await tx.transferRequestLine.deleteMany({ where: { transferRequestId: requestId } });
+    await tx.transferRequest.update({
+      where: { id: requestId },
+      data: {
+        direction: payload.direction,
+        fromScope,
+        toScope,
+        pickupDate: payload.pickupDate,
+        reason: payload.reason,
+        lines: {
+          create: payload.lines.map((line) => ({
+            productId: line.productId,
+            quantity: line.quantity,
+            unitLabel: line.unitLabel,
+          })),
+        },
+        ...extraData,
+      },
+    });
   }
 
   async listRecipients() {
@@ -60,17 +152,10 @@ export class TransferRequestsService {
     if (user.role === 'TECH' && user.technicianId !== technicianId) {
       throw new ForbiddenException('Tech may only create for self');
     }
-    if (user.role === 'TECH') {
-      if (dto.direction === 'ISSUE' && this.scopesFor(dto.direction, technicianId).fromScope !== 'WAREHOUSE') {
-        throw new ForbiddenException('Invalid scope');
-      }
-      if (dto.direction === 'RETURN' && this.scopesFor(dto.direction, technicianId).toScope !== 'WAREHOUSE') {
-        throw new ForbiddenException('Invalid scope');
-      }
-    }
     if (!dto.lines || dto.lines.length === 0) {
       throw new BadRequestException('At least one line is required');
     }
+    const pickupDate = this.parsePickupDate(dto.pickupDate);
 
     if (dto.idempotencyKey) {
       const existing = await this.prisma.transferRequest.findUnique({
@@ -89,6 +174,7 @@ export class TransferRequestsService {
     if (!tech || !tech.active) throw new BadRequestException('Technician not found or inactive');
 
     const { fromScope, toScope } = this.scopesFor(dto.direction, technicianId);
+    const status = this.isFutureDate(pickupDate) ? TransferRequestStatus.APPROVAL_PENDING : TransferRequestStatus.SUBMITTED;
 
     return this.prisma.transferRequest.create({
       data: {
@@ -98,6 +184,8 @@ export class TransferRequestsService {
         fromScope,
         toScope,
         reason: dto.reason,
+        pickupDate,
+        status,
         requestIdempotencyKey: dto.idempotencyKey,
         lines: {
           create: dto.lines.map((line) => ({
@@ -152,6 +240,7 @@ export class TransferRequestsService {
         lines: { include: { product: { select: { name: true, category: true } } } },
         technician: true,
         createdByUser: true,
+        approvedByUser: true,
         finalizedByUser: true,
         acknowledgedByUser: true,
       },
@@ -164,60 +253,188 @@ export class TransferRequestsService {
   }
 
   async update(id: string, dto: UpdateTransferRequestDto, user: CurrentUser) {
-    if (!dto.lines?.length) {
-      throw new BadRequestException('At least one line is required');
-    }
     const request = await this.prisma.transferRequest.findUnique({
       where: { id },
-      include: { lines: true },
     });
     if (!request) throw new NotFoundException('Request not found');
-    if (!EDITABLE_STATUSES.includes(request.status)) {
-      throw new BadRequestException('Only open requests can be edited');
+    if (CLOSED_STATUSES.includes(request.status)) {
+      throw new BadRequestException('Request can no longer be edited');
     }
 
     if (user.role === 'TECH') {
       if (!user.technicianId || request.technicianId !== user.technicianId) {
-        throw new ForbiddenException('Technician can only edit their own open requests');
+        throw new ForbiddenException('Technician can only edit their own requests');
       }
+      const payload = this.buildEditPayload(dto, request);
+      if (request.status === TransferRequestStatus.APPROVED || request.status === TransferRequestStatus.CHANGE_REQUESTED) {
+        await this.prisma.transferRequest.update({
+          where: { id: request.id },
+          data: {
+            status: TransferRequestStatus.CHANGE_REQUESTED,
+            changeRequestedAt: new Date(),
+            changeRequestNote: dto.reason ?? request.changeRequestNote,
+            changeRequestPayload: {
+              direction: payload.direction,
+              reason: payload.reason,
+              pickupDate: payload.pickupDate.toISOString(),
+              lines: payload.lines,
+            },
+          },
+        });
+        return this.detail(id, user);
+      }
+
+      if (!TECH_DIRECT_EDIT_STATUSES.includes(request.status)) {
+        throw new BadRequestException('Request is not editable at this stage');
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await this.applyEdits(tx, request.id, request.technicianId, payload, {
+          status: this.isFutureDate(payload.pickupDate) ? TransferRequestStatus.APPROVAL_PENDING : TransferRequestStatus.SUBMITTED,
+          approvedAt: null,
+          approvedByUser: { disconnect: true },
+          changeRequestedAt: null,
+          changeRequestNote: null,
+          changeRequestPayload: Prisma.DbNull,
+        });
+      });
+      return this.detail(id, user);
     }
 
-    const direction = dto.direction ?? request.direction;
-    const { fromScope, toScope } = this.scopesFor(direction, request.technicianId);
-
+    if (!NON_TECH_EDIT_STATUSES.includes(request.status)) {
+      throw new BadRequestException('Only open/in-progress requests can be edited');
+    }
+    const payload = this.buildEditPayload(dto, request);
     await this.prisma.$transaction(async (tx) => {
-      await tx.transferRequestLine.deleteMany({ where: { transferRequestId: request.id } });
-      await tx.transferRequest.update({
-        where: { id: request.id },
-        data: {
-          direction,
-          fromScope,
-          toScope,
-          reason: dto.reason ?? request.reason,
-          lines: {
-            create: dto.lines.map((line) => ({
-              productId: line.productId,
-              quantity: line.quantity,
-              unitLabel: line.unitLabel,
-            })),
-          },
-        },
+      await this.applyEdits(tx, request.id, request.technicianId, payload, {
+        status: this.isFutureDate(payload.pickupDate) ? TransferRequestStatus.APPROVAL_PENDING : TransferRequestStatus.SUBMITTED,
+        changeRequestedAt: null,
+        changeRequestNote: null,
+        changeRequestPayload: Prisma.DbNull,
       });
     });
-
     return this.detail(id, user);
   }
 
-  async finalize(id: string, user: CurrentUser) {
+  async approve(id: string, user: CurrentUser, dto: ApproveTransferDto) {
+    if (!['WAREHOUSE', 'MANAGER', 'ADMIN'].includes(user.role)) {
+      throw new ForbiddenException('Only warehouse/manager/admin can approve');
+    }
+    const request = await this.prisma.transferRequest.findUnique({ where: { id } });
+    if (!request) throw new NotFoundException('Request not found');
+    if (request.status !== TransferRequestStatus.APPROVAL_PENDING) {
+      throw new BadRequestException('Request is not awaiting approval');
+    }
+    await this.prisma.transferRequest.update({
+      where: { id },
+      data: {
+        status: TransferRequestStatus.APPROVED,
+        approvedAt: new Date(),
+        approvedByUser: { connect: { id: user.userId } },
+        changeRequestNote: dto.note?.trim() || request.changeRequestNote,
+        fulfillmentNote: dto.fulfillmentNote?.trim() || request.fulfillmentNote,
+      },
+    });
+    return this.detail(id, user);
+  }
+
+  async deny(id: string, user: CurrentUser, dto: ApproveTransferDto) {
+    if (!['WAREHOUSE', 'MANAGER', 'ADMIN'].includes(user.role)) {
+      throw new ForbiddenException('Only warehouse/manager/admin can deny');
+    }
+    const request = await this.prisma.transferRequest.findUnique({ where: { id } });
+    if (!request) throw new NotFoundException('Request not found');
+    if (request.status !== TransferRequestStatus.APPROVAL_PENDING) {
+      throw new BadRequestException('Request is not awaiting approval');
+    }
+    await this.prisma.transferRequest.update({
+      where: { id },
+      data: {
+        status: TransferRequestStatus.REJECTED,
+        changeRequestNote: dto.note?.trim() || request.changeRequestNote,
+      },
+    });
+    return this.detail(id, user);
+  }
+
+  async approveChanges(id: string, user: CurrentUser, dto: ApproveTransferDto) {
+    if (!['WAREHOUSE', 'MANAGER', 'ADMIN'].includes(user.role)) {
+      throw new ForbiddenException('Only warehouse/manager/admin can approve changes');
+    }
+    const request = await this.prisma.transferRequest.findUnique({ where: { id } });
+    if (!request) throw new NotFoundException('Request not found');
+    if (request.status !== TransferRequestStatus.CHANGE_REQUESTED) {
+      throw new BadRequestException('Request has no pending change request');
+    }
+    const payload = this.parseChangePayload(request.changeRequestPayload);
+    const pickupDate = this.parsePickupDate(new Date(payload.pickupDate));
+    await this.prisma.$transaction(async (tx) => {
+      await this.applyEdits(
+        tx,
+        request.id,
+        request.technicianId,
+        {
+          direction: payload.direction,
+          reason: payload.reason,
+          pickupDate,
+          lines: payload.lines,
+        },
+        {
+          status: TransferRequestStatus.APPROVED,
+          approvedAt: new Date(),
+          approvedByUser: { connect: { id: user.userId } },
+          changeRequestedAt: null,
+          changeRequestNote: dto.note?.trim() || request.changeRequestNote,
+          changeRequestPayload: Prisma.DbNull,
+          fulfillmentNote: dto.fulfillmentNote?.trim() || request.fulfillmentNote,
+        },
+      );
+    });
+    return this.detail(id, user);
+  }
+
+  async denyChanges(id: string, user: CurrentUser, dto: ApproveTransferDto) {
+    if (!['WAREHOUSE', 'MANAGER', 'ADMIN'].includes(user.role)) {
+      throw new ForbiddenException('Only warehouse/manager/admin can deny changes');
+    }
+    const request = await this.prisma.transferRequest.findUnique({ where: { id } });
+    if (!request) throw new NotFoundException('Request not found');
+    if (request.status !== TransferRequestStatus.CHANGE_REQUESTED) {
+      throw new BadRequestException('Request has no pending change request');
+    }
+    await this.prisma.transferRequest.update({
+      where: { id },
+      data: {
+        status: TransferRequestStatus.APPROVED,
+        changeRequestedAt: null,
+        changeRequestNote: dto.note?.trim() || request.changeRequestNote,
+        changeRequestPayload: Prisma.DbNull,
+      },
+    });
+    return this.detail(id, user);
+  }
+
+  async finalize(id: string, user: CurrentUser, dto: FinalizeTransferDto) {
     const request = await this.prisma.transferRequest.findUnique({
       where: { id },
       include: { lines: true, technician: true },
     });
     if (!request) throw new NotFoundException('Request not found');
-    if (request.status === 'FINALIZED' || request.status === 'ACK_PENDING' || request.status === 'ACKNOWLEDGED') {
+    if (request.status === TransferRequestStatus.FINALIZED || request.status === TransferRequestStatus.ACK_PENDING || request.status === TransferRequestStatus.ACKNOWLEDGED) {
       return request;
     }
-    if (request.status !== 'SUBMITTED' && request.status !== 'OPEN' && request.status !== 'DISPUTED') {
+    if (request.status === TransferRequestStatus.APPROVAL_PENDING || request.status === TransferRequestStatus.CHANGE_REQUESTED) {
+      throw new BadRequestException('Request requires approval before finalize');
+    }
+    if (this.isFutureDate(request.pickupDate) && request.status !== TransferRequestStatus.APPROVED) {
+      throw new BadRequestException('Future pickup requests must be approved before finalize');
+    }
+    if (
+      request.status !== TransferRequestStatus.SUBMITTED &&
+      request.status !== TransferRequestStatus.OPEN &&
+      request.status !== TransferRequestStatus.DISPUTED &&
+      request.status !== TransferRequestStatus.APPROVED
+    ) {
       throw new BadRequestException('Request not ready for finalize');
     }
 
@@ -286,7 +503,8 @@ export class TransferRequestsService {
         data: {
           finalizedAt: new Date(),
           finalizedByUserId: user.userId,
-          status: request.direction === 'ISSUE' ? 'ACK_PENDING' : 'FINALIZED',
+          fulfillmentNote: dto.fulfillmentNote?.trim() || request.fulfillmentNote,
+          status: request.direction === TransferDirection.ISSUE ? TransferRequestStatus.ACK_PENDING : TransferRequestStatus.FINALIZED,
         },
       });
     });
@@ -300,13 +518,13 @@ export class TransferRequestsService {
     if (!user.technicianId || user.technicianId !== request.technicianId) {
       throw new ForbiddenException('Only the assigned recipient can acknowledge this request');
     }
-    if (request.status !== 'ACK_PENDING') {
+    if (request.status !== TransferRequestStatus.ACK_PENDING) {
       throw new BadRequestException('Nothing to acknowledge');
     }
     await this.prisma.transferRequest.update({
       where: { id },
       data: {
-        status: 'ACKNOWLEDGED',
+        status: TransferRequestStatus.ACKNOWLEDGED,
         acknowledgedAt: new Date(),
         acknowledgedByUserId: user.userId,
         disputeNote: dto.note ?? request.disputeNote,
@@ -318,16 +536,16 @@ export class TransferRequestsService {
   async dispute(id: string, user: CurrentUser, dto: DisputeDto) {
     const request = await this.prisma.transferRequest.findUnique({ where: { id } });
     if (!request) throw new NotFoundException('Request not found');
-    if (user.role !== 'TECH' || user.technicianId !== request.technicianId) {
+    if (user.role !== Role.TECH || user.technicianId !== request.technicianId) {
       throw new ForbiddenException('Technician can only dispute their own request');
     }
-    if (request.status !== 'ACK_PENDING') {
+    if (request.status !== TransferRequestStatus.ACK_PENDING) {
       throw new BadRequestException('Cannot dispute at this stage');
     }
     await this.prisma.transferRequest.update({
       where: { id },
       data: {
-        status: 'DISPUTED',
+        status: TransferRequestStatus.DISPUTED,
         disputeNote: dto.note,
       },
     });
@@ -340,15 +558,17 @@ export class TransferRequestsService {
     }
     const request = await this.prisma.transferRequest.findUnique({ where: { id } });
     if (!request) throw new NotFoundException('Request not found');
-    if (!EDITABLE_STATUSES.includes(request.status)) {
-      throw new BadRequestException('Only open requests can be sent back');
+    if (CLOSED_STATUSES.includes(request.status)) {
+      throw new BadRequestException('Request is already closed');
     }
 
     await this.prisma.transferRequest.update({
       where: { id },
       data: {
         status: TransferRequestStatus.OPEN,
-        disputeNote: dto.note?.trim() || request.disputeNote,
+        changeRequestNote: dto.note?.trim() || request.changeRequestNote,
+        changeRequestedAt: null,
+        changeRequestPayload: Prisma.DbNull,
       },
     });
     return this.detail(id, user);
@@ -360,12 +580,12 @@ export class TransferRequestsService {
     if (CLOSED_STATUSES.includes(request.status)) {
       throw new BadRequestException('Request is already closed');
     }
-    if (!EDITABLE_STATUSES.includes(request.status)) {
+    if (!NON_TECH_EDIT_STATUSES.includes(request.status) && request.status !== TransferRequestStatus.OPEN) {
       throw new BadRequestException('Only open requests can be canceled or refused');
     }
 
     const isWarehouseRole = ['WAREHOUSE', 'MANAGER', 'ADMIN'].includes(user.role);
-    const isTechOwner = user.role === 'TECH' && Boolean(user.technicianId && user.technicianId === request.technicianId);
+    const isTechOwner = user.role === Role.TECH && Boolean(user.technicianId && user.technicianId === request.technicianId);
 
     if (!isWarehouseRole && !isTechOwner) {
       throw new ForbiddenException('Not allowed to cancel or refuse this request');
@@ -380,7 +600,7 @@ export class TransferRequestsService {
       where: { id },
       data: {
         status: action === 'REFUSE' ? TransferRequestStatus.REJECTED : TransferRequestStatus.CANCELED,
-        disputeNote: dto.note?.trim() || request.disputeNote,
+        changeRequestNote: dto.note?.trim() || request.changeRequestNote,
       },
     });
     return this.detail(id, user);

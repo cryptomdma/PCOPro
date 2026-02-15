@@ -41,6 +41,11 @@ export function CheckoutView() {
   const [technicianId, setTechnicianId] = useState('');
   const [inventoryFilter, setInventoryFilter] = useState<'all' | 'equipment' | 'bulk'>('all');
   const [lines, setLines] = useState<TransferRequestLine[]>([{ productId: '', quantityInput: '1', unitLabel: '' }]);
+  const [pickupDate, setPickupDate] = useState(() => {
+    const now = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  });
 
   const [recipients, setRecipients] = useState<CheckoutRecipient[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -143,6 +148,7 @@ export function CheckoutView() {
       await axios.post('/api/v1/transfer-requests', {
         direction,
         technicianId,
+        pickupDate: new Date(pickupDate).toISOString(),
         lines: validation.value,
       });
       showToast({ kind: 'success', message: 'Transfer request submitted' });
@@ -192,6 +198,13 @@ export function CheckoutView() {
             </button>
           </div>
         </div>
+        <label>
+          Pickup Date
+          <input type="datetime-local" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} required />
+        </label>
+        {new Date(pickupDate).getTime() > Date.now() ? (
+          <div className="muted">Future pickup dates require non-tech approval before fulfillment.</div>
+        ) : null}
         {!isTech ? (
           <>
             <SearchableSelect

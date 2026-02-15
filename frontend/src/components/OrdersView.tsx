@@ -12,6 +12,9 @@ type TransferDirection = 'ISSUE' | 'RETURN';
 type TransferRequestStatus =
   | 'OPEN'
   | 'SUBMITTED'
+  | 'APPROVAL_PENDING'
+  | 'APPROVED'
+  | 'CHANGE_REQUESTED'
   | 'FINALIZED'
   | 'ACK_PENDING'
   | 'ACKNOWLEDGED'
@@ -25,10 +28,11 @@ type TransferRequest = {
   direction: TransferDirection;
   status: TransferRequestStatus;
   reason?: string;
+  pickupDate: string;
+  fulfillmentNote?: string | null;
   createdAt: string;
   finalizedAt?: string;
   acknowledgedAt?: string;
-  disputeNote?: string;
   _count?: { lines: number };
   technician?: { id: string; name: string; licenseNumber?: string | null };
 };
@@ -39,6 +43,13 @@ type TransferRequestDetail = {
   direction: TransferDirection;
   status: TransferRequestStatus;
   reason?: string;
+  pickupDate: string;
+  changeRequestPayload?: {
+    direction?: TransferDirection;
+    reason?: string;
+    pickupDate?: string;
+    lines?: Array<{ productId: string; quantity: number; unitLabel: string }>;
+  } | null;
   lines: Array<{ id: string; productId: string; quantity: number; unitLabel: string }>;
 };
 
@@ -60,7 +71,13 @@ const unitOptionsFor = (product?: Product) => {
   return Array.from(new Set(options));
 };
 
-const editableStatuses: TransferRequestStatus[] = ['OPEN', 'SUBMITTED'];
+const editableStatuses: TransferRequestStatus[] = ['OPEN', 'SUBMITTED', 'APPROVAL_PENDING', 'APPROVED', 'CHANGE_REQUESTED'];
+
+const toLocalInput = (iso: string) => {
+  const date = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
 export function OrdersView() {
   const { user } = useAuth();
@@ -75,6 +92,8 @@ export function OrdersView() {
   const [editLines, setEditLines] = useState<EditableLine[]>([]);
   const [editReason, setEditReason] = useState('');
   const [editDirection, setEditDirection] = useState<TransferDirection>('ISSUE');
+  const [editPickupDate, setEditPickupDate] = useState('');
+  const [noteByRequest, setNoteByRequest] = useState<Record<string, string>>({});
 
   const [error, setError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -93,7 +112,8 @@ export function OrdersView() {
     return ackPending;
   }, [ackPending, user]);
   const closedHistory = useMemo(
-    () => historyRequests.filter((r) => !['SUBMITTED', 'ACK_PENDING', 'DISPUTED', 'OPEN'].includes(r.status)),
+    () =>
+      historyRequests.filter((r) => !['SUBMITTED', 'ACK_PENDING', 'DISPUTED', 'OPEN', 'APPROVAL_PENDING', 'APPROVED', 'CHANGE_REQUESTED'].includes(r.status)),
     [historyRequests],
   );
 
@@ -101,6 +121,15 @@ export function OrdersView() {
     const name = req.technician?.name ?? 'Unknown technician';
     const license = req.technician?.licenseNumber ? `Lic #${req.technician.licenseNumber}` : 'Lic # missing';
     return `${name} | ${license}`;
+  };
+
+  const statusLabelFor = (req: TransferRequest) => {
+    if (user?.role !== 'TECH') return req.status;
+    if (req.status === 'APPROVAL_PENDING') return 'Awaiting Approval';
+    if (req.status === 'APPROVED' || req.status === 'CHANGE_REQUESTED') return 'Order In Progress';
+    if (req.status === 'ACK_PENDING') return 'Ready for Pickup';
+    if (req.status === 'ACKNOWLEDGED') return 'Picked Up';
+    return req.status;
   };
 
   function handleError(context: string, err: any, fallback: string) {
@@ -151,15 +180,27 @@ export function OrdersView() {
     const isRecipient = Boolean(user?.technicianId && user.technicianId === req.technicianId);
     const editable = editableStatuses.includes(req.status);
     return {
-      editable,
       canEdit: editable && (isWarehouseRole || isTechOwner),
-      canFinalize: (req.status === 'SUBMITTED' || req.status === 'OPEN') && isWarehouseRole,
+      canRequestChangesEdit: isTechOwner && req.status === 'APPROVED',
+      canFinalize: (req.status === 'SUBMITTED' || req.status === 'OPEN' || req.status === 'APPROVED') && isWarehouseRole,
       canAcknowledge: req.status === 'ACK_PENDING' && isRecipient,
       canDispute: req.status === 'ACK_PENDING' && isRecipient,
       canSendBack: editable && isWarehouseRole,
       canCancelByTech: editable && isTechOwner,
       canCancelRefuseByWarehouse: editable && isWarehouseRole,
+      canApprove: req.status === 'APPROVAL_PENDING' && isWarehouseRole,
+      canDeny: req.status === 'APPROVAL_PENDING' && isWarehouseRole,
+      canApproveChanges: req.status === 'CHANGE_REQUESTED' && isWarehouseRole,
+      canDenyChanges: req.status === 'CHANGE_REQUESTED' && isWarehouseRole,
     };
+  }
+
+  function requestNoteValue(id: string) {
+    return noteByRequest[id] ?? '';
+  }
+
+  function setRequestNote(id: string, value: string) {
+    setNoteByRequest((prev) => ({ ...prev, [id]: value }));
   }
 
   async function finalize(id: string) {
@@ -172,7 +213,9 @@ export function OrdersView() {
     setError(null);
     setActionBusy(true);
     try {
-      await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/finalize`);
+      await axios.post(`/api/v1/transfer-requests/${id}/finalize`, {
+        fulfillmentNote: requestNoteValue(id).trim() || undefined,
+      });
       await refreshQueues();
       showToast({ kind: 'success', message: 'Transfer finalized' });
     } catch (err: any) {
@@ -186,7 +229,7 @@ export function OrdersView() {
     setError(null);
     setActionBusy(true);
     try {
-      await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/acknowledge`);
+      await axios.post(`/api/v1/transfer-requests/${id}/acknowledge`);
       await refreshQueues();
       showToast({ kind: 'success', message: 'Acknowledged receipt' });
     } catch (err: any) {
@@ -202,7 +245,7 @@ export function OrdersView() {
     setError(null);
     setActionBusy(true);
     try {
-      await axios.post<TransferRequest>(`/api/v1/transfer-requests/${id}/dispute`, { note });
+      await axios.post(`/api/v1/transfer-requests/${id}/dispute`, { note });
       await refreshQueues();
       showToast({ kind: 'success', message: 'Dispute submitted' });
     } catch (err: any) {
@@ -215,15 +258,14 @@ export function OrdersView() {
   async function sendBack(id: string) {
     const ok = await confirm({
       title: 'Send back request',
-      message: 'This returns the request to the technician for edits/resubmission.',
+      message: 'This returns the request to technician edits.',
       confirmLabel: 'Send back',
     });
     if (!ok) return;
-    const note = prompt('Optional send-back note') ?? undefined;
     setError(null);
     setActionBusy(true);
     try {
-      await axios.post(`/api/v1/transfer-requests/${id}/send-back`, { note: note?.trim() || undefined });
+      await axios.post(`/api/v1/transfer-requests/${id}/send-back`, { note: requestNoteValue(id).trim() || undefined });
       await refreshQueues();
       showToast({ kind: 'success', message: 'Request sent back' });
     } catch (err: any) {
@@ -237,19 +279,76 @@ export function OrdersView() {
     const label = action === 'REFUSE' ? 'Refuse' : 'Cancel';
     const ok = await confirm({
       title: `${label} request`,
-      message: `${label} this open request?`,
+      message: `${label} this request?`,
       confirmLabel: label,
     });
     if (!ok) return;
-    const note = prompt(`Optional ${label.toLowerCase()} note`) ?? undefined;
     setError(null);
     setActionBusy(true);
     try {
-      await axios.post(`/api/v1/transfer-requests/${id}/cancel`, { action, note: note?.trim() || undefined });
+      await axios.post(`/api/v1/transfer-requests/${id}/cancel`, { action, note: requestNoteValue(id).trim() || undefined });
       await refreshQueues();
       showToast({ kind: 'success', message: `Request ${label.toLowerCase()}d` });
     } catch (err: any) {
       handleError(`${label} failed`, err, `Failed to ${label.toLowerCase()} request`);
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function approve(id: string) {
+    setActionBusy(true);
+    try {
+      await axios.post(`/api/v1/transfer-requests/${id}/approve`, {
+        note: requestNoteValue(id).trim() || undefined,
+        fulfillmentNote: requestNoteValue(id).trim() || undefined,
+      });
+      await refreshQueues();
+      showToast({ kind: 'success', message: 'Request approved' });
+    } catch (err: any) {
+      handleError('approve failed', err, 'Failed to approve request');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function deny(id: string) {
+    setActionBusy(true);
+    try {
+      await axios.post(`/api/v1/transfer-requests/${id}/deny`, { note: requestNoteValue(id).trim() || undefined });
+      await refreshQueues();
+      showToast({ kind: 'success', message: 'Request denied' });
+    } catch (err: any) {
+      handleError('deny failed', err, 'Failed to deny request');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function approveChanges(id: string) {
+    setActionBusy(true);
+    try {
+      await axios.post(`/api/v1/transfer-requests/${id}/approve-changes`, {
+        note: requestNoteValue(id).trim() || undefined,
+        fulfillmentNote: requestNoteValue(id).trim() || undefined,
+      });
+      await refreshQueues();
+      showToast({ kind: 'success', message: 'Change request approved' });
+    } catch (err: any) {
+      handleError('approve changes failed', err, 'Failed to approve changes');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function denyChanges(id: string) {
+    setActionBusy(true);
+    try {
+      await axios.post(`/api/v1/transfer-requests/${id}/deny-changes`, { note: requestNoteValue(id).trim() || undefined });
+      await refreshQueues();
+      showToast({ kind: 'success', message: 'Change request denied' });
+    } catch (err: any) {
+      handleError('deny changes failed', err, 'Failed to deny changes');
     } finally {
       setActionBusy(false);
     }
@@ -260,11 +359,14 @@ export function OrdersView() {
     try {
       const res = await axios.get<TransferRequestDetail>(`/api/v1/transfer-requests/${id}`);
       const detail = res.data;
+      const pending = detail.status === 'CHANGE_REQUESTED' ? detail.changeRequestPayload : null;
+      const previewLines = Array.isArray(pending?.lines) && pending?.lines.length ? pending.lines : detail.lines;
       setEditRequest(detail);
-      setEditDirection(detail.direction);
-      setEditReason(detail.reason ?? '');
+      setEditDirection((pending?.direction as TransferDirection | undefined) ?? detail.direction);
+      setEditReason(pending?.reason ?? detail.reason ?? '');
+      setEditPickupDate(toLocalInput(pending?.pickupDate ?? detail.pickupDate));
       setEditLines(
-        detail.lines.map((line) => ({
+        previewLines.map((line) => ({
           productId: line.productId,
           quantityInput: String(line.quantity),
           unitLabel: line.unitLabel,
@@ -315,6 +417,7 @@ export function OrdersView() {
       await axios.put(`/api/v1/transfer-requests/${editRequest.id}`, {
         direction: editDirection,
         reason: editReason.trim() || undefined,
+        pickupDate: new Date(editPickupDate).toISOString(),
         lines: parsedLines.map((line) => ({
           productId: line.productId,
           quantity: line.quantity,
@@ -322,8 +425,9 @@ export function OrdersView() {
         })),
       });
       await refreshQueues();
+      const isTechChangeRequest = user?.role === 'TECH' && editRequest.status === 'APPROVED';
+      showToast({ kind: 'success', message: isTechChangeRequest ? 'Change request submitted' : 'Request updated' });
       setEditRequest(null);
-      showToast({ kind: 'success', message: 'Request updated' });
     } catch (err: any) {
       handleError('save edit failed', err, 'Failed to save request edits');
     } finally {
@@ -346,7 +450,7 @@ export function OrdersView() {
       <header className="section-header">
         <div>
           <h2>Orders</h2>
-          <p>Track requests, finalize issues, and acknowledge receipts.</p>
+          <p>Track approvals, fulfillments, and acknowledgments.</p>
         </div>
       </header>
 
@@ -365,10 +469,22 @@ export function OrdersView() {
                       <strong>{req.direction}</strong>
                       <StatusBadge status={req.status} />
                     </div>
+                    {user?.role === 'TECH' ? <div className="muted">State: {statusLabelFor(req)}</div> : null}
                     <div className="muted">
-                      Tech: {technicianLabelFor(req)} | Lines: {req._count?.lines ?? 0}
+                      Tech: {technicianLabelFor(req)} | Pickup: {new Date(req.pickupDate).toLocaleString()}
                     </div>
+                    <div className="muted">Lines: {req._count?.lines ?? 0}</div>
+                    {req.fulfillmentNote ? <div className="muted">Fulfillment note: {req.fulfillmentNote}</div> : null}
                   </div>
+                  <label onClick={(e) => e.stopPropagation()}>
+                    Fulfillment / action note
+                    <textarea
+                      rows={2}
+                      value={requestNoteValue(req.id)}
+                      onChange={(e) => setRequestNote(req.id, e.target.value)}
+                      placeholder="Optional note"
+                    />
+                  </label>
                   <div className="pill-row">
                     {actions.canEdit ? (
                       <button
@@ -382,91 +498,58 @@ export function OrdersView() {
                         Edit
                       </button>
                     ) : null}
+                    {actions.canApprove ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); approve(req.id); }} disabled={actionBusy}>
+                        Approve
+                      </button>
+                    ) : null}
+                    {actions.canDeny ? (
+                      <button type="button" className="ghost-button" onClick={(e) => { e.stopPropagation(); deny(req.id); }} disabled={actionBusy}>
+                        Deny
+                      </button>
+                    ) : null}
+                    {actions.canApproveChanges ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); approveChanges(req.id); }} disabled={actionBusy}>
+                        Approve Changes
+                      </button>
+                    ) : null}
+                    {actions.canDenyChanges ? (
+                      <button type="button" className="ghost-button" onClick={(e) => { e.stopPropagation(); denyChanges(req.id); }} disabled={actionBusy}>
+                        Deny Changes
+                      </button>
+                    ) : null}
                     {actions.canSendBack ? (
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          sendBack(req.id);
-                        }}
-                        disabled={actionBusy}
-                      >
+                      <button type="button" className="ghost-button" onClick={(e) => { e.stopPropagation(); sendBack(req.id); }} disabled={actionBusy}>
                         Send Back
                       </button>
                     ) : null}
                     {actions.canCancelByTech ? (
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cancelRequest(req.id, 'CANCEL');
-                        }}
-                        disabled={actionBusy}
-                      >
+                      <button type="button" className="ghost-button" onClick={(e) => { e.stopPropagation(); cancelRequest(req.id, 'CANCEL'); }} disabled={actionBusy}>
                         Cancel
                       </button>
                     ) : null}
                     {actions.canCancelRefuseByWarehouse ? (
                       <>
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            cancelRequest(req.id, 'CANCEL');
-                          }}
-                          disabled={actionBusy}
-                        >
+                        <button type="button" className="ghost-button" onClick={(e) => { e.stopPropagation(); cancelRequest(req.id, 'CANCEL'); }} disabled={actionBusy}>
                           Cancel
                         </button>
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            cancelRequest(req.id, 'REFUSE');
-                          }}
-                          disabled={actionBusy}
-                        >
+                        <button type="button" className="ghost-button" onClick={(e) => { e.stopPropagation(); cancelRequest(req.id, 'REFUSE'); }} disabled={actionBusy}>
                           Refuse
                         </button>
                       </>
                     ) : null}
                     {actions.canFinalize ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          finalize(req.id);
-                        }}
-                        disabled={actionBusy}
-                      >
+                      <button type="button" onClick={(e) => { e.stopPropagation(); finalize(req.id); }} disabled={actionBusy}>
                         Finalize
                       </button>
                     ) : null}
                     {actions.canAcknowledge ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          acknowledge(req.id);
-                        }}
-                        disabled={actionBusy}
-                      >
+                      <button type="button" onClick={(e) => { e.stopPropagation(); acknowledge(req.id); }} disabled={actionBusy}>
                         Acknowledge
                       </button>
                     ) : null}
                     {actions.canDispute ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          dispute(req.id);
-                        }}
-                        disabled={actionBusy}
-                      >
+                      <button type="button" onClick={(e) => { e.stopPropagation(); dispute(req.id); }} disabled={actionBusy}>
                         Dispute
                       </button>
                     ) : null}
@@ -492,26 +575,12 @@ export function OrdersView() {
                   </div>
                   <div className="pill-row">
                     {actions.canAcknowledge ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          acknowledge(req.id);
-                        }}
-                        disabled={actionBusy}
-                      >
+                      <button type="button" onClick={(e) => { e.stopPropagation(); acknowledge(req.id); }} disabled={actionBusy}>
                         Confirm receipt
                       </button>
                     ) : null}
                     {actions.canDispute ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          dispute(req.id);
-                        }}
-                        disabled={actionBusy}
-                      >
+                      <button type="button" onClick={(e) => { e.stopPropagation(); dispute(req.id); }} disabled={actionBusy}>
                         Dispute
                       </button>
                     ) : null}
@@ -540,6 +609,7 @@ export function OrdersView() {
                   {req.finalizedAt ? ` | Finalized ${new Date(req.finalizedAt).toLocaleString()}` : ''}
                   {req.acknowledgedAt ? ` | Acknowledged ${new Date(req.acknowledgedAt).toLocaleString()}` : ''}
                 </div>
+                {req.fulfillmentNote ? <div className="muted">Fulfillment note: {req.fulfillmentNote}</div> : null}
               </div>
             </li>
           ))}
@@ -558,6 +628,10 @@ export function OrdersView() {
                 <option value="ISSUE">Issue</option>
                 <option value="RETURN">Return</option>
               </select>
+            </label>
+            <label>
+              Pickup Date
+              <input type="datetime-local" value={editPickupDate} onChange={(e) => setEditPickupDate(e.target.value)} required />
             </label>
             <label>
               Reason (optional)
@@ -619,7 +693,7 @@ export function OrdersView() {
             </div>
             <div className="card-row">
               <button type="button" onClick={saveEdit} disabled={actionBusy}>
-                Save changes
+                {user?.role === 'TECH' && editRequest.status === 'APPROVED' ? 'Request Changes' : 'Save changes'}
               </button>
               <button type="button" className="ghost-button" onClick={() => setEditRequest(null)} disabled={actionBusy}>
                 Cancel

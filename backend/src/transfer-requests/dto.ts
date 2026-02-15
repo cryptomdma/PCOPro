@@ -30,6 +30,10 @@ export class CreateTransferRequestDto {
   @IsString()
   idempotencyKey?: string;
 
+  @IsOptional()
+  @Type(() => Date)
+  pickupDate?: Date;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => TransferRequestLineDto)
@@ -88,6 +92,10 @@ export class UpdateTransferRequestDto {
   @IsString()
   reason?: string;
 
+  @IsOptional()
+  @Type(() => Date)
+  pickupDate?: Date;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => TransferRequestLineDto)
@@ -108,4 +116,20 @@ export class CancelTransferRequestDto {
   @IsOptional()
   @IsIn(['CANCEL', 'REFUSE'])
   action?: 'CANCEL' | 'REFUSE';
+}
+
+export class ApproveTransferDto {
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @IsOptional()
+  @IsString()
+  fulfillmentNote?: string;
+}
+
+export class FinalizeTransferDto {
+  @IsOptional()
+  @IsString()
+  fulfillmentNote?: string;
 }

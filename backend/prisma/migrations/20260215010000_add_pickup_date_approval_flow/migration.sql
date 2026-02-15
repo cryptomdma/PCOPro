@@ -1,0 +1,16 @@
+ALTER TYPE "TransferRequestStatus" ADD VALUE IF NOT EXISTS 'APPROVAL_PENDING';
+ALTER TYPE "TransferRequestStatus" ADD VALUE IF NOT EXISTS 'APPROVED';
+ALTER TYPE "TransferRequestStatus" ADD VALUE IF NOT EXISTS 'CHANGE_REQUESTED';
+
+ALTER TABLE "TransferRequest"
+ADD COLUMN "pickupDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN "approvedAt" TIMESTAMP(3),
+ADD COLUMN "approvedByUserId" TEXT,
+ADD COLUMN "changeRequestedAt" TIMESTAMP(3),
+ADD COLUMN "changeRequestNote" TEXT,
+ADD COLUMN "changeRequestPayload" JSONB,
+ADD COLUMN "fulfillmentNote" TEXT;
+
+ALTER TABLE "TransferRequest"
+ADD CONSTRAINT "TransferRequest_approvedByUserId_fkey"
+FOREIGN KEY ("approvedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;

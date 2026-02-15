@@ -60,6 +60,9 @@ enum TransferDirection {
 enum TransferRequestStatus {
   OPEN
   SUBMITTED
+  APPROVAL_PENDING
+  APPROVED
+  CHANGE_REQUESTED
   FINALIZED
   ACK_PENDING
   ACKNOWLEDGED
@@ -118,6 +121,7 @@ model User {
   checkout                CheckoutRequest[]      @relation("UserCheckout")
   notifications           Notification[]
   createdTransferRequests TransferRequest[]      @relation("TransferRequestCreatedBy")
+  approvedTransferRequests TransferRequest[]     @relation("TransferRequestApprovedBy")
   finalizedTransfers      TransferRequest[]      @relation("TransferRequestFinalizedBy")
   acknowledgedTransfers   TransferRequest[]      @relation("TransferRequestAcknowledgedBy")
   auditSessions           AuditSession[]         @relation("AuditSessionCreatedBy")
@@ -365,8 +369,18 @@ model TransferRequest {
   fromScope   String
   toScope     String
   status      TransferRequestStatus @default(SUBMITTED)
+  pickupDate  DateTime              @default(now())
   reason      String?
+  fulfillmentNote String?
   submittedAt DateTime              @default(now())
+
+  approvedAt       DateTime?
+  approvedByUserId String?
+  approvedByUser   User?     @relation("TransferRequestApprovedBy", fields: [approvedByUserId], references: [id])
+
+  changeRequestedAt   DateTime?
+  changeRequestNote   String?
+  changeRequestPayload Json?
 
   finalizedAt       DateTime?
   finalizedByUserId String?

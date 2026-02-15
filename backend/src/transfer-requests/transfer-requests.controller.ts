@@ -2,9 +2,11 @@ import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nest
 import { TransferRequestsService } from './transfer-requests.service';
 import {
   AcknowledgeDto,
+  ApproveTransferDto,
   CancelTransferRequestDto,
   CreateTransferRequestDto,
   DisputeDto,
+  FinalizeTransferDto,
   ListTransferRequestsQuery,
   SendBackDto,
   UpdateTransferRequestDto,
@@ -50,8 +52,8 @@ export class TransferRequestsController {
 
   @Post(':id/finalize')
   @RequirePerm('transfer.finalize')
-  finalize(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.service.finalize(id, { userId: user.userId, role: user.role, technicianId: user.technicianId });
+  finalize(@Param('id') id: string, @Body() dto: FinalizeTransferDto, @CurrentUser() user: any) {
+    return this.service.finalize(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
   }
 
   @Post(':id/acknowledge')
@@ -76,5 +78,29 @@ export class TransferRequestsController {
   @RequirePerm('transfer.create')
   cancel(@Param('id') id: string, @Body() dto: CancelTransferRequestDto, @CurrentUser() user: any) {
     return this.service.cancel(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
+  }
+
+  @Post(':id/approve')
+  @RequirePerm('transfer.finalize')
+  approve(@Param('id') id: string, @Body() dto: ApproveTransferDto, @CurrentUser() user: any) {
+    return this.service.approve(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
+  }
+
+  @Post(':id/deny')
+  @RequirePerm('transfer.finalize')
+  deny(@Param('id') id: string, @Body() dto: ApproveTransferDto, @CurrentUser() user: any) {
+    return this.service.deny(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
+  }
+
+  @Post(':id/approve-changes')
+  @RequirePerm('transfer.finalize')
+  approveChanges(@Param('id') id: string, @Body() dto: ApproveTransferDto, @CurrentUser() user: any) {
+    return this.service.approveChanges(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
+  }
+
+  @Post(':id/deny-changes')
+  @RequirePerm('transfer.finalize')
+  denyChanges(@Param('id') id: string, @Body() dto: ApproveTransferDto, @CurrentUser() user: any) {
+    return this.service.denyChanges(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
   }
 }
