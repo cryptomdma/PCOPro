@@ -315,6 +315,16 @@ Rules:
 * Request creation recipient rules:
   * TECH: can only create requests for themselves (recipient technician locked to their linked technician record).
   * WAREHOUSE / MANAGER / ADMIN: can create requests for any eligible technician (recipient selectable; same behavior as Admin request modal).
+* Pickup Date (MVP):
+  * Request includes required pickupDate (default now/today).
+  * pickupDate in the future requires non-TECH approval before fulfillment/finalize.
+  * TECH can edit normally before approval.
+  * After approval, TECH edits become change requests (non-TECH approve/deny) and do not auto-apply.
+  * Ledger still posts on Finalize only.
+  * ACK remains post-finalize and does not post ledger.
+* Optional fulfillment note:
+  * Non-TECH may set fulfillmentNote during approval/finalize.
+  * TECH can view fulfillmentNote once approved/finalized.
 
 ORDERS SCREEN
 
@@ -343,6 +353,10 @@ ORDERS SCREEN
 
   * No edits allowed once finalized/closed
   * Ledger posting remains on Finalize only
+* Additional request states/flags for MVP:
+  * Approval states: APPROVAL_PENDING, APPROVED
+  * Change loop: CHANGE_REQUESTED (tech-proposed edits awaiting non-tech decision)
+  * Supporting fields: pickupDate, approvedAt/approvedBy, changeRequestedAt/changeRequestNote, fulfillmentNote
 
 DISPUTES (MVP)
 
@@ -480,6 +494,10 @@ WORKFLOWS
 
 * Configurable approval chains
 * Optional tech acknowledgment
+* Backlog (not MVP in this change):
+  * Orders notification badges/alerts
+  * Configurable edit cutoff windows (e.g., 24h prior to pickup)
+  * Fully configurable workflow builder/rules engine
 
 PHOTO SETTINGS
 
@@ -624,6 +642,12 @@ YYYY-MM-DD
 * Clarified Orders request editability by role/status (TECH own open only; WAREHOUSE/MANAGER/ADMIN open requests in scope)
 * Added explicit Orders actions: Send Back plus Cancel/Refuse, including role constraints and optional notes
 * Reasserted immutability after finalize/closed and confirmed ledger posting remains finalize-only
+
+2026-02-15
+
+* Added Pickup Date workflow for technician requests with required approval when pickupDate is in the future
+* Added lightweight approval/change-request loop states and supporting metadata fields for request locking/edit routing
+* Documented optional fulfillment note visibility plus backlog items for notifications and configurable edit cutoffs/workflow rules
 
 ============================================================
 CHANGE LOG RULE
