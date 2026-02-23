@@ -262,8 +262,8 @@ export function ReceivingView() {
   }
 
   return (
-    <section>
-      <header className="section-header">
+    <section className="receiving-page">
+      <header className="section-header receiving-header">
         <div>
           <h2>Receiving</h2>
           <p>Post incoming stock to update ledger balances.</p>
@@ -275,7 +275,7 @@ export function ReceivingView() {
 
       {error ? <div className="error-panel">{error}</div> : null}
 
-      <form className="form card" onSubmit={submit}>
+      <form className="form card receiving-form" onSubmit={submit}>
         <label>
           Date
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -287,7 +287,7 @@ export function ReceivingView() {
           </select>
         </label>
 
-        <div className="card-stack">
+        <div className="card-stack receiving-lines">
           <strong>Incoming items</strong>
           {lines.map((line, idx) => (
             <div key={idx} className="line-row">
