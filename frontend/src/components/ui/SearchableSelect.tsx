@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Option = {
   value: string;
@@ -18,6 +18,7 @@ type Props = {
 export function SearchableSelect({ label, placeholder, value, onChange, options, required }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   const selected = options.find((opt) => opt.value === value);
@@ -43,9 +44,44 @@ export function SearchableSelect({ label, placeholder, value, onChange, options,
     });
   }
 
+  useEffect(() => {
+    if (!open) return;
+
+    function closeMenu() {
+      setOpen(false);
+      setQuery('');
+    }
+
+    function handlePointerDown(event: PointerEvent | MouseEvent | TouchEvent) {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (triggerRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      closeMenu();
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      closeMenu();
+      triggerRef.current?.focus();
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener('mousedown', handlePointerDown, true);
+    document.addEventListener('touchstart', handlePointerDown, true);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('mousedown', handlePointerDown, true);
+      document.removeEventListener('touchstart', handlePointerDown, true);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [open]);
+
   return (
-    <label className="searchable-select">
-      {label}
+    <div className="searchable-select">
+      <span>{label}</span>
       <button
         type="button"
         className="searchable-trigger"
@@ -65,8 +101,15 @@ export function SearchableSelect({ label, placeholder, value, onChange, options,
       {required ? <input className="sr-only" required value={value} onChange={() => undefined} /> : null}
       {open && (
         <>
-          <div className="ss-backdrop" onClick={() => setOpen(false)} />
-          <div className="ss-panel">
+          <div
+            className="ss-backdrop"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              setOpen(false);
+              setQuery('');
+            }}
+          />
+          <div className="ss-panel" ref={panelRef}>
             <input
               autoFocus
               className="searchable-input"
@@ -80,6 +123,8 @@ export function SearchableSelect({ label, placeholder, value, onChange, options,
                   triggerRef.current?.focus();
                 }
                 if (e.key === 'Enter') {
+                  const term = query.trim();
+                  if (!term) return;
                   const next = filtered[0];
                   if (next) {
                     e.preventDefault();
@@ -109,6 +154,6 @@ export function SearchableSelect({ label, placeholder, value, onChange, options,
           </div>
         </>
       )}
-    </label>
+    </div>
   );
 }
