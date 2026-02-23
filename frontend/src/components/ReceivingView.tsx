@@ -28,7 +28,20 @@ export function ReceivingView() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [receiptHistory, setReceiptHistory] = useState<
-    Array<{ receiptId: string; postedAt: string; destinationScope: string; lineCount: number; totalUnitsBase: number }>
+    Array<{
+      receiptId: string;
+      postedAt: string;
+      destinationScope: string;
+      lineCount: number;
+      totalUnitsBase: number;
+      createdByName?: string | null;
+      createdByEmail?: string | null;
+      createdByRole?: string | null;
+      vendor?: string | null;
+      vendorName?: string | null;
+      supplierName?: string | null;
+      createdBy?: { name?: string | null; email?: string | null; role?: string | null } | null;
+    }>
   >([]);
   const [lineHistory, setLineHistory] = useState<
     Array<{
@@ -47,6 +60,13 @@ export function ReceivingView() {
     postedAt: string;
     destinationScope: string;
     lineCount: number;
+    createdByName?: string | null;
+    createdByEmail?: string | null;
+    createdByRole?: string | null;
+    vendor?: string | null;
+    vendorName?: string | null;
+    supplierName?: string | null;
+    createdBy?: { name?: string | null; email?: string | null; role?: string | null } | null;
     lines: Array<{
       productId: string;
       productName: string;
@@ -59,6 +79,7 @@ export function ReceivingView() {
       idempotencyKey: string;
     }>;
   } | null>(null);
+  const [showReceiptTechDetails, setShowReceiptTechDetails] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvLoading, setCsvLoading] = useState(false);
@@ -138,6 +159,55 @@ export function ReceivingView() {
     }
   }
 
+  function firstNonEmpty(...values: Array<string | null | undefined>) {
+    for (const value of values) {
+      if (value && value.trim()) return value.trim();
+    }
+    return null;
+  }
+
+  function receiptCreatorLabel(receipt: {
+    createdByName?: string | null;
+    createdByEmail?: string | null;
+    createdByRole?: string | null;
+    createdBy?: { name?: string | null; email?: string | null; role?: string | null } | null;
+  }) {
+    const name = firstNonEmpty(receipt.createdByName, receipt.createdBy?.name);
+    const email = firstNonEmpty(receipt.createdByEmail, receipt.createdBy?.email);
+    const role = firstNonEmpty(receipt.createdByRole, receipt.createdBy?.role);
+    const identity = name ?? email ?? 'Unknown';
+    return role ? `${identity} (${role})` : identity;
+  }
+
+  function receiptVendorLabel(receipt: {
+    vendor?: string | null;
+    vendorName?: string | null;
+    supplierName?: string | null;
+  }) {
+    return firstNonEmpty(receipt.vendor, receipt.vendorName, receipt.supplierName);
+  }
+
+  async function copyToClipboard(value: string, successMessage: string) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const input = document.createElement('textarea');
+        input.value = value;
+        input.setAttribute('readonly', 'true');
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+      }
+      showToast({ kind: 'success', message: successMessage });
+    } catch {
+      showToast({ kind: 'error', message: 'Could not copy to clipboard.' });
+    }
+  }
+
   async function fetchHistory(mode: 'grouped' | 'lines') {
     setHistoryLoading(true);
     setHistoryError(null);
@@ -171,6 +241,7 @@ export function ReceivingView() {
   async function openReceipt(receiptId: string) {
     setSelectedReceiptId(receiptId);
     setReceiptDetail(null);
+    setShowReceiptTechDetails(false);
     try {
       const response = await axios.get(`/api/v1/incoming/receipts/${encodeURIComponent(receiptId)}`);
       setReceiptDetail(response.data);
@@ -262,8 +333,8 @@ export function ReceivingView() {
   }
 
   return (
-    <section>
-      <header className="section-header">
+    <section className="receiving-page">
+      <header className="section-header receiving-header">
         <div>
           <h2>Receiving</h2>
           <p>Post incoming stock to update ledger balances.</p>
@@ -275,7 +346,7 @@ export function ReceivingView() {
 
       {error ? <div className="error-panel">{error}</div> : null}
 
-      <form className="form card" onSubmit={submit}>
+      <form className="form card receiving-form" onSubmit={submit}>
         <label>
           Date
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -287,7 +358,7 @@ export function ReceivingView() {
           </select>
         </label>
 
-        <div className="card-stack">
+        <div className="card-stack receiving-lines">
           <strong>Incoming items</strong>
           {lines.map((line, idx) => (
             <div key={idx} className="line-row">
@@ -398,10 +469,9 @@ export function ReceivingView() {
                 <li key={receipt.receiptId} className="clickable" onClick={() => openReceipt(receipt.receiptId)}>
                   <div className="card-stack">
                     <strong>Receipt</strong>
-                    <div className="muted">
-                      {new Date(receipt.postedAt).toLocaleString()} | {receipt.destinationScope} | {receipt.lineCount} lines
-                    </div>
-                    <div className="muted">{receipt.receiptId}</div>
+                    <div className="muted">Date: {new Date(receipt.postedAt).toLocaleString()}</div>
+                    <div className="muted">Created by: {receiptCreatorLabel(receipt)}</div>
+                    {receiptVendorLabel(receipt) ? <div className="muted">Vendor: {receiptVendorLabel(receipt)}</div> : null}
                   </div>
                 </li>
               ))}
@@ -444,6 +514,46 @@ export function ReceivingView() {
             <div className="muted">
               {new Date(receiptDetail.postedAt).toLocaleString()} | {receiptDetail.destinationScope} | {receiptDetail.lineCount} lines
             </div>
+            <div className="muted">Created by: {receiptCreatorLabel(receiptDetail)}</div>
+            {receiptVendorLabel(receiptDetail) ? <div className="muted">Vendor: {receiptVendorLabel(receiptDetail)}</div> : null}
+            <button type="button" className="ghost-button" onClick={() => setShowReceiptTechDetails((prev) => !prev)}>
+              {showReceiptTechDetails ? 'Hide technical details' : 'Show technical details'}
+            </button>
+            {showReceiptTechDetails ? (
+              <div className="card card-stack">
+                <div className="card-row">
+                  <span className="muted">Receipt ID hidden in list view</span>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => copyToClipboard(receiptDetail.receiptId, 'Receipt ID copied')}
+                  >
+                    Copy Receipt ID
+                  </button>
+                </div>
+                <textarea readOnly rows={2} value={receiptDetail.receiptId} />
+                <div className="card-row">
+                  <span className="muted">Idempotency keys</span>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() =>
+                      copyToClipboard(
+                        Array.from(new Set(receiptDetail.lines.map((line) => line.idempotencyKey))).join('\n'),
+                        'Receipt hash keys copied',
+                      )
+                    }
+                  >
+                    Copy Hashes
+                  </button>
+                </div>
+                <textarea
+                  readOnly
+                  rows={Math.min(8, Math.max(2, receiptDetail.lines.length))}
+                  value={Array.from(new Set(receiptDetail.lines.map((line) => line.idempotencyKey))).join('\n')}
+                />
+              </div>
+            ) : null}
             {receiptDetail.lines.map((line) => (
               <button
                 key={`${line.idempotencyKey}-${line.productId}`}
