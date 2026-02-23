@@ -328,6 +328,15 @@ input[type='date'] {
   appearance: none;
 }
 
+input[type='datetime-local'] {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0;
+  display: block;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 button {
   background: #0ea5e9;
   border: none;
