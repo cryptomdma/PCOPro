@@ -1,6 +1,7 @@
 import { useAuth } from '../auth';
 import { BulkProductImportPanel } from './settings/BulkProductImportPanel';
 import { EpaImportPanel } from './settings/EpaImportPanel';
+import { SuppliersPanel } from './settings/SuppliersPanel';
 import { UsersPanel } from './settings/UsersPanel';
 
 export function SettingsView() {
@@ -30,6 +31,7 @@ export function SettingsView() {
       </header>
       <div className="card-stack">
         {user?.role === 'ADMIN' ? <UsersPanel /> : null}
+        <SuppliersPanel />
         <BulkProductImportPanel />
         <EpaImportPanel />
       </div>

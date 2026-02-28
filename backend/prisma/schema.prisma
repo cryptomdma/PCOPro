@@ -104,6 +104,19 @@ enum CheckoutStatus {
   issued
 }
 
+enum PurchaseOrderStatus {
+  DRAFT
+  PLACED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum PurchaseOrderType {
+  EMAIL
+  API
+}
+
 model User {
   id                      String                 @id @default(cuid())
   email                   String                 @unique
@@ -125,6 +138,7 @@ model User {
   finalizedTransfers      TransferRequest[]      @relation("TransferRequestFinalizedBy")
   acknowledgedTransfers   TransferRequest[]      @relation("TransferRequestAcknowledgedBy")
   auditSessions           AuditSession[]         @relation("AuditSessionCreatedBy")
+  createdPurchaseOrders   PurchaseOrder[]        @relation("PurchaseOrderCreatedBy")
 }
 
 model Setting {
@@ -168,6 +182,7 @@ model Product {
   transferRequestLines TransferRequestLine[]
   auditLines           AuditLine[]
   parLevels            ParLevel[]
+  purchaseOrderLines   PurchaseOrderLine[]
 }
 
 model ProductPack {
@@ -291,7 +306,11 @@ model IncomingReceipt {
   createdById String
   createdAt   DateTime       @default(now())
   postedAt    DateTime?
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
   lines       IncomingLine[]
+
+  @@index([purchaseOrderId])
 }
 
 model IncomingLine {
@@ -352,6 +371,64 @@ model ReorderPolicy {
   supplier           String?
   leadTimeDays       Int?
   updatedAt          DateTime @updatedAt
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String
+  email         String?
+  licenseNumber String?
+  ein           String?
+  phone         String?
+  address       String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([name])
+}
+
+model PurchaseOrder {
+  id               String              @id @default(cuid())
+  supplierId       String
+  supplier         Supplier            @relation(fields: [supplierId], references: [id])
+  shipToScope      String              @default("WAREHOUSE")
+  status           PurchaseOrderStatus @default(DRAFT)
+  orderType        PurchaseOrderType   @default(EMAIL)
+  externalOrderRef String?
+  notes            String?
+  placedAt         DateTime?
+  receivedAt       DateTime?
+  createdById      String
+  createdBy        User                @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  lines    PurchaseOrderLine[]
+  receipts IncomingReceipt[]
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([shipToScope])
+}
+
+model PurchaseOrderLine {
+  id               String        @id @default(cuid())
+  purchaseOrderId  String
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product       @relation(fields: [productId], references: [id])
+  qtyOrdered       Int
+  qtyOrderedBase   Int
+  qtyReceived      Int           @default(0)
+  qtyReceivedBase  Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([purchaseOrderId, productId])
+  @@index([productId])
 }
 
 model TransferRequest {

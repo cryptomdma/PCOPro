@@ -98,6 +98,27 @@ export function ReceivingView() {
     errors?: Array<{ rowIndex: number; identifier: string; reason: string }>;
   } | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
+  const [showPoReceive, setShowPoReceive] = useState(false);
+  const [poLoading, setPoLoading] = useState(false);
+  const [poError, setPoError] = useState<string | null>(null);
+  const [openPurchaseOrders, setOpenPurchaseOrders] = useState<
+    Array<{
+      id: string;
+      status: 'DRAFT' | 'PLACED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED';
+      shipToScope: string;
+      createdAt: string;
+      supplier: { name: string; email?: string | null };
+      lines: Array<{
+        id: string;
+        qtyOrdered: number;
+        qtyReceived: number;
+        product: { id: string; name: string; orderingUnitLabel: string };
+      }>;
+    }>
+  >([]);
+  const [selectedPoId, setSelectedPoId] = useState<string>('');
+  const [poReceiveLines, setPoReceiveLines] = useState<Record<string, string>>({});
+  const [poSubmitting, setPoSubmitting] = useState(false);
 
   useEffect(() => {
     if (!canReceive) return;
@@ -319,6 +340,89 @@ export function ReceivingView() {
     }
   }
 
+  const selectedPo = useMemo(
+    () => openPurchaseOrders.find((po) => po.id === selectedPoId) ?? null,
+    [openPurchaseOrders, selectedPoId],
+  );
+
+  async function openPoReceiveModal() {
+    setShowPoReceive(true);
+    setPoError(null);
+    setPoLoading(true);
+    setSelectedPoId('');
+    setPoReceiveLines({});
+    try {
+      const response = await axios.get('/api/v1/purchase-orders', {
+        params: { statuses: 'PLACED,PARTIALLY_RECEIVED,DRAFT', take: 100 },
+      });
+      setOpenPurchaseOrders(response.data ?? []);
+    } catch (err: any) {
+      setPoError(err?.response?.data?.message || 'Failed to load purchase orders.');
+    } finally {
+      setPoLoading(false);
+    }
+  }
+
+  function selectPo(poId: string) {
+    setSelectedPoId(poId);
+    const po = openPurchaseOrders.find((item) => item.id === poId);
+    if (!po) {
+      setPoReceiveLines({});
+      return;
+    }
+    const next: Record<string, string> = {};
+    for (const line of po.lines) {
+      const remaining = Math.max(0, line.qtyOrdered - line.qtyReceived);
+      if (remaining > 0) {
+        next[line.id] = String(remaining);
+      }
+    }
+    setPoReceiveLines(next);
+  }
+
+  async function receiveFromPo() {
+    if (!selectedPo) {
+      setPoError('Select a purchase order first.');
+      return;
+    }
+    const lines = selectedPo.lines
+      .map((line) => ({ lineId: line.id, qtyReceived: Number(poReceiveLines[line.id] ?? '0') }))
+      .filter((line) => Number.isFinite(line.qtyReceived) && line.qtyReceived > 0);
+    if (!lines.length) {
+      setPoError('Enter at least one received quantity greater than 0.');
+      return;
+    }
+    if (lines.some((line) => !Number.isInteger(line.qtyReceived))) {
+      setPoError('Received quantities must be whole numbers.');
+      return;
+    }
+    setPoSubmitting(true);
+    setPoError(null);
+    try {
+      const response = await axios.post(`/api/v1/purchase-orders/${selectedPo.id}/receive`, {
+        receiptDate: date,
+        scope: locationScope,
+        lines,
+      });
+      setSummary({
+        postedCount: response.data?.postedCount ?? 0,
+        skippedCount: response.data?.skippedCount ?? 0,
+        idempotencyKeys: response.data?.receiptKey ? [response.data.receiptKey] : [],
+      });
+      showToast({ kind: 'success', message: 'PO receiving posted' });
+      setShowPoReceive(false);
+      setSelectedPoId('');
+      setPoReceiveLines({});
+      fetchHistory(historyMode);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Failed to receive from PO.';
+      setPoError(message);
+      showToast({ kind: 'error', message });
+    } finally {
+      setPoSubmitting(false);
+    }
+  }
+
   if (!canReceive) {
     return (
       <section>
@@ -339,10 +443,77 @@ export function ReceivingView() {
           <h2>Receiving</h2>
           <p>Post incoming stock to update ledger balances.</p>
         </div>
-        <button type="button" className="ghost-button" onClick={() => setShowCsvImport(true)}>
-          CSV Import
-        </button>
+        <div className="pill-row">
+          <button type="button" className="ghost-button" onClick={openPoReceiveModal}>
+            Receive from PO
+          </button>
+          <button type="button" className="ghost-button" onClick={() => setShowCsvImport(true)}>
+            CSV Import
+          </button>
+        </div>
       </header>
+
+      <ModalShell
+        open={showPoReceive}
+        title="Receive from Purchase Order"
+        onClose={() => {
+          setShowPoReceive(false);
+          setSelectedPoId('');
+          setPoReceiveLines({});
+          setPoError(null);
+        }}
+      >
+        <div className="card-stack">
+          {poError ? <div className="error-panel">{poError}</div> : null}
+          {poLoading ? <div className="muted">Loading purchase orders...</div> : null}
+          {!poLoading ? (
+            <SearchableSelect
+              label="Purchase Order"
+              placeholder="Select open PO"
+              value={selectedPoId}
+              onChange={selectPo}
+              options={openPurchaseOrders.map((po) => ({
+                value: po.id,
+                label: `${po.supplier.name} (${po.status})`,
+                subtitle: new Date(po.createdAt).toLocaleString(),
+              }))}
+            />
+          ) : null}
+          {selectedPo ? (
+            <div className="card card-stack">
+              <div className="muted">
+                Supplier: {selectedPo.supplier.name} | Scope: {selectedPo.shipToScope}
+              </div>
+              {selectedPo.lines.map((line) => {
+                const remaining = Math.max(0, line.qtyOrdered - line.qtyReceived);
+                return (
+                  <div key={line.id} className="card-stack">
+                    <strong>{line.product.name}</strong>
+                    <div className="muted">
+                      Ordered: {line.qtyOrdered} {line.product.orderingUnitLabel} | Received: {line.qtyReceived}{' '}
+                      {line.product.orderingUnitLabel} | Remaining: {remaining} {line.product.orderingUnitLabel}
+                    </div>
+                    <label>
+                      Receive now
+                      <input
+                        type="number"
+                        min="0"
+                        step={1}
+                        max={remaining}
+                        value={poReceiveLines[line.id] ?? '0'}
+                        onChange={(e) => setPoReceiveLines((prev) => ({ ...prev, [line.id]: e.target.value }))}
+                      />
+                    </label>
+                  </div>
+                );
+              })}
+              <button type="button" onClick={receiveFromPo} disabled={poSubmitting}>
+                {poSubmitting ? 'Posting...' : 'Finalize PO Receiving'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </ModalShell>
 
       {error ? <div className="error-panel">{error}</div> : null}
 
