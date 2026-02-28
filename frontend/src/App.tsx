@@ -25,6 +25,7 @@ export default function App() {
           <Route path="/equipment" element={<EquipmentView />} />
           <Route path="/receiving" element={<ReceivingView />} />
           <Route path="/checkout" element={<CheckoutView />} />
+          <Route path="/requests" element={<OrdersView />} />
           <Route path="/orders" element={<OrdersView />} />
           <Route path="/transfers" element={<OrdersView />} />
           <Route path="/audit" element={<AuditCountView />} />

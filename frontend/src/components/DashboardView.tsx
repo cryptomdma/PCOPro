@@ -164,7 +164,7 @@ export function DashboardView() {
           <div className="dashboard-value">{products.length}</div>
           <div className="muted">Inventory items</div>
         </Link>
-        <Link to="/orders" className="dashboard-card">
+        <Link to="/requests" className="dashboard-card">
           <div className="card-title">Pending Requests</div>
           <div className="dashboard-value">{requests ? requests.length : '—'}</div>
           <div className="muted">{requests ? 'Open requests' : 'Coming soon'}</div>
@@ -180,8 +180,8 @@ export function DashboardView() {
           <div className="card-title">Issue / Checkout</div>
           <div className="muted">Create request</div>
         </Link>
-        <Link to="/orders" className="dashboard-card">
-          <div className="card-title">Orders</div>
+        <Link to="/requests" className="dashboard-card">
+          <div className="card-title">Requests</div>
           <div className="muted">Queue &amp; history</div>
         </Link>
         <Link to="/receiving" className="dashboard-card">
