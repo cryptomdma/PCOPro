@@ -11,7 +11,7 @@ function navItemsFor(role?: string): NavItem[] {
     return [
       { path: '/', label: 'Home' },
       { path: '/checkout', label: 'Checkout/Return' },
-      { path: '/orders', label: 'Orders' },
+      { path: '/requests', label: 'Requests' },
     ];
   }
   if (role === 'MANAGER' || role === 'ADMIN') {
@@ -19,7 +19,7 @@ function navItemsFor(role?: string): NavItem[] {
       { path: '/', label: 'Home' },
       { path: '/checkout', label: 'Issue' },
       { path: '/receiving', label: 'Receiving' },
-      { path: '/orders', label: 'Orders' },
+      { path: '/requests', label: 'Requests' },
       { path: '/products', label: 'Products' },
     ];
   }
@@ -27,7 +27,7 @@ function navItemsFor(role?: string): NavItem[] {
     { path: '/', label: 'Home' },
     { path: '/checkout', label: 'Issue' },
     { path: '/receiving', label: 'Receiving' },
-    { path: '/orders', label: 'Orders' },
+    { path: '/requests', label: 'Requests' },
   ];
 }
 

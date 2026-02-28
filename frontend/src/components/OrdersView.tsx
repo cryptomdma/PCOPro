@@ -449,7 +449,7 @@ export function OrdersView() {
     <section>
       <header className="section-header">
         <div>
-          <h2>Orders</h2>
+          <h2>Requests</h2>
           <p>Track approvals, fulfillments, and acknowledgments.</p>
         </div>
       </header>
