@@ -301,6 +301,12 @@ PRODUCT DETAIL MODAL
 REQUEST & ORDER WORKFLOW (AUTHORITATIVE)
 ========================================
 
+Naming clarification (authoritative):
+
+* "Requests" = internal issue/return transfer workflow between technicians and warehouse
+* "Ordering" (Purchasing) = external vendor purchase orders (POs) that feed Receiving
+* These are separate modules and must not share labels in navigation
+
 Workflow:
 Request (Tech)
 → Finalize (Warehouse / Manager / Admin)
@@ -396,6 +402,60 @@ ORDERING SYSTEM
 * Email-based ordering
 * Stored pending orders
 * Future vendor API integration
+
+ORDERING GROUNDWORK (MVP - AUTHORITATIVE)
+
+Scope summary:
+
+* Add bottom tab/screen: Ordering (or Purchasing)
+* Include:
+  * Low Stock list (list view -> expandable detail)
+  * Order History (list view -> expandable detail)
+* Access control:
+  * Ordering module defaults to ADMIN + MANAGER (WAREHOUSE optional by policy)
+  * TECH cannot create vendor POs
+
+Supplier management (Admin + Manager only):
+
+* Supplier fields:
+  * name (required)
+  * email (strongly recommended; required when orderType=EMAIL)
+  * optional: licenseNumber, EIN, phone, address, notes
+* Admin Settings includes Supplier Settings CRUD
+
+Purchase Orders (POs):
+
+* PO fields:
+  * supplierId (required)
+  * shipToLocation/scopeId (required)
+  * status: DRAFT, PLACED, PARTIALLY_RECEIVED, RECEIVED, CANCELLED
+  * orderType: EMAIL or API (MVP uses EMAIL/manual; API reserved for future)
+  * createdBy, createdAt
+  * optional: externalOrderRef, notes
+* PO line fields:
+  * productId
+  * qtyOrdered (ordering units preferred when supported)
+  * qtyReceived (tracked against PO)
+  * store base qty if required by existing conversion conventions
+  * unitPrice deferred (not MVP-critical)
+
+Receiving integration (MVP-critical):
+
+* Add "Receive from PO" entry point on Receiving page
+* Selecting a PO opens receive flow for PO lines
+* User confirms received qty per line
+* Finalize posts receiving ledger transactions exactly like current receiving
+* No direct balance mutation
+* Update PO line qtyReceived and PO status:
+  * PARTIALLY_RECEIVED when partially fulfilled
+  * RECEIVED when fully fulfilled
+* Ad-hoc receiving remains supported unchanged
+
+Exportable order form (MVP):
+
+* PO detail supports "Download order form" (PDF or CSV)
+* Manual email attachment workflow only
+* Outbound email sending is explicitly out of scope for MVP
 
 ============================================================
 AUDIT WORKFLOW (EXPANDED)
@@ -648,6 +708,17 @@ YYYY-MM-DD
 * Added Pickup Date workflow for technician requests with required approval when pickupDate is in the future
 * Added lightweight approval/change-request loop states and supporting metadata fields for request locking/edit routing
 * Documented optional fulfillment note visibility plus backlog items for notifications and configurable edit cutoffs/workflow rules
+
+2026-02-28
+
+* Clarified naming split: internal transfer workflow is "Requests"; new "Ordering" module is vendor purchasing POs
+* Added authoritative MVP Ordering groundwork scope:
+  * Ordering screen/tab (low stock + order history)
+  * Supplier CRUD (Admin/Manager)
+  * Purchase Orders + PO lines/status lifecycle
+  * Receiving integration via "Receive from PO" with ledger posting on finalize
+  * Exportable order form (PDF/CSV) without email sending
+* Set access control baseline: TECH cannot create vendor POs
 
 ============================================================
 CHANGE LOG RULE

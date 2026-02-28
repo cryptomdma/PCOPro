@@ -18,6 +18,9 @@ const ROLE_PERMISSIONS: Record<Role, Set<string>> = {
     'par.view',
     'par.manage',
     'receiving.manage',
+    'ordering.view',
+    'ordering.manage',
+    'suppliers.manage',
   ]),
   WAREHOUSE: new Set([
     'transfer.create',
@@ -28,6 +31,7 @@ const ROLE_PERMISSIONS: Record<Role, Set<string>> = {
     'audit.manage',
     'par.view',
     'receiving.manage',
+    'ordering.view',
   ]),
   TECH: new Set(['transfer.create', 'transfer.reverse', 'transfer.acknowledge', 'transfer.view']),
 };

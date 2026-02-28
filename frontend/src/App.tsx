@@ -6,6 +6,7 @@ import { AnalyticsPreview } from './components/AnalyticsPreview';
 import { AuditCountView } from './components/AuditCountView';
 import { OrdersView } from './components/OrdersView';
 import { EquipmentView } from './components/EquipmentView';
+import { OrderingView } from './components/OrderingView';
 import { Header } from './components/ui/Header';
 import { BottomNav } from './components/ui/BottomNav';
 import { ToastHost } from './components/ui/Toast';
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/products" element={<ProductsView />} />
           <Route path="/equipment" element={<EquipmentView />} />
           <Route path="/receiving" element={<ReceivingView />} />
+          <Route path="/ordering" element={<OrderingView />} />
           <Route path="/checkout" element={<CheckoutView />} />
           <Route path="/requests" element={<OrdersView />} />
           <Route path="/orders" element={<OrdersView />} />
