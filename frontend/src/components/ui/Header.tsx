@@ -42,7 +42,7 @@ export function Header() {
     setMenuOpen(false);
   }, [location.pathname]);
 
-  const menuItems = [
+  const menuItems: Array<{ label: string; path?: string; action?: () => void }> = [
     { label: 'Dashboard', path: '/' },
     { label: 'Inventory', path: '/inventory' },
     { label: isTech ? 'Checkout/Return' : 'Issue', path: '/checkout' },
@@ -53,6 +53,7 @@ export function Header() {
     ...(user?.role === 'ADMIN' ? [{ label: 'Audit', path: '/audit' }] : []),
     ...(!isTech ? [{ label: 'Analytics', path: '/analytics' }] : []),
     ...(canAccessSettings ? [{ label: 'Settings', path: '/settings' }] : []),
+    { label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode', action: toggleDarkMode },
   ];
 
   return (
@@ -65,9 +66,6 @@ export function Header() {
         </div>
         <div className="header-title">{title}</div>
         <div className="header-side header-right">
-          <button type="button" className="ghost-button" onClick={toggleDarkMode}>
-            {darkMode ? 'Light' : 'Dark'}
-          </button>
           <OfflineQueueIndicator />
           {user ? (
             <div className="user-menu">
@@ -90,10 +88,15 @@ export function Header() {
                 key={item.label}
                 type="button"
                 className="menu-item"
-                disabled={!item.path}
+                disabled={!item.path && !item.action}
                 onClick={() => {
-                  if (!item.path) return;
-                  navigate(item.path);
+                  if (item.action) {
+                    item.action();
+                  } else if (item.path) {
+                    navigate(item.path);
+                  } else {
+                    return;
+                  }
                   setMenuOpen(false);
                 }}
               >
