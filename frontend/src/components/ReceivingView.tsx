@@ -488,12 +488,23 @@ export function ReceivingView() {
                 const remaining = Math.max(0, line.qtyOrdered - line.qtyReceived);
                 return (
                   <div key={line.id} className="card-stack">
-                    <strong>{line.product.name}</strong>
+                    <button
+                      type="button"
+                      className="line-item-button"
+                      onClick={() => setSelectedProductId(line.product.id)}
+                    >
+                      <strong>{line.product.name}</strong>
+                      <span className="muted">View product</span>
+                    </button>
                     <div className="muted">
                       Ordered: {line.qtyOrdered} {line.product.orderingUnitLabel} | Received: {line.qtyReceived}{' '}
                       {line.product.orderingUnitLabel} | Remaining: {remaining} {line.product.orderingUnitLabel}
                     </div>
-                    <label>
+                    <label
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
                       Receive now
                       <input
                         type="number"
@@ -502,6 +513,8 @@ export function ReceivingView() {
                         max={remaining}
                         value={poReceiveLines[line.id] ?? '0'}
                         onChange={(e) => setPoReceiveLines((prev) => ({ ...prev, [line.id]: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
                       />
                     </label>
                   </div>
@@ -747,6 +760,7 @@ export function ReceivingView() {
       <ProductDetailsModal
         open={Boolean(selectedProductId)}
         product={selectedProductId ? productById.get(selectedProductId) ?? null : null}
+        readOnly
         onClose={() => setSelectedProductId(null)}
       />
 

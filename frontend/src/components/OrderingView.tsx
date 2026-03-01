@@ -4,6 +4,7 @@ import { useAuth } from '../auth';
 import { useToast } from './ui/Toast';
 import { ModalShell } from './ui/ModalShell';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { ProductDetailsModal } from './products/ProductDetailsModal';
 
 type Supplier = {
   id: string;
@@ -64,6 +65,7 @@ export function OrderingView() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editPoId, setEditPoId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const [supplierId, setSupplierId] = useState('');
   const [shipToScope, setShipToScope] = useState('WAREHOUSE');
@@ -77,6 +79,7 @@ export function OrderingView() {
     () => suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name, subtitle: supplier.email ?? '' })),
     [suppliers],
   );
+  const productById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
 
   useEffect(() => {
     if (!canAccess) return;
@@ -199,10 +202,13 @@ export function OrderingView() {
 
   async function downloadOrderForm(po: PurchaseOrder) {
     try {
-      const response = await axios.get(`/api/v1/purchase-orders/${po.id}/export-form`);
-      const csv = response.data?.csv ?? '';
+      const response = await axios.get(`/api/v1/purchase-orders/${po.id}/export-form`, {
+        params: { format: 'csv' },
+      });
+      const data = response.data?.data ?? '';
       const filename = response.data?.filename ?? `purchase-order-${po.id}.csv`;
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const contentType = response.data?.contentType ?? 'text/csv;charset=utf-8;';
+      const blob = new Blob(['\uFEFF', data], { type: contentType });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -324,7 +330,16 @@ export function OrderingView() {
                           <tbody>
                             {po.lines.map((line) => (
                               <tr key={line.id}>
-                                <td>{line.product.name}</td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="line-item-button"
+                                    onClick={() => setSelectedProductId(line.productId)}
+                                  >
+                                    <strong>{line.product.name}</strong>
+                                    <span className="muted">View</span>
+                                  </button>
+                                </td>
                                 <td>
                                   {line.qtyOrdered} {line.product.orderingUnitLabel}
                                 </td>
@@ -459,6 +474,22 @@ export function OrderingView() {
           </div>
         </div>
       </ModalShell>
+
+      <ProductDetailsModal
+        open={Boolean(selectedProductId)}
+        product={
+          selectedProductId
+            ? productById.get(selectedProductId) ?? {
+                id: selectedProductId,
+                name: history
+                  .flatMap((po) => po.lines)
+                  .find((line) => line.productId === selectedProductId)?.product.name ?? selectedProductId,
+              }
+            : null
+        }
+        readOnly
+        onClose={() => setSelectedProductId(null)}
+      />
     </section>
   );
 }

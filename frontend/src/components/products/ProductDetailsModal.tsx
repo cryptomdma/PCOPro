@@ -42,10 +42,12 @@ export type ProductDetails = {
 export function ProductDetailsModal({
   open,
   product,
+  readOnly = false,
   onClose,
 }: {
   open: boolean;
   product: ProductDetails | null;
+  readOnly?: boolean;
   onClose: () => void;
 }) {
   const { user } = useAuth();
@@ -58,8 +60,8 @@ export function ProductDetailsModal({
   const [parInput, setParInput] = useState('');
   const [parError, setParError] = useState<string | null>(null);
   const locationScope = 'WAREHOUSE';
-  const canEditProduct = user?.role === 'ADMIN' || user?.role === 'MANAGER';
-  const canEditPar = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const canEditProduct = !readOnly && (user?.role === 'ADMIN' || user?.role === 'MANAGER');
+  const canEditPar = !readOnly && (user?.role === 'ADMIN' || user?.role === 'MANAGER');
   const showPar = user?.role !== 'TECH';
   const showCost = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const activeProduct = detail ?? product;
