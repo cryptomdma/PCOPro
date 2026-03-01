@@ -1,6 +1,18 @@
-import { IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ProductBehavior, ProductCategory, ProductTrackingMode, ProductType, UnitBaseType } from '@prisma/client';
+
+const toBoolean = (value: unknown): boolean | undefined => {
+  if (value === '' || value === null || value === undefined) return undefined;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1 ? true : value === 0 ? false : undefined;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'n'].includes(normalized)) return false;
+  }
+  return undefined;
+};
 
 export class CreateProductDto {
   @IsString()
@@ -72,6 +84,11 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   initialScopeId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => toBoolean(value))
+  isStocked?: boolean;
 }
 
 export class UpdateProductDto {
@@ -151,4 +168,9 @@ export class UpdateProductDto {
   @IsOptional()
   @IsEnum(ProductBehavior)
   behavior?: ProductBehavior;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => toBoolean(value))
+  isStocked?: boolean;
 }
