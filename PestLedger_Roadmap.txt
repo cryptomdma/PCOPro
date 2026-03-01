@@ -1,5 +1,5 @@
 PestLedger (PCOPro) – Integrated Roadmap & Continuity Log
-Last updated: 2026-01-27 (America/Chicago)
+Last updated: 2026-03-01 (America/Chicago)
 
 ============================================================
 PURPOSE / HOW TO USE THIS FILE
@@ -249,12 +249,32 @@ PRODUCTS LIST
   * "Top" scroll button
   * Show / Hide Out-of-Stock
   * Checkbox: balance > 0 only
+* MVP UX improvements (authoritative):
+
+  * Add spacing between search controls and first product card/list
+  * Enhanced sorting and filtering controls
+  * Mobile alpha index (alpha-dex) quick scroll on the right side
+  * Floating "Top" button on long mobile scroll
+* MVP sorting options:
+
+  * Name (A-Z / Z-A)
+  * Category (A-Z)
+  * Type (A-Z)
+* MVP filter options:
+
+  * Show / Hide Out-of-Stock
+  * Show / Hide Do Not Stock
+  * Inventory filter list (same UX pattern as Issue/Request filter list; favorites can be added later)
 
 PRODUCT STATUS FLAGS
 
 * Active / Inactive
 * Stock / Do-Not-Stock
 * Discontinued
+* Authoritative field for stock designation:
+
+  * isStocked Boolean @default(true)
+  * Used for ordering eligibility and filtering out obsolete/non-stock products
 
 ============================================================
 PRODUCT TAGS (FOUNDATIONAL)
@@ -719,6 +739,17 @@ YYYY-MM-DD
   * Receiving integration via "Receive from PO" with ledger posting on finalize
   * Exportable order form (PDF/CSV) without email sending
 * Set access control baseline: TECH cannot create vendor POs
+
+2026-03-01
+
+* Added Products MVP UX scope for mobile readability and navigation:
+  * spacing between search and product cards
+  * enhanced sorting/filtering controls
+  * mobile alpha index quick-scroll
+  * floating Top button for long scroll
+* Added Products filters for Show/Hide Out-of-Stock and Show/Hide Do Not Stock
+* Added inventory filter-list requirement using the same UX pattern as the Issue/Request filter list component (favorites deferred)
+* Declared isStocked as the authoritative persistent Stock / Do Not Stock product designation for ordering eligibility and filtering
 
 ============================================================
 CHANGE LOG RULE
