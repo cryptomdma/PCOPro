@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { OfflineQueueIndicator } from '../common/OfflineQueueIndicator';
 import { useAuth } from '../../auth';
 import { useTheme } from './theme';
 
@@ -66,7 +65,6 @@ export function Header() {
         </div>
         <div className="header-title">{title}</div>
         <div className="header-side header-right">
-          <OfflineQueueIndicator />
           {user ? (
             <div className="user-menu">
               <div className="user-meta">

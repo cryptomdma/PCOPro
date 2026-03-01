@@ -1,4 +1,5 @@
 import { useAuth } from '../auth';
+import { OfflineQueueIndicator } from './common/OfflineQueueIndicator';
 import { BulkProductImportPanel } from './settings/BulkProductImportPanel';
 import { EpaImportPanel } from './settings/EpaImportPanel';
 import { SuppliersPanel } from './settings/SuppliersPanel';
@@ -30,6 +31,11 @@ export function SettingsView() {
         </div>
       </header>
       <div className="card-stack">
+        <section className="card">
+          <h3>Connection Status</h3>
+          <p className="muted">Offline queue and sync indicator.</p>
+          <OfflineQueueIndicator />
+        </section>
         {user?.role === 'ADMIN' ? <UsersPanel /> : null}
         <SuppliersPanel />
         <BulkProductImportPanel />
