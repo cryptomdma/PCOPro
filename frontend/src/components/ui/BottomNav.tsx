@@ -21,7 +21,6 @@ function navItemsFor(role?: string): NavItem[] {
       { path: '/receiving', label: 'Receiving' },
       { path: '/ordering', label: 'Ordering' },
       { path: '/requests', label: 'Requests' },
-      { path: '/products', label: 'Products' },
     ];
   }
   return [

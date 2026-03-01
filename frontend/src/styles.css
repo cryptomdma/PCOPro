@@ -340,7 +340,8 @@ a {
 
 .products-top-button {
   position: fixed;
-  right: max(0.85rem, env(safe-area-inset-right, 0px));
+  left: 50%;
+  transform: translateX(-50%);
   bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 1rem);
   z-index: 12;
   padding: 0.55rem 0.9rem;
@@ -1110,8 +1111,14 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .products-list-grid {
+    padding-right: 2.2rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .products-alpha-dex {
     display: grid;
+    right: max(0.15rem, env(safe-area-inset-right, 0px));
   }
 }
 
