@@ -387,34 +387,55 @@ export class PurchaseOrdersService {
     };
   }
 
-  async exportForm(id: string) {
+  async exportForm(id: string, formatRaw?: string) {
     const po = await this.get(id);
-    const header = [
-      `PO ID,${this.escapeCsv(po.id)}`,
-      `Supplier,${this.escapeCsv(po.supplier.name)}`,
-      `Supplier Email,${this.escapeCsv(po.supplier.email ?? '')}`,
-      `Order Type,${this.escapeCsv(po.orderType)}`,
-      `Status,${this.escapeCsv(po.status)}`,
-      `Ship To Scope,${this.escapeCsv(po.shipToScope)}`,
-      `Created At,${this.escapeCsv(po.createdAt.toISOString())}`,
-      `External Ref,${this.escapeCsv(po.externalOrderRef ?? '')}`,
-      `Notes,${this.escapeCsv(po.notes ?? '')}`,
-      '',
-      'Product ID,Product Name,Qty Ordered,Qty Received,Ordering Unit',
+    const settings = await this.prisma.setting.findMany({
+      where: { key: { in: ['company.name', 'companyName', 'businessName'] } },
+    });
+    const settingMap = new Map(settings.map((setting) => [setting.key, setting.value]));
+    const companyName =
+      settingMap.get('company.name') || settingMap.get('companyName') || settingMap.get('businessName') || 'PestLedger';
+    const createdBy = po.createdBy?.name || po.createdBy?.email || '';
+    const dateCreated = new Date(po.createdAt).toLocaleDateString('en-US');
+    const totalQtyOrdered = po.lines.reduce((sum, line) => sum + line.qtyOrdered, 0);
+
+    const lineRows = po.lines.map((line, index) => {
+      const extended = line as typeof line & { unitPrice?: number | null; notes?: string | null };
+      const unitPrice = extended.unitPrice ?? null;
+      const notes = extended.notes ?? '';
+      return [
+        String(index + 1),
+        line.product.name,
+        line.product.orderingUnitLabel,
+        String(line.qtyOrdered),
+        unitPrice === null ? '' : String(unitPrice),
+        notes,
+      ];
+    });
+    const format = (formatRaw ?? 'csv').toLowerCase();
+    if (format !== 'csv') {
+      throw new BadRequestException('Unsupported export format. Use format=csv.');
+    }
+
+    const csvLines: string[] = [
+      this.toCsvRow(['Purchase Order']),
+      this.toCsvRow(['Company Name', companyName]),
+      this.toCsvRow(['PO Number', po.id]),
+      this.toCsvRow(['Date Created', dateCreated]),
+      this.toCsvRow(['Supplier Name', po.supplier.name]),
+      this.toCsvRow(['Ship To Location', po.shipToScope]),
+      ...(createdBy ? [this.toCsvRow(['Created By', createdBy])] : []),
+      this.toCsvRow([]),
+      this.toCsvRow(['Line #', 'Product Name', 'Ordering Unit Label', 'Qty Ordered', 'Unit Price', 'Notes']),
+      ...lineRows.map((row) => this.toCsvRow(row)),
+      this.toCsvRow(['', '', 'Total Qty Ordered', String(totalQtyOrdered), '', '']),
     ];
-    const lines = po.lines.map((line) =>
-      [
-        this.escapeCsv(line.productId),
-        this.escapeCsv(line.product.name),
-        this.escapeCsv(String(line.qtyOrdered)),
-        this.escapeCsv(String(line.qtyReceived)),
-        this.escapeCsv(line.product.orderingUnitLabel),
-      ].join(','),
-    );
-    const csv = [...header, ...lines].join('\n');
+    const csv = csvLines.join('\r\n');
+
     return {
       filename: `purchase-order-${po.id}.csv`,
-      csv,
+      contentType: 'text/csv;charset=utf-8;',
+      data: csv,
     };
   }
 
@@ -453,11 +474,26 @@ export class PurchaseOrdersService {
     });
   }
 
-  private escapeCsv(value: string) {
-    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-      return `"${value.replace(/"/g, '""')}"`;
-    }
-    return value;
+  private escapeHtml(value: string) {
+    return value
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  private toCsvRow(values: string[]) {
+    return values
+      .map((value) => {
+        const clean = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+        if (clean.includes(',') || clean.includes('"') || clean.includes('\n') || clean.includes('\r')) {
+          return `"${clean.replace(/"/g, '""')}"`;
+        }
+        return clean;
+      })
+      .join(',');
   }
 
   private async ensureSystemUser() {

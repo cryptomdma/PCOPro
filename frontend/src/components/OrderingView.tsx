@@ -199,10 +199,13 @@ export function OrderingView() {
 
   async function downloadOrderForm(po: PurchaseOrder) {
     try {
-      const response = await axios.get(`/api/v1/purchase-orders/${po.id}/export-form`);
-      const csv = response.data?.csv ?? '';
+      const response = await axios.get(`/api/v1/purchase-orders/${po.id}/export-form`, {
+        params: { format: 'csv' },
+      });
+      const data = response.data?.data ?? '';
       const filename = response.data?.filename ?? `purchase-order-${po.id}.csv`;
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const contentType = response.data?.contentType ?? 'text/csv;charset=utf-8;';
+      const blob = new Blob(['\uFEFF', data], { type: contentType });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;

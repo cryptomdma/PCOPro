@@ -42,8 +42,8 @@ export class PurchaseOrdersController {
 
   @Get(':id/export-form')
   @RequirePerm('ordering.view')
-  exportForm(@Param('id') id: string) {
-    return this.service.exportForm(id);
+  exportForm(@Param('id') id: string, @Query('format') format?: string) {
+    return this.service.exportForm(id, format);
   }
 
   @Post()
