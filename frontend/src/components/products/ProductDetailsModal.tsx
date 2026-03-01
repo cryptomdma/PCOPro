@@ -37,6 +37,7 @@ export type ProductDetails = {
   balances?: { onHandBase: number } | null;
   codes?: Array<{ payload: string; codeType: string }>;
   defaultCostPerBase?: number | string | null;
+  isStocked?: boolean;
 };
 
 export function ProductDetailsModal({
@@ -82,6 +83,7 @@ export function ProductDetailsModal({
     description: '',
     costQty: '',
     costPrice: '',
+    isStocked: true,
   });
 
   const stock = getStockDisplay({
@@ -177,6 +179,7 @@ export function ProductDetailsModal({
       description: activeProduct.description ?? '',
       costQty: hasCost ? '1' : '',
       costPrice: initialCostPrice,
+      isStocked: activeProduct.isStocked ?? true,
     });
   }, [open, activeProduct, editMode, costPerTracking]);
 
@@ -220,6 +223,7 @@ export function ProductDetailsModal({
       orderingToBase: form.orderingToBase ? Number(form.orderingToBase) : undefined,
       epaRegNo: form.epaRegNo.trim() || undefined,
       description: form.description.trim() || undefined,
+      isStocked: form.isStocked,
     };
 
     if (!payload.name) {
@@ -554,7 +558,32 @@ export function ProductDetailsModal({
                   <div className="muted">Status</div>
                   <div>{statusLabel}</div>
                 </div>
+                <div>
+                  <div className="muted">Stock Designation</div>
+                  <div>{activeProduct.isStocked === false ? 'Do Not Stock' : 'Stock'}</div>
+                </div>
               </div>
+              {editMode ? (
+                <div>
+                  <div className="muted">Set designation</div>
+                  <div className="binary-switch">
+                    <button
+                      type="button"
+                      className={form.isStocked ? 'active' : ''}
+                      onClick={() => setForm((prev) => ({ ...prev, isStocked: true }))}
+                    >
+                      Stock
+                    </button>
+                    <button
+                      type="button"
+                      className={!form.isStocked ? 'active' : ''}
+                      onClick={() => setForm((prev) => ({ ...prev, isStocked: false }))}
+                    >
+                      Do Not Stock
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               {showPar ? (
                 <div>
                   <div className="muted">Par (WAREHOUSE)</div>

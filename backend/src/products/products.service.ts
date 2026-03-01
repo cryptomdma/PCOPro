@@ -91,6 +91,7 @@ export class ProductsService {
             reorderLevelBase: dto.reorderLevelBase,
             leadTimeDays: dto.leadTimeDays,
             behavior: dto.behavior,
+            isStocked: dto.isStocked ?? true,
           },
         });
 
@@ -203,6 +204,7 @@ export class ProductsService {
           reorderLevelBase: dto.reorderLevelBase,
           leadTimeDays: dto.leadTimeDays,
           behavior: dto.behavior,
+          isStocked: dto.isStocked,
         },
       });
     });

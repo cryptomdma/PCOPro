@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { Link, useLocation } from 'react-router-dom';
 import { ProductDetailsModal } from './products/ProductDetailsModal';
@@ -7,6 +7,7 @@ import { useAuth } from '../auth';
 import { getStockDisplay } from '../utils/stockDisplay';
 import { ModalShell } from './ui/ModalShell';
 import { useToast } from './ui/Toast';
+import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
 
 type Product = {
   id: string;
@@ -26,6 +27,8 @@ type Product = {
   checkoutToBase: number;
   orderingToBase: number;
   reorderLevelBase?: number | null;
+  isStocked: boolean;
+  isDiscontinued?: boolean;
 };
 
 type TechnicianOption = {
@@ -47,6 +50,7 @@ const PRODUCT_TYPE_OPTIONS = [
   'SANITATION',
   'OTHER',
 ] as const;
+const ALPHA_INDEX = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
 
 function defaultsForBaseType(baseType: Product['baseType']) {
   if (baseType === 'COUNT') {
@@ -86,16 +90,21 @@ export function ProductsView() {
   const [parLevels, setParLevels] = useState<Array<{ productId: string; locationScope: string; parBase: number }>>([]);
   const [selected, setSelected] = useState<Product | null>(null);
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'onhand-desc' | 'onhand-asc' | 'low-first'>('name-asc');
+  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'category-asc' | 'type-asc'>('name-asc');
+  const [showOutOfStock, setShowOutOfStock] = useState(true);
+  const [showDoNotStock, setShowDoNotStock] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [showTopButton, setShowTopButton] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [scopeOptions, setScopeOptions] = useState<TechnicianOption[]>([]);
+  const alphaRefs = useRef<Record<string, HTMLElement | null>>({});
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const lowStockOnly = searchParams.get('filter') === 'low';
   const locationScope = 'WAREHOUSE';
-  const isTech = user?.role === 'TECH';
   const canAddProduct = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const [addForm, setAddForm] = useState({
     name: '',
@@ -134,6 +143,15 @@ export function ProductsView() {
       .catch(() => setScopeOptions([]));
   }, [canAddProduct, addOpen]);
 
+  useEffect(() => {
+    function onScroll() {
+      setShowTopButton(window.scrollY > 420);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const lowStockIds = useMemo(() => {
     const parByProduct = new Map(parLevels.map((par) => [par.productId, par.parBase]));
     const ids = new Set<string>();
@@ -152,10 +170,28 @@ export function ProductsView() {
     return new Map(parLevels.map((par) => [par.productId, par.parBase]));
   }, [parLevels]);
 
+  const categoryFilterOptions = useMemo(() => {
+    return Array.from(new Set(products.map((product) => product.category).filter(Boolean) as string[]))
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value }));
+  }, [products]);
+
+  const typeFilterOptions = useMemo(() => {
+    return Array.from(new Set(products.map((product) => product.productType).filter(Boolean) as string[]))
+      .sort((a, b) => formatProductType(a).localeCompare(formatProductType(b)))
+      .map((value) => ({ value, label: formatProductType(value) }));
+  }, [products]);
+
   const visibleProducts = useMemo(() => {
-    if (!lowStockOnly) return products;
-    return products.filter((product) => lowStockIds.has(product.id));
-  }, [products, lowStockIds, lowStockOnly]);
+    return products.filter((product) => {
+      if (lowStockOnly && !lowStockIds.has(product.id)) return false;
+      if (!showOutOfStock && (product.balances?.onHandBase ?? 0) <= 0) return false;
+      if (!showDoNotStock && !product.isStocked) return false;
+      if (selectedCategories.length && !selectedCategories.includes(product.category ?? '')) return false;
+      if (selectedTypes.length && !selectedTypes.includes(product.productType ?? '')) return false;
+      return true;
+    });
+  }, [products, lowStockIds, lowStockOnly, selectedCategories, selectedTypes, showDoNotStock, showOutOfStock]);
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -176,36 +212,47 @@ export function ProductsView() {
       if (sortBy === 'name-desc') {
         return b.product.name.localeCompare(a.product.name) || a.index - b.index;
       }
-      if (sortBy === 'onhand-desc') {
-        const aOnHand = a.product.balances?.onHandBase ?? 0;
-        const bOnHand = b.product.balances?.onHandBase ?? 0;
-        return bOnHand - aOnHand || a.product.name.localeCompare(b.product.name) || a.index - b.index;
+      if (sortBy === 'category-asc') {
+        const aCategory = a.product.category ?? 'Uncategorized';
+        const bCategory = b.product.category ?? 'Uncategorized';
+        return aCategory.localeCompare(bCategory) || a.product.name.localeCompare(b.product.name) || a.index - b.index;
       }
-      if (sortBy === 'onhand-asc') {
-        const aOnHand = a.product.balances?.onHandBase ?? 0;
-        const bOnHand = b.product.balances?.onHandBase ?? 0;
-        return aOnHand - bOnHand || a.product.name.localeCompare(b.product.name) || a.index - b.index;
-      }
-      const aPar = parByProduct.get(a.product.id);
-      const bPar = parByProduct.get(b.product.id);
-      const aLow = aPar !== undefined && (a.product.balances?.onHandBase ?? 0) < aPar;
-      const bLow = bPar !== undefined && (b.product.balances?.onHandBase ?? 0) < bPar;
-      if (aLow !== bLow) return aLow ? -1 : 1;
-      return a.product.name.localeCompare(b.product.name) || a.index - b.index;
+      const aType = formatProductType(a.product.productType);
+      const bType = formatProductType(b.product.productType);
+      return aType.localeCompare(bType) || a.product.name.localeCompare(b.product.name) || a.index - b.index;
     });
     return withIndex.map((entry) => entry.product);
-  }, [filteredProducts, sortBy, parByProduct]);
+  }, [filteredProducts, sortBy]);
+
+  const firstIndexByLetter = useMemo(() => {
+    const lookup = new Map<string, number>();
+    sortedProducts.forEach((product, index) => {
+      const firstChar = product.name.trim().charAt(0).toUpperCase();
+      const bucket = /[A-Z]/.test(firstChar) ? firstChar : '#';
+      if (!lookup.has(bucket)) {
+        lookup.set(bucket, index);
+      }
+    });
+    return lookup;
+  }, [sortedProducts]);
+
+  function scrollToLetter(letter: string) {
+    const currentIndex = ALPHA_INDEX.indexOf(letter);
+    if (currentIndex < 0) return;
+    for (let i = currentIndex; i < ALPHA_INDEX.length; i += 1) {
+      const nextLetter = ALPHA_INDEX[i];
+      if (firstIndexByLetter.has(nextLetter)) {
+        alphaRefs.current[nextLetter]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+    }
+  }
 
   const sortOptions = [
     { value: 'name-asc', label: 'Name A-Z' },
     { value: 'name-desc', label: 'Name Z-A' },
-    ...(isTech
-      ? []
-      : [
-          { value: 'onhand-desc', label: 'On-hand high-low' },
-          { value: 'onhand-asc', label: 'On-hand low-high' },
-          { value: 'low-first', label: 'Low stock first' },
-        ]),
+    { value: 'category-asc', label: 'Category A-Z' },
+    { value: 'type-asc', label: 'Type A-Z' },
   ];
 
   const hasInitialOnHand = addForm.initialOnHand.trim() !== '';
@@ -323,8 +370,8 @@ export function ProductsView() {
           </Link>
         </div>
       </header>
-      <div className="card">
-        <div className="card-row">
+      <div className="card products-controls-card">
+        <div className="card-row products-controls-row">
           <label>
             Search
             <input
@@ -345,9 +392,43 @@ export function ProductsView() {
             </select>
           </label>
         </div>
+        <div className="card-row products-toggle-row">
+          <label className="products-toggle">
+            <input
+              type="checkbox"
+              checked={showOutOfStock}
+              onChange={(e) => setShowOutOfStock(e.target.checked)}
+            />
+            Show Out-of-Stock
+          </label>
+          <label className="products-toggle">
+            <input
+              type="checkbox"
+              checked={showDoNotStock}
+              onChange={(e) => setShowDoNotStock(e.target.checked)}
+            />
+            Show Do Not Stock
+          </label>
+        </div>
+        <div className="products-filter-list">
+          <MultiSearchableSelect
+            label="Category Filter"
+            placeholder="Filter by category"
+            values={selectedCategories}
+            options={categoryFilterOptions}
+            onChange={setSelectedCategories}
+          />
+          <MultiSearchableSelect
+            label="Type Filter"
+            placeholder="Filter by type"
+            values={selectedTypes}
+            options={typeFilterOptions}
+            onChange={setSelectedTypes}
+          />
+        </div>
       </div>
-      <div className="grid">
-        {sortedProducts.map((product) => {
+      <div className="grid products-list-grid">
+        {sortedProducts.map((product, index) => {
           const stock = getStockDisplay({
             role: user?.role,
             onHandBase: product.balances?.onHandBase ?? 0,
@@ -355,11 +436,20 @@ export function ProductsView() {
             trackingUnitLabel: product.trackingUnitLabel,
           });
           const isLow = lowStockIds.has(product.id);
+          const firstChar = product.name.trim().charAt(0).toUpperCase();
+          const alphaBucket = /[A-Z]/.test(firstChar) ? firstChar : '#';
+          const shouldAnchor = firstIndexByLetter.get(alphaBucket) === index;
           return (
-            <article key={product.id} className="card clickable" onClick={() => setSelected(product)}>
+            <article
+              key={product.id}
+              ref={shouldAnchor ? (node) => { alphaRefs.current[alphaBucket] = node; } : undefined}
+              className="card clickable"
+              onClick={() => setSelected(product)}
+            >
               <div>
                 <div className="card-title">
                   {product.name} {isLow ? <span className="badge low">LOW</span> : null}
+                  {!product.isStocked ? <span className="badge warning">DO NOT STOCK</span> : null}
                 </div>
                 <p className="muted">EPA: {product.epaRegNo ?? 'N/A'}</p>
                 <p className="muted">
@@ -374,6 +464,22 @@ export function ProductsView() {
           );
         })}
       </div>
+      <div className="products-alpha-dex" aria-label="Alphabet quick jump">
+        {ALPHA_INDEX.map((letter) => (
+          <button type="button" key={letter} onClick={() => scrollToLetter(letter)}>
+            {letter}
+          </button>
+        ))}
+      </div>
+      {showTopButton ? (
+        <button
+          type="button"
+          className="products-top-button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        >
+          Top
+        </button>
+      ) : null}
       <ProductDetailsModal open={Boolean(selected)} product={selected} onClose={() => setSelected(null)} />
       <ModalShell open={addOpen} title="Add Product" onClose={() => setAddOpen(false)}>
         <form className="form" onSubmit={handleAddProductSubmit}>
