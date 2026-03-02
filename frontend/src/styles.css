@@ -810,9 +810,11 @@ button:disabled {
   gap: 0.5rem;
 }
 
-.product-details-modal .product-modal-footer {
+.product-details-modal .product-bottom-row {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 0.75rem;
   margin-top: 0.25rem;
 }
 
@@ -840,6 +842,10 @@ button:disabled {
 
   .product-details-modal .units-row {
     grid-template-columns: 1fr;
+  }
+
+  .product-details-modal .product-onhand-inline {
+    min-width: 150px;
   }
 }
 

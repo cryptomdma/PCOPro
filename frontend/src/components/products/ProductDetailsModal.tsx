@@ -366,13 +366,6 @@ export function ProductDetailsModal({
             </div>
           </div>
 
-          {!showDetails ? (
-            <button type="button" className="compact-qr" onClick={() => setExpanded(true)}>
-              <span className="muted">QR</span>
-              <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={64} />
-            </button>
-          ) : null}
-
           {!editMode ? (
             <button type="button" className="details-toggle" onClick={() => setExpanded((prev) => !prev)}>
               {expanded ? 'Hide details' : 'See more'}
@@ -676,16 +669,20 @@ export function ProductDetailsModal({
             </div>
           ) : null}
 
-          {showDetails ? (
-            <div className="product-section">
-              <div className="muted">QR Code</div>
-              <div className="qr-preview">
-                <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={160} />
+          <div className="product-bottom-row">
+            {!showDetails ? (
+              <button type="button" className="compact-qr" onClick={() => setExpanded(true)}>
+                <span className="muted">QR</span>
+                <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={64} />
+              </button>
+            ) : (
+              <div className="product-section">
+                <div className="muted">QR Code</div>
+                <div className="qr-preview">
+                  <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={160} />
+                </div>
               </div>
-            </div>
-          ) : null}
-
-          <div className="product-modal-footer">
+            )}
             <div className="product-onhand-inline">
               <div className="muted">On-hand</div>
               <div>
