@@ -127,12 +127,18 @@ export function ProductDetailsModal({
     if (derivedCostBase === null || !activeProduct?.trackingToBase) return null;
     return derivedCostBase * activeProduct.trackingToBase;
   }, [derivedCostBase, activeProduct?.trackingToBase]);
+  const onHandValue = useMemo(() => {
+    if (costBase === null) return null;
+    const onHand = activeProduct?.balances?.onHandBase ?? 0;
+    return onHand * costBase;
+  }, [activeProduct?.balances?.onHandBase, costBase]);
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return '-';
     return `$${value.toFixed(2)}`;
   };
   const displayCostBase = editMode ? derivedCostBase : costBase;
+  const onHandValueLabel = !showCost ? 'Unavailable' : onHandValue === null ? 'N/A' : formatCurrency(onHandValue);
 
   useEffect(() => {
     if (!open || !product) return;
@@ -359,13 +365,6 @@ export function ProductDetailsModal({
               <div>{activeProduct.baseType || 'N/A'}</div>
             </div>
           </div>
-
-          {!showDetails ? (
-            <button type="button" className="compact-qr" onClick={() => setExpanded(true)}>
-              <span className="muted">QR</span>
-              <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={64} />
-            </button>
-          ) : null}
 
           {!editMode ? (
             <button type="button" className="details-toggle" onClick={() => setExpanded((prev) => !prev)}>
@@ -670,14 +669,31 @@ export function ProductDetailsModal({
             </div>
           ) : null}
 
-          {showDetails ? (
-            <div className="product-section">
-              <div className="muted">QR Code</div>
-              <div className="qr-preview">
-                <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={160} />
+          <div className="product-bottom-row">
+            {!showDetails ? (
+              <button type="button" className="compact-qr" onClick={() => setExpanded(true)}>
+                <span className="muted">QR</span>
+                <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={64} />
+              </button>
+            ) : (
+              <div className="product-section">
+                <div className="muted">QR Code</div>
+                <div className="qr-preview">
+                  <QRCodeCanvas value={`MGPC:prod:${activeProduct.id}`} size={160} />
+                </div>
+              </div>
+            )}
+            <div className="product-onhand-inline">
+              <div className="muted">On-hand</div>
+              <div>
+                <strong>{stock.label}</strong>
+              </div>
+              <div className="muted">On-hand value ($)</div>
+              <div>
+                <strong>{onHandValueLabel}</strong>
               </div>
             </div>
-          ) : null}
+          </div>
         </div>
       ) : (
         <div className="muted">Product not found.</div>

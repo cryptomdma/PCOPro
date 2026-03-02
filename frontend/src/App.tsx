@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { ProductsView } from './components/ProductsView';
 import { ReceivingView } from './components/ReceivingView';
@@ -15,6 +16,23 @@ import { RequireNonTech } from './components/RequireRole';
 import { SettingsView } from './components/SettingsView';
 
 export default function App() {
+  useEffect(() => {
+    function handleFocusIn(event: FocusEvent) {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (target.type !== 'number') return;
+      if (target.readOnly || target.disabled) return;
+      if (target.dataset.selectOnFocus === 'off') return;
+      requestAnimationFrame(() => {
+        if (document.activeElement === target) {
+          target.select();
+        }
+      });
+    }
+    document.addEventListener('focusin', handleFocusIn, true);
+    return () => document.removeEventListener('focusin', handleFocusIn, true);
+  }, []);
+
   return (
     <div className="app-shell">
       <Header />
