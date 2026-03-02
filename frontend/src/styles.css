@@ -810,6 +810,21 @@ button:disabled {
   gap: 0.5rem;
 }
 
+.product-details-modal .product-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.product-details-modal .product-onhand-inline {
+  min-width: 180px;
+  text-align: right;
+  border: 1px solid var(--border);
+  background: var(--bgHeader);
+  border-radius: 12px;
+  padding: 0.45rem 0.65rem;
+}
+
 @media (max-width: 640px) {
   .product-details-modal .product-mini {
     grid-template-columns: 1fr;
@@ -833,6 +848,18 @@ button:disabled {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.audit-finalize-summary {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.audit-finalize-lines {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 38vh;
+  overflow: auto;
 }
 
 .confirm-actions {

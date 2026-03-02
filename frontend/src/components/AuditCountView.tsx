@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../auth';
-import { useConfirm } from './ui/ConfirmDialog';
+import { ModalShell } from './ui/ModalShell';
 
 type InventoryBalance = {
   productId: string;
@@ -41,7 +41,6 @@ const toDisplay = (value: number) => Math.round(value * 100) / 100;
 
 export function AuditCountView() {
   const { user } = useAuth();
-  const { confirm } = useConfirm();
   const [balances, setBalances] = useState<InventoryBalance[]>([]);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
@@ -52,6 +51,7 @@ export function AuditCountView() {
   const [auditSessionId, setAuditSessionId] = useState<string | null>(null);
   const [lines, setLines] = useState<AuditLine[]>([]);
   const [summary, setSummary] = useState<AuditSummary | null>(null);
+  const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -193,14 +193,28 @@ export function AuditCountView() {
     }
   }
 
+  const finalizePreview = useMemo(() => {
+    const linesTotal = lines.length;
+    const linesWithDelta = lines.filter((line) => line.deltaBase !== 0).length;
+    const totalItemsCounted = lines.reduce((sum, line) => {
+      const parsed = Number(line.countedQtyInput);
+      const value = Number.isFinite(parsed) ? parsed : line.countedQty;
+      return sum + value;
+    }, 0);
+    const netDeltaBase = lines.reduce((sum, line) => sum + line.deltaBase, 0);
+    const absoluteVarianceBase = lines.reduce((sum, line) => sum + Math.abs(line.deltaBase), 0);
+    return {
+      linesTotal,
+      linesWithDelta,
+      totalItemsCounted,
+      netDeltaBase,
+      absoluteVarianceBase,
+    };
+  }, [lines]);
+
   async function handleFinalize() {
     if (!auditSessionId) return;
-    const ok = await confirm({
-      title: 'Finalize audit',
-      body: 'This will post ledger adjustments for all non-zero deltas.',
-      confirmLabel: 'Finalize',
-    });
-    if (!ok) return;
+    setFinalizeModalOpen(false);
     setError(null);
     setFinalizing(true);
     try {
@@ -390,7 +404,7 @@ export function AuditCountView() {
               </tbody>
             </table>
           </div>
-          <button type="button" onClick={handleFinalize} disabled={finalizing}>
+          <button type="button" onClick={() => setFinalizeModalOpen(true)} disabled={finalizing}>
             {finalizing ? 'Finalizing...' : 'Finalize audit'}
           </button>
         </div>
@@ -418,6 +432,93 @@ export function AuditCountView() {
           ) : null}
         </div>
       ) : null}
+
+      <ModalShell
+        open={finalizeModalOpen}
+        title="Finalize Audit"
+        onClose={() => setFinalizeModalOpen(false)}
+        actions={
+          <>
+            <button type="button" className="ghost-button" onClick={() => setFinalizeModalOpen(false)} disabled={finalizing}>
+              Cancel
+            </button>
+            <button type="button" onClick={handleFinalize} disabled={finalizing}>
+              {finalizing ? 'Finalizing...' : 'Finalize'}
+            </button>
+          </>
+        }
+      >
+        <div className="audit-finalize-summary">
+          <div className="muted">Scope: {locationScope}</div>
+          <div className="muted">
+            Created by: {user?.name || user?.email || 'Unknown'} ({user?.role ?? 'Unknown'})
+          </div>
+          <div className="muted">Session: {auditSessionId ?? 'N/A'}</div>
+          {notes.trim() ? <div className="muted">Notes: {notes.trim()}</div> : null}
+          <div className="grid two-col">
+            <div className="metric">
+              <div className="label">Lines counted</div>
+              <div className="value">{finalizePreview.linesTotal}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Lines with variance</div>
+              <div className="value">{finalizePreview.linesWithDelta}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Total items counted</div>
+              <div className="value">{toDisplay(finalizePreview.totalItemsCounted)}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Net delta (base)</div>
+              <div className="value">{toDisplay(finalizePreview.netDeltaBase)}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Total variance (base)</div>
+              <div className="value">{toDisplay(finalizePreview.absoluteVarianceBase)}</div>
+            </div>
+          </div>
+          {lines.length ? (
+            <div className="audit-finalize-lines">
+              <strong>Product Delta Details</strong>
+              <div className="table-wrapper">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>On-hand</th>
+                      <th>Counted</th>
+                      <th>Unit</th>
+                      <th>Delta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((line) => {
+                      const balance = balanceMap.get(line.productId);
+                      const trackingLabel = balance?.trackingUnitLabel ?? 'tracking';
+                      const trackingFactor = balance?.trackingToBase ?? 1;
+                      const onHandTracking = balance ? balance.onHandBase / trackingFactor : 0;
+                      const deltaTracking = line.deltaBase / trackingFactor;
+                      return (
+                        <tr key={`finalize-${line.id}`}>
+                          <td>{line.productName}</td>
+                          <td>
+                            {toDisplay(onHandTracking)} {trackingLabel}
+                          </td>
+                          <td>{toDisplay(Number(line.countedQtyInput) || line.countedQty)}</td>
+                          <td>{line.unitBasis}</td>
+                          <td>
+                            {toDisplay(deltaTracking)} {trackingLabel}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </ModalShell>
     </section>
   );
 }

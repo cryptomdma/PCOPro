@@ -127,12 +127,18 @@ export function ProductDetailsModal({
     if (derivedCostBase === null || !activeProduct?.trackingToBase) return null;
     return derivedCostBase * activeProduct.trackingToBase;
   }, [derivedCostBase, activeProduct?.trackingToBase]);
+  const onHandValue = useMemo(() => {
+    if (costBase === null) return null;
+    const onHand = activeProduct?.balances?.onHandBase ?? 0;
+    return onHand * costBase;
+  }, [activeProduct?.balances?.onHandBase, costBase]);
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return '-';
     return `$${value.toFixed(2)}`;
   };
   const displayCostBase = editMode ? derivedCostBase : costBase;
+  const onHandValueLabel = !showCost ? 'Unavailable' : onHandValue === null ? 'N/A' : formatCurrency(onHandValue);
 
   useEffect(() => {
     if (!open || !product) return;
@@ -678,6 +684,19 @@ export function ProductDetailsModal({
               </div>
             </div>
           ) : null}
+
+          <div className="product-modal-footer">
+            <div className="product-onhand-inline">
+              <div className="muted">On-hand</div>
+              <div>
+                <strong>{stock.label}</strong>
+              </div>
+              <div className="muted">On-hand value ($)</div>
+              <div>
+                <strong>{onHandValueLabel}</strong>
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="muted">Product not found.</div>
