@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { TransferRequestsService } from './transfer-requests.service';
 import {
   AcknowledgeDto,
@@ -8,12 +8,14 @@ import {
   DisputeDto,
   FinalizeTransferDto,
   ListTransferRequestsQuery,
+  ResolveDisputeDto,
   SendBackDto,
   UpdateTransferRequestDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard, RequirePerm } from '../auth/permissions';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('transfer-requests')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -64,8 +66,35 @@ export class TransferRequestsController {
 
   @Post(':id/dispute')
   @RequirePerm('transfer.acknowledge')
-  dispute(@Param('id') id: string, @Body() dto: DisputeDto, @CurrentUser() user: any) {
-    return this.service.dispute(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
+  @UseInterceptors(FileInterceptor('photo'))
+  dispute(
+    @Param('id') id: string,
+    @Body() dto: DisputeDto,
+    @CurrentUser() user: any,
+    @UploadedFile() file?: { originalname?: string; mimetype?: string; size?: number; buffer: Buffer },
+  ) {
+    return this.service.dispute(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto, file);
+  }
+
+  @Get(':id/dispute')
+  @RequirePerm('transfer.view')
+  disputeDetail(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.disputeDetail(id, { userId: user.userId, role: user.role, technicianId: user.technicianId });
+  }
+
+  @Post(':id/dispute/resolve')
+  @RequirePerm('transfer.finalize')
+  resolveDispute(@Param('id') id: string, @Body() dto: ResolveDisputeDto, @CurrentUser() user: any) {
+    return this.service.resolveDispute(id, { userId: user.userId, role: user.role, technicianId: user.technicianId }, dto);
+  }
+
+  @Get(':id/dispute-photo')
+  @RequirePerm('transfer.view')
+  async disputePhoto(@Param('id') id: string, @CurrentUser() user: any, @Res() res: any) {
+    const file = await this.service.getDisputePhoto(id, { userId: user.userId, role: user.role, technicianId: user.technicianId });
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    return res.sendFile(file.absolutePath);
   }
 
   @Post(':id/send-back')

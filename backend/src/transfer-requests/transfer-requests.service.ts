@@ -8,11 +8,15 @@ import {
   DisputeDto,
   FinalizeTransferDto,
   ListTransferRequestsQuery,
+  ResolveDisputeDto,
   SendBackDto,
   UpdateTransferRequestDto,
 } from './dto';
-import { Prisma, Role, TransferDirection, TransferRequestStatus } from '@prisma/client';
+import { DisputeReason, DisputeStatus, Prisma, Role, TransferDirection, TransferRequestStatus } from '@prisma/client';
 import { getUnitFactor, toBaseQuantity } from '../utils/units';
+import { mkdir, writeFile, stat } from 'fs/promises';
+import { createHash, randomUUID } from 'crypto';
+import * as path from 'path';
 
 type CurrentUser = { userId: string; role: Role; technicianId?: string };
 type RequestEditPayload = {
@@ -50,10 +54,45 @@ const CLOSED_STATUSES: TransferRequestStatus[] = [
   TransferRequestStatus.REJECTED,
   TransferRequestStatus.CANCELED,
 ];
+const DISPUTE_UPLOAD_DIR = path.resolve(process.cwd(), 'uploads', 'disputes');
+const ALLOWED_DISPUTE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const MAX_DISPUTE_PHOTO_BYTES = 5 * 1024 * 1024;
 
 @Injectable()
 export class TransferRequestsService {
   constructor(private prisma: PrismaService) {}
+
+  private assertRequestReadableByUser(
+    request: { technicianId: string },
+    user: CurrentUser,
+  ) {
+    if (user.role === Role.TECH && request.technicianId !== user.technicianId) {
+      throw new ForbiddenException('Not allowed');
+    }
+  }
+
+  private async saveDisputePhoto(
+    requestId: string,
+    file?: { originalname?: string; mimetype?: string; size?: number; buffer: Buffer },
+  ): Promise<string | null> {
+    if (!file) return null;
+    if (!file.buffer?.length) {
+      throw new BadRequestException('Uploaded photo is empty');
+    }
+    if (!file.mimetype || !ALLOWED_DISPUTE_MIME.has(file.mimetype)) {
+      throw new BadRequestException('Dispute photo must be JPG, PNG, or WEBP');
+    }
+    if ((file.size ?? file.buffer.length) > MAX_DISPUTE_PHOTO_BYTES) {
+      throw new BadRequestException('Dispute photo must be 5MB or smaller');
+    }
+    await mkdir(DISPUTE_UPLOAD_DIR, { recursive: true });
+    const ext = file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg';
+    const digest = createHash('sha1').update(file.buffer).digest('hex').slice(0, 10);
+    const filename = `${requestId}-${Date.now()}-${randomUUID().slice(0, 8)}-${digest}.${ext}`;
+    const absolutePath = path.join(DISPUTE_UPLOAD_DIR, filename);
+    await writeFile(absolutePath, file.buffer);
+    return path.join('uploads', 'disputes', filename).replace(/\\/g, '/');
+  }
 
   private scopesFor(direction: TransferDirection, technicianId: string) {
     if (direction === 'ISSUE') {
@@ -222,6 +261,9 @@ export class TransferRequestsService {
     if (query.to) {
       where.createdAt = { ...(where.createdAt ?? {}), lte: query.to };
     }
+    if (query.disputesOnly) {
+      where.disputeStatus = { in: [DisputeStatus.OPEN, DisputeStatus.MANAGER_RESPONDED, DisputeStatus.RESOLVED] };
+    }
 
     const limit = query.limit && query.limit > 0 ? Math.min(query.limit, 200) : 50;
 
@@ -246,9 +288,7 @@ export class TransferRequestsService {
       },
     });
     if (!request) throw new NotFoundException('Request not found');
-    if (user.role === 'TECH' && request.technicianId !== user.technicianId) {
-      throw new ForbiddenException('Not allowed');
-    }
+    this.assertRequestReadableByUser(request, user);
     return request;
   }
 
@@ -527,29 +567,119 @@ export class TransferRequestsService {
         status: TransferRequestStatus.ACKNOWLEDGED,
         acknowledgedAt: new Date(),
         acknowledgedByUserId: user.userId,
-        disputeNote: dto.note ?? request.disputeNote,
       },
     });
     return this.detail(id, user);
   }
 
-  async dispute(id: string, user: CurrentUser, dto: DisputeDto) {
+  async dispute(
+    id: string,
+    user: CurrentUser,
+    dto: DisputeDto,
+    file?: { originalname?: string; mimetype?: string; size?: number; buffer: Buffer },
+  ) {
     const request = await this.prisma.transferRequest.findUnique({ where: { id } });
     if (!request) throw new NotFoundException('Request not found');
     if (user.role !== Role.TECH || user.technicianId !== request.technicianId) {
       throw new ForbiddenException('Technician can only dispute their own request');
     }
-    if (request.status !== TransferRequestStatus.ACK_PENDING) {
+    if (request.status !== TransferRequestStatus.ACK_PENDING && request.status !== TransferRequestStatus.FINALIZED) {
       throw new BadRequestException('Cannot dispute at this stage');
+    }
+    if (request.disputeStatus === DisputeStatus.OPEN || request.disputeStatus === DisputeStatus.MANAGER_RESPONDED) {
+      throw new BadRequestException('An active dispute already exists for this request');
+    }
+    if (dto.reason === DisputeReason.OTHER && !dto.note?.trim()) {
+      throw new BadRequestException('Dispute note is required when reason is OTHER');
+    }
+    const disputePhotoPath = await this.saveDisputePhoto(id, file);
+    await this.prisma.transferRequest.update({
+      where: { id },
+      data: {
+        disputeStatus: DisputeStatus.OPEN,
+        disputeReason: dto.reason,
+        disputeNote: dto.note?.trim() || null,
+        disputePhotoPath,
+        disputeOpenedAt: new Date(),
+        disputeOpenedByUserId: user.userId,
+        disputeResolutionNote: null,
+        disputeResolvedAt: null,
+        disputeResolvedByUserId: null,
+      },
+    });
+    return this.detail(id, user);
+  }
+
+  async disputeDetail(id: string, user: CurrentUser) {
+    const request = await this.prisma.transferRequest.findUnique({
+      where: { id },
+      include: {
+        technician: true,
+        disputeOpenedByUser: { select: { id: true, name: true, email: true, role: true } },
+        disputeResolvedByUser: { select: { id: true, name: true, email: true, role: true } },
+      },
+    });
+    if (!request) throw new NotFoundException('Request not found');
+    this.assertRequestReadableByUser(request, user);
+    return {
+      requestId: request.id,
+      status: request.status,
+      disputeStatus: request.disputeStatus,
+      disputeReason: request.disputeReason,
+      disputeNote: request.disputeNote,
+      disputePhotoUrl: request.disputePhotoPath ? `/api/v1/transfer-requests/${request.id}/dispute-photo` : null,
+      disputeOpenedAt: request.disputeOpenedAt,
+      disputeOpenedByUser: request.disputeOpenedByUser,
+      disputeResolutionNote: request.disputeResolutionNote,
+      disputeResolvedAt: request.disputeResolvedAt,
+      disputeResolvedByUser: request.disputeResolvedByUser,
+    };
+  }
+
+  async resolveDispute(id: string, user: CurrentUser, dto: ResolveDisputeDto) {
+    if (user.role === Role.TECH) {
+      throw new ForbiddenException('Only non-tech roles can resolve disputes');
+    }
+    const request = await this.prisma.transferRequest.findUnique({ where: { id } });
+    if (!request) throw new NotFoundException('Request not found');
+    if (request.disputeStatus !== DisputeStatus.OPEN && request.disputeStatus !== DisputeStatus.MANAGER_RESPONDED) {
+      throw new BadRequestException('No open dispute to resolve');
     }
     await this.prisma.transferRequest.update({
       where: { id },
       data: {
-        status: TransferRequestStatus.DISPUTED,
-        disputeNote: dto.note,
+        disputeStatus: DisputeStatus.RESOLVED,
+        disputeResolutionNote: dto.resolutionNote.trim(),
+        disputeResolvedAt: new Date(),
+        disputeResolvedByUserId: user.userId,
       },
     });
-    return this.detail(id, user);
+    return this.disputeDetail(id, user);
+  }
+
+  async getDisputePhoto(id: string, user: CurrentUser) {
+    const request = await this.prisma.transferRequest.findUnique({
+      where: { id },
+      select: { id: true, technicianId: true, disputePhotoPath: true },
+    });
+    if (!request) throw new NotFoundException('Request not found');
+    this.assertRequestReadableByUser(request, user);
+    if (!request.disputePhotoPath) {
+      throw new NotFoundException('No dispute photo found');
+    }
+    const absolutePath = path.resolve(process.cwd(), request.disputePhotoPath);
+    const expectedRoot = path.resolve(process.cwd(), 'uploads', 'disputes');
+    if (!absolutePath.startsWith(expectedRoot)) {
+      throw new ForbiddenException('Invalid dispute photo path');
+    }
+    try {
+      await stat(absolutePath);
+    } catch {
+      throw new NotFoundException('Dispute photo file is missing');
+    }
+    const ext = path.extname(absolutePath).toLowerCase();
+    const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+    return { absolutePath, mimeType };
   }
 
   async sendBack(id: string, user: CurrentUser, dto: SendBackDto) {

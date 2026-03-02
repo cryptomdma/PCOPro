@@ -27,6 +27,9 @@ type TransferRequest = {
   technicianId: string;
   direction: TransferDirection;
   status: TransferRequestStatus;
+  disputeStatus?: 'NONE' | 'OPEN' | 'MANAGER_RESPONDED' | 'RESOLVED';
+  disputeReason?: 'MISSING_ITEM' | 'WRONG_QTY' | 'WRONG_PRODUCT' | 'DAMAGED' | 'OTHER' | null;
+  disputeResolutionNote?: string | null;
   reason?: string;
   pickupDate: string;
   fulfillmentNote?: string | null;
@@ -94,6 +97,7 @@ export function OrdersView() {
   const [editDirection, setEditDirection] = useState<TransferDirection>('ISSUE');
   const [editPickupDate, setEditPickupDate] = useState('');
   const [noteByRequest, setNoteByRequest] = useState<Record<string, string>>({});
+  const [showDisputesOnly, setShowDisputesOnly] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -115,6 +119,21 @@ export function OrdersView() {
     () =>
       historyRequests.filter((r) => !['SUBMITTED', 'ACK_PENDING', 'DISPUTED', 'OPEN', 'APPROVAL_PENDING', 'APPROVED', 'CHANGE_REQUESTED'].includes(r.status)),
     [historyRequests],
+  );
+  const nonTechRole = user?.role === 'WAREHOUSE' || user?.role === 'MANAGER' || user?.role === 'ADMIN';
+  const disputeMatches = (request: TransferRequest) =>
+    request.disputeStatus && request.disputeStatus !== 'NONE';
+  const filteredOpenRequests = useMemo(
+    () => (showDisputesOnly && nonTechRole ? openRequests.filter(disputeMatches) : openRequests),
+    [openRequests, showDisputesOnly, nonTechRole],
+  );
+  const filteredAckPending = useMemo(
+    () => (showDisputesOnly && nonTechRole ? ackPendingForUser.filter(disputeMatches) : ackPendingForUser),
+    [ackPendingForUser, showDisputesOnly, nonTechRole],
+  );
+  const filteredHistory = useMemo(
+    () => (showDisputesOnly && nonTechRole ? closedHistory.filter(disputeMatches) : closedHistory),
+    [closedHistory, showDisputesOnly, nonTechRole],
   );
 
   const technicianLabelFor = (req: TransferRequest) => {
@@ -184,7 +203,11 @@ export function OrdersView() {
       canRequestChangesEdit: isTechOwner && req.status === 'APPROVED',
       canFinalize: (req.status === 'SUBMITTED' || req.status === 'OPEN' || req.status === 'APPROVED') && isWarehouseRole,
       canAcknowledge: req.status === 'ACK_PENDING' && isRecipient,
-      canDispute: req.status === 'ACK_PENDING' && isRecipient,
+      canDispute:
+        isRecipient &&
+        (req.status === 'ACK_PENDING' || req.status === 'FINALIZED') &&
+        req.disputeStatus !== 'OPEN' &&
+        req.disputeStatus !== 'MANAGER_RESPONDED',
       canSendBack: editable && isWarehouseRole,
       canCancelByTech: editable && isTechOwner,
       canCancelRefuseByWarehouse: editable && isWarehouseRole,
@@ -234,22 +257,6 @@ export function OrdersView() {
       showToast({ kind: 'success', message: 'Acknowledged receipt' });
     } catch (err: any) {
       handleError('acknowledge failed', err, 'Failed to acknowledge');
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  async function dispute(id: string) {
-    const note = prompt('Enter dispute note');
-    if (!note) return;
-    setError(null);
-    setActionBusy(true);
-    try {
-      await axios.post(`/api/v1/transfer-requests/${id}/dispute`, { note });
-      await refreshQueues();
-      showToast({ kind: 'success', message: 'Dispute submitted' });
-    } catch (err: any) {
-      handleError('dispute failed', err, 'Failed to dispute');
     } finally {
       setActionBusy(false);
     }
@@ -452,6 +459,16 @@ export function OrdersView() {
           <h2>Requests</h2>
           <p>Track approvals, fulfillments, and acknowledgments.</p>
         </div>
+        {nonTechRole ? (
+          <label className="products-toggle">
+            <input
+              type="checkbox"
+              checked={showDisputesOnly}
+              onChange={(e) => setShowDisputesOnly(e.target.checked)}
+            />
+            Disputes
+          </label>
+        ) : null}
       </header>
 
       {error ? <div className="error-panel">{error}</div> : null}
@@ -460,14 +477,20 @@ export function OrdersView() {
         <div className="card-stack">
           <h4>Open Queue</h4>
           <ul className="activity">
-            {openRequests.map((req) => {
+            {filteredOpenRequests.map((req) => {
               const actions = availableActions(req);
               return (
                 <li key={req.id} className="clickable" onClick={() => openDetail(req)}>
                   <div className="card-stack">
                     <div className="card-row">
                       <strong>{req.direction}</strong>
-                      <StatusBadge status={req.status} />
+                      <div className="pill-row">
+                        <StatusBadge status={req.status} />
+                        {req.disputeStatus === 'OPEN' || req.disputeStatus === 'MANAGER_RESPONDED' ? (
+                          <span className="badge warning">DISPUTE</span>
+                        ) : null}
+                        {req.disputeStatus === 'RESOLVED' ? <span className="badge info">DISPUTE RESOLVED</span> : null}
+                      </div>
                     </div>
                     {user?.role === 'TECH' ? <div className="muted">State: {statusLabelFor(req)}</div> : null}
                     <div className="muted">
@@ -549,20 +572,21 @@ export function OrdersView() {
                       </button>
                     ) : null}
                     {actions.canDispute ? (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); dispute(req.id); }} disabled={actionBusy}>
-                        Dispute
+                      <button type="button" onClick={(e) => { e.stopPropagation(); openDetail(req); }} disabled={actionBusy}>
+                        Dispute / Report Problem
                       </button>
                     ) : null}
                   </div>
                 </li>
               );
             })}
+            {filteredOpenRequests.length === 0 ? <li>No open requests</li> : null}
           </ul>
         </div>
         <div className="card-stack">
           <h4>Pending Acknowledgments</h4>
           <ul className="activity">
-            {ackPendingForUser.map((req) => {
+            {filteredAckPending.map((req) => {
               const actions = availableActions(req);
               return (
                 <li key={req.id} className="clickable" onClick={() => openDetail(req)}>
@@ -580,15 +604,15 @@ export function OrdersView() {
                       </button>
                     ) : null}
                     {actions.canDispute ? (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); dispute(req.id); }} disabled={actionBusy}>
-                        Dispute
+                      <button type="button" onClick={(e) => { e.stopPropagation(); openDetail(req); }} disabled={actionBusy}>
+                        Dispute / Report Problem
                       </button>
                     ) : null}
                   </div>
                 </li>
               );
             })}
-            {ackPendingForUser.length === 0 ? <li>No pending acknowledgments</li> : null}
+            {filteredAckPending.length === 0 ? <li>No pending acknowledgments</li> : null}
           </ul>
         </div>
       </div>
@@ -596,12 +620,18 @@ export function OrdersView() {
       <div className="card-stack">
         <h4>History</h4>
         <ul className="activity">
-          {closedHistory.map((req) => (
+          {filteredHistory.map((req) => (
             <li key={req.id} className="clickable" onClick={() => openDetail(req)}>
               <div className="card-stack">
                 <div className="card-row">
                   <strong>{req.direction}</strong>
-                  <StatusBadge status={req.status} />
+                  <div className="pill-row">
+                    <StatusBadge status={req.status} />
+                    {req.disputeStatus === 'OPEN' || req.disputeStatus === 'MANAGER_RESPONDED' ? (
+                      <span className="badge warning">DISPUTE</span>
+                    ) : null}
+                    {req.disputeStatus === 'RESOLVED' ? <span className="badge info">DISPUTE RESOLVED</span> : null}
+                  </div>
                 </div>
                 <div className="muted">Tech: {technicianLabelFor(req)}</div>
                 <div className="muted">
@@ -613,11 +643,16 @@ export function OrdersView() {
               </div>
             </li>
           ))}
-          {closedHistory.length === 0 ? <li>No history yet</li> : null}
+          {filteredHistory.length === 0 ? <li>No history yet</li> : null}
         </ul>
       </div>
 
-      <RequestDetailsModal open={Boolean(selectedSource)} source={selectedSource} onClose={() => setSelectedSource(null)} />
+      <RequestDetailsModal
+        open={Boolean(selectedSource)}
+        source={selectedSource}
+        onUpdated={() => refreshQueues()}
+        onClose={() => setSelectedSource(null)}
+      />
 
       <ModalShell open={Boolean(editRequest)} title="Edit Request" onClose={() => setEditRequest(null)}>
         {editRequest ? (
