@@ -71,6 +71,21 @@ enum TransferRequestStatus {
   DISPUTED
 }
 
+enum DisputeStatus {
+  NONE
+  OPEN
+  MANAGER_RESPONDED
+  RESOLVED
+}
+
+enum DisputeReason {
+  MISSING_ITEM
+  WRONG_QTY
+  WRONG_PRODUCT
+  DAMAGED
+  OTHER
+}
+
 enum TransactionType {
   initial_load
   receiving_posted
@@ -137,6 +152,8 @@ model User {
   approvedTransferRequests TransferRequest[]     @relation("TransferRequestApprovedBy")
   finalizedTransfers      TransferRequest[]      @relation("TransferRequestFinalizedBy")
   acknowledgedTransfers   TransferRequest[]      @relation("TransferRequestAcknowledgedBy")
+  disputeOpenedTransfers  TransferRequest[]      @relation("TransferRequestDisputeOpenedBy")
+  disputeResolvedTransfers TransferRequest[]     @relation("TransferRequestDisputeResolvedBy")
   auditSessions           AuditSession[]         @relation("AuditSessionCreatedBy")
   createdPurchaseOrders   PurchaseOrder[]        @relation("PurchaseOrderCreatedBy")
 }
@@ -467,7 +484,17 @@ model TransferRequest {
   acknowledgedByUserId String?
   acknowledgedByUser   User?     @relation("TransferRequestAcknowledgedBy", fields: [acknowledgedByUserId], references: [id])
 
+  disputeStatus            DisputeStatus @default(NONE)
+  disputeReason            DisputeReason?
   disputeNote String?
+  disputePhotoPath         String?
+  disputeOpenedAt          DateTime?
+  disputeOpenedByUserId    String?
+  disputeOpenedByUser      User?         @relation("TransferRequestDisputeOpenedBy", fields: [disputeOpenedByUserId], references: [id])
+  disputeResolutionNote    String?
+  disputeResolvedAt        DateTime?
+  disputeResolvedByUserId  String?
+  disputeResolvedByUser    User?         @relation("TransferRequestDisputeResolvedBy", fields: [disputeResolvedByUserId], references: [id])
 
   requestIdempotencyKey String? @unique
 

@@ -384,13 +384,28 @@ ORDERS SCREEN
   * Change loop: CHANGE_REQUESTED (tech-proposed edits awaiting non-tech decision)
   * Supporting fields: pickupDate, approvedAt/approvedBy, changeRequestedAt/changeRequestNote, fulfillmentNote
 
-DISPUTES (MVP)
+DISPUTES (MVP - AUTHORITATIVE)
 
-* Tech can dispute
-* Alert Manager
-* Resolution screen
-* Dual acknowledgment (Tech + Manager)
-* Photo upload allowed
+* Purpose:
+  * Allow technicians to report fulfillment issues after finalize/ready-for-pickup flows
+  * Provide manager/warehouse/admin resolution workflow without full notification system
+* Dispute lifecycle fields (on request/order workflow entity):
+  * disputeStatus: NONE | OPEN | MANAGER_RESPONDED | RESOLVED
+  * disputeReason: MISSING_ITEM | WRONG_QTY | WRONG_PRODUCT | DAMAGED | OTHER
+  * disputeNote, disputeOpenedAt, disputeOpenedByUserId
+  * disputeResolutionNote, disputeResolvedAt, disputeResolvedByUserId
+* Role permissions:
+  * TECH can open disputes for own eligible requests after finalize/ack-pending stages
+  * TECH can view dispute status and resolution notes
+  * WAREHOUSE / MANAGER / ADMIN can view and resolve disputes in scope
+  * Only non-TECH roles can resolve
+* MVP visibility/alerts:
+  * No push/email notifications in MVP
+  * Disputes surfaced in Orders list via badge/pill + disputes filter
+* MVP photo evidence:
+  * Optional single image upload (max 1 photo)
+  * Store in backend uploads path and persist file path/URL in DB
+  * Upload/read access must be authenticated and role-scoped
 
 ============================================================
 RECEIVING & ORDERING (PHASE C)
@@ -750,6 +765,16 @@ YYYY-MM-DD
 * Added Products filters for Show/Hide Out-of-Stock and Show/Hide Do Not Stock
 * Added inventory filter-list requirement using the same UX pattern as the Issue/Request filter list component (favorites deferred)
 * Declared isStocked as the authoritative persistent Stock / Do Not Stock product designation for ordering eligibility and filtering
+
+2026-03-01 (Disputes MVP)
+
+* Upgraded Requests dispute workflow from simple note/status flag to structured dispute lifecycle fields:
+  * disputeStatus, disputeReason, opened/resolved metadata, and resolution note
+* Clarified dispute permissions:
+  * TECH opens own eligible disputes post-finalize flow
+  * WAREHOUSE / MANAGER / ADMIN resolve
+* Set MVP visibility approach to badges + disputes filter in Orders list (no push/email notifications)
+* Added optional single-photo dispute evidence scope with authenticated, access-controlled upload/read
 
 ============================================================
 CHANGE LOG RULE

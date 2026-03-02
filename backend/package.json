@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "start": "node dist/main.js",
+    "prestart": "prisma generate",
     "start:dev": "nest start --watch",
+    "prestart:dev": "prisma generate",
+    "prebuild": "prisma generate",
     "build": "nest build",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "seed": "ts-node prisma/seed.ts",

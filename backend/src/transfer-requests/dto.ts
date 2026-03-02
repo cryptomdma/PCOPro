@@ -1,6 +1,19 @@
-import { IsArray, IsEnum, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { TransferDirection, TransferRequestStatus } from '@prisma/client';
+import { DisputeReason, TransferDirection, TransferRequestStatus } from '@prisma/client';
 
 export class TransferRequestLineDto {
   @IsString()
@@ -70,6 +83,11 @@ export class ListTransferRequestsQuery {
   @Min(1)
   @Max(200)
   limit?: number;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  disputesOnly?: boolean;
 }
 
 export class AcknowledgeDto {
@@ -79,8 +97,20 @@ export class AcknowledgeDto {
 }
 
 export class DisputeDto {
+  @IsEnum(DisputeReason)
+  reason!: DisputeReason;
+
+  @IsOptional()
   @IsString()
-  note!: string;
+  @ValidateIf((dto: DisputeDto) => dto.reason === DisputeReason.OTHER)
+  @IsNotEmpty()
+  note?: string;
+}
+
+export class ResolveDisputeDto {
+  @IsString()
+  @IsNotEmpty()
+  resolutionNote!: string;
 }
 
 export class UpdateTransferRequestDto {
