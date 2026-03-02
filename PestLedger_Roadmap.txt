@@ -201,6 +201,11 @@ BOTTOM NAVIGATION (ROLE-AWARE)
 
   * TECH: "Checkout / Return"
   * Warehouse / Manager / Admin: "Transfer"
+* MVP role access clarification (authoritative):
+  * WAREHOUSE tabs/pages: Issue, Requests, Receiving, Products
+  * WAREHOUSE must not access Analytics views or financial pages/metrics
+  * MANAGER has all WAREHOUSE access plus Analytics and financial data views
+  * MANAGER includes Audit access for MVP (same as ADMIN/authorized non-tech audit roles)
 
 ============================================================
 ROLE-BASED DASHBOARDS (MVP)
@@ -221,12 +226,17 @@ WAREHOUSE DASHBOARD
 * Orders queue
 * Receiving
 * Inventory visibility
+* Issue + Requests + Products access
+* No financial data visibility ($ metrics, cost fields, financial totals)
+* No Analytics access
 
 MANAGER DASHBOARD
 
 * Warehouse
 * Products
 * Analytics
+* Audit access
+* Financial data visibility (cost and $ metrics)
 
 ADMIN DASHBOARD
 
@@ -775,6 +785,14 @@ YYYY-MM-DD
   * WAREHOUSE / MANAGER / ADMIN resolve
 * Set MVP visibility approach to badges + disputes filter in Orders list (no push/email notifications)
 * Added optional single-photo dispute evidence scope with authenticated, access-controlled upload/read
+
+2026-03-02 (Role access + financial visibility)
+
+* Clarified authoritative MVP role access:
+  * WAREHOUSE: Issue + Requests + Receiving + Products
+  * MANAGER: WAREHOUSE access + Analytics + financial views + Audit
+* Added explicit rule that WAREHOUSE must not see financial data ($ cost fields/metrics/totals)
+* Added requirement that backend must enforce financial endpoint denial for WAREHOUSE (UI hide + server-side forbid)
 
 ============================================================
 CHANGE LOG RULE
