@@ -4,13 +4,15 @@ import { UsageAnalyticsQueryDto } from './analytics.dto';
 import { PrismaService } from './prisma.service';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { CurrentUser } from './auth/current-user.decorator';
+import { PermissionGuard, RequirePerm } from './auth/permissions';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('analytics')
 export class AnalyticsController {
   constructor(private prisma: PrismaService) {}
 
   @Get('usage')
+  @RequirePerm('analytics.view')
   async usage(@Query() query: UsageAnalyticsQueryDto, @CurrentUser() user: { role?: string }) {
     this.assertAnalyticsRole(user?.role);
     const now = new Date();
@@ -272,6 +274,7 @@ export class AnalyticsController {
   }
 
   @Get('audit-discrepancy')
+  @RequirePerm('analytics.view')
   async auditDiscrepancy(
     @Query('from') fromRaw?: string,
     @Query('to') toRaw?: string,
@@ -375,6 +378,7 @@ export class AnalyticsController {
   }
 
   @Get('audit-discrepancy/:productId')
+  @RequirePerm('analytics.view')
   async auditDiscrepancyDetail(
     @Param('productId') productId: string,
     @Query('from') fromRaw?: string,
@@ -480,7 +484,7 @@ export class AnalyticsController {
   }
 
   private assertAnalyticsRole(role?: string) {
-    if (!role || role === 'TECH') {
+    if (!role || (role !== 'MANAGER' && role !== 'ADMIN')) {
       throw new ForbiddenException('Not authorized to view analytics');
     }
   }

@@ -688,10 +688,14 @@ export function ProductDetailsModal({
               <div>
                 <strong>{stock.label}</strong>
               </div>
-              <div className="muted">On-hand value ($)</div>
-              <div>
-                <strong>{onHandValueLabel}</strong>
-              </div>
+              {showCost ? (
+                <>
+                  <div className="muted">On-hand value ($)</div>
+                  <div>
+                    <strong>{onHandValueLabel}</strong>
+                  </div>
+                </>
+              ) : null}
             </div>
           </div>
         </div>

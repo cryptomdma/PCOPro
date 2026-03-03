@@ -33,6 +33,7 @@ export function DashboardView() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [recent, setRecent] = useState<RecentTransferRequest[] | null>(null);
   const isTech = user?.role === 'TECH';
+  const isManagerOrAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const canSeeCost = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const locationScope = 'WAREHOUSE';
 
@@ -188,10 +189,12 @@ export function DashboardView() {
           <div className="card-title">Receiving</div>
           <div className="muted">Log inbound</div>
         </Link>
-        <Link to="/analytics" className="dashboard-card">
-          <div className="card-title">Analytics</div>
-          <div className="muted">Usage insights</div>
-        </Link>
+        {isManagerOrAdmin ? (
+          <Link to="/analytics" className="dashboard-card">
+            <div className="card-title">Analytics</div>
+            <div className="muted">Usage insights</div>
+          </Link>
+        ) : null}
       </div>
 
       {canSeeCost ? (

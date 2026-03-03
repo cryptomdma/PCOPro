@@ -9,3 +9,12 @@ export function RequireNonTech({ children }: { children: JSX.Element }) {
   }
   return children;
 }
+
+export function RequireManagerOrAdmin({ children }: { children: JSX.Element }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user?.role !== 'MANAGER' && user?.role !== 'ADMIN') {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
