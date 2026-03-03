@@ -57,7 +57,7 @@ export function AuditCountView() {
   const [finalizing, setFinalizing] = useState(false);
   const [totalProducts, setTotalProducts] = useState<number | null>(null);
 
-  const canAudit = user?.role === 'ADMIN' || user?.role === 'WAREHOUSE';
+  const canAudit = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
   useEffect(() => {
     axios
@@ -233,7 +233,7 @@ export function AuditCountView() {
         <header className="section-header">
           <div>
             <h2>Audit</h2>
-            <p>Only ADMIN or WAREHOUSE users can access audits.</p>
+            <p>Only ADMIN or MANAGER users can access audits.</p>
           </div>
         </header>
       </section>

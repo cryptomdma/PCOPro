@@ -34,6 +34,7 @@ export function Header() {
   const { darkMode, toggleDarkMode } = useTheme();
   const title = titleForPath(location.pathname, user?.role);
   const isTech = user?.role === 'TECH';
+  const isManagerOrAdmin = user?.role === 'MANAGER' || user?.role === 'ADMIN';
   const canAccessSettings = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -49,8 +50,8 @@ export function Header() {
     ...(user?.role === 'ADMIN' || user?.role === 'MANAGER' ? [{ label: 'Ordering', path: '/ordering' }] : []),
     { label: 'Requests', path: '/requests' },
     { label: 'Products', path: '/products' },
-    ...(user?.role === 'ADMIN' ? [{ label: 'Audit', path: '/audit' }] : []),
-    ...(!isTech ? [{ label: 'Analytics', path: '/analytics' }] : []),
+    ...(isManagerOrAdmin ? [{ label: 'Audit', path: '/audit' }] : []),
+    ...(isManagerOrAdmin ? [{ label: 'Analytics', path: '/analytics' }] : []),
     ...(canAccessSettings ? [{ label: 'Settings', path: '/settings' }] : []),
     { label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode', action: toggleDarkMode },
   ];

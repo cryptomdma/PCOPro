@@ -12,7 +12,7 @@ import { Header } from './components/ui/Header';
 import { BottomNav } from './components/ui/BottomNav';
 import { ToastHost } from './components/ui/Toast';
 import { DashboardView } from './components/DashboardView';
-import { RequireNonTech } from './components/RequireRole';
+import { RequireManagerOrAdmin } from './components/RequireRole';
 import { SettingsView } from './components/SettingsView';
 
 export default function App() {
@@ -43,13 +43,13 @@ export default function App() {
           <Route path="/products" element={<ProductsView />} />
           <Route path="/equipment" element={<EquipmentView />} />
           <Route path="/receiving" element={<ReceivingView />} />
-          <Route path="/ordering" element={<OrderingView />} />
+          <Route path="/ordering" element={<RequireManagerOrAdmin><OrderingView /></RequireManagerOrAdmin>} />
           <Route path="/checkout" element={<CheckoutView />} />
           <Route path="/requests" element={<OrdersView />} />
           <Route path="/orders" element={<OrdersView />} />
           <Route path="/transfers" element={<OrdersView />} />
-          <Route path="/audit" element={<AuditCountView />} />
-          <Route path="/analytics" element={<RequireNonTech><AnalyticsPreview /></RequireNonTech>} />
+          <Route path="/audit" element={<RequireManagerOrAdmin><AuditCountView /></RequireManagerOrAdmin>} />
+          <Route path="/analytics" element={<RequireManagerOrAdmin><AnalyticsPreview /></RequireManagerOrAdmin>} />
           <Route path="/settings" element={<SettingsView />} />
         </Routes>
       </main>
